@@ -58,7 +58,7 @@ impl<S> DurationEffect<S> {
     /// 无限存在的效果
     pub fn new_infinite<T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Self {
         Self {
-            effect: Effect::new(effect_name, from_name, value),
+            effect: Effect::new(from_name, effect_name, value),
             duration: Duration::new_infinite(),
         }
     }
@@ -66,7 +66,7 @@ impl<S> DurationEffect<S> {
     /// 持续一段时间的效果
     pub fn new_duration<T: Into<S>>(from_name: T, effect_name: T, value: f64, duration_time: f64) -> Self {
         Self {
-            effect: Effect::new(effect_name, from_name, value),
+            effect: Effect::new(from_name, effect_name, value),
             duration: Duration::new_duration(duration_time),
         }
     }

@@ -10,7 +10,7 @@ pub struct Effect<S> {
 }
 
 impl<S> Effect<S> {
-    pub fn new<T: Into<S>>(effect_name: T, from_name: T, value: f64) -> Self {
+    pub fn new<T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Self {
         Self {
             effect_name: effect_name.into(),
             from_name: from_name.into(),
