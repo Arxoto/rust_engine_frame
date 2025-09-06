@@ -1,0 +1,4 @@
+/target
+
+/code_gen_tools/__pycache__
+/code_gen_tools/gen_getter.test.py
