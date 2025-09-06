@@ -7,37 +7,37 @@ where
 
     // =================================================================================
 
-    pub fn new_infinite_cur_val(from_name: S, effect_name: S, value: f64, period_time: f64) -> Self {
+    pub fn new_infinite_cur_val<T: Into<S>>(from_name: T, effect_name: T, value: f64, period_time: f64) -> Self {
         Self::new_infinite(DynPropPeriodEffectType::CurVal, from_name, effect_name, value, period_time)
     }
 
-    pub fn new_infinite_cur_per(from_name: S, effect_name: S, value: f64, period_time: f64) -> Self {
+    pub fn new_infinite_cur_per<T: Into<S>>(from_name: T, effect_name: T, value: f64, period_time: f64) -> Self {
         Self::new_infinite(DynPropPeriodEffectType::CurPer, from_name, effect_name, value, period_time)
     }
 
-    pub fn new_infinite_cur_max_per(from_name: S, effect_name: S, value: f64, period_time: f64) -> Self {
+    pub fn new_infinite_cur_max_per<T: Into<S>>(from_name: T, effect_name: T, value: f64, period_time: f64) -> Self {
         Self::new_infinite(DynPropPeriodEffectType::CurMaxPer, from_name, effect_name, value, period_time)
     }
 
-    pub fn new_infinite_cur_val_to_val(from_name: S, effect_name: S, value: f64, to_val: f64, period_time: f64) -> Self {
+    pub fn new_infinite_cur_val_to_val<T: Into<S>>(from_name: T, effect_name: T, value: f64, to_val: f64, period_time: f64) -> Self {
         Self::new_infinite(DynPropPeriodEffectType::CurValToVal(to_val), from_name, effect_name, value, period_time)
     }
 
     // =================================================================================
 
-    pub fn new_duration_cur_val(from_name: S, effect_name: S, value: f64, duration_time: f64, period_time: f64) -> Self {
+    pub fn new_duration_cur_val<T: Into<S>>(from_name: T, effect_name: T, value: f64, duration_time: f64, period_time: f64) -> Self {
         Self::new_duration(DynPropPeriodEffectType::CurVal, from_name, effect_name, value, duration_time, period_time)
     }
 
-    pub fn new_duration_cur_per(from_name: S, effect_name: S, value: f64, duration_time: f64, period_time: f64) -> Self {
+    pub fn new_duration_cur_per<T: Into<S>>(from_name: T, effect_name: T, value: f64, duration_time: f64, period_time: f64) -> Self {
         Self::new_duration(DynPropPeriodEffectType::CurPer, from_name, effect_name, value, duration_time, period_time)
     }
 
-    pub fn new_duration_cur_max_per(from_name: S, effect_name: S, value: f64, duration_time: f64, period_time: f64) -> Self {
+    pub fn new_duration_cur_max_per<T: Into<S>>(from_name: T, effect_name: T, value: f64, duration_time: f64, period_time: f64) -> Self {
         Self::new_duration(DynPropPeriodEffectType::CurMaxPer, from_name, effect_name, value, duration_time, period_time)
     }
 
-    pub fn new_duration_cur_val_to_val(from_name: S, effect_name: S, value: f64, to_val: f64, duration_time: f64, period_time: f64) -> Self {
+    pub fn new_duration_cur_val_to_val<T: Into<S>>(from_name: T, effect_name: T, value: f64, to_val: f64, duration_time: f64, period_time: f64) -> Self {
         Self::new_duration(DynPropPeriodEffectType::CurValToVal(to_val), from_name, effect_name, value, duration_time, period_time)
     }
 

@@ -7,15 +7,15 @@ where
     
     // =================================================================================
 
-    pub fn new_instant_cur_val(from_name: S, effect_name: S, value: f64) -> Self {
+    pub fn new_instant_cur_val<T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Self {
         Self::new_instant(DynPropInstEffectType::CurVal, from_name, effect_name, value)
     }
 
-    pub fn new_instant_cur_per(from_name: S, effect_name: S, value: f64) -> Self {
+    pub fn new_instant_cur_per<T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Self {
         Self::new_instant(DynPropInstEffectType::CurPer, from_name, effect_name, value)
     }
 
-    pub fn new_instant_cur_max_per(from_name: S, effect_name: S, value: f64) -> Self {
+    pub fn new_instant_cur_max_per<T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Self {
         Self::new_instant(DynPropInstEffectType::CurMaxPer, from_name, effect_name, value)
     }
     

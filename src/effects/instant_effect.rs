@@ -16,7 +16,7 @@ impl<S> ProxyEffect<S> for InstantEffect<S> {
 
 impl<S> InstantEffect<S> {
     /// 瞬时效果
-    pub fn new_instant(from_name: S, effect_name: S, value: f64) -> Self {
+    pub fn new_instant<T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Self {
         Self(Effect::new(effect_name, from_name, value))
     }
 

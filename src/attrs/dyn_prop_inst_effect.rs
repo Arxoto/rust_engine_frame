@@ -29,10 +29,10 @@ impl<S> DynPropInstEffect<S>
 where
     S: FixedName,
 {
-    pub fn new_instant(
+    pub fn new_instant<T: Into<S>>(
         the_type: DynPropInstEffectType,
-        from_name: S,
-        effect_name: S,
+        from_name: T,
+        effect_name: T,
         value: f64,
     ) -> Self {
         Self {

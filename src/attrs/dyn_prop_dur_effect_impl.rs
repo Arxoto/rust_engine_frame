@@ -7,29 +7,29 @@ where
 
     // =================================================================================
 
-    pub fn new_infinite_max_val(from_name: S, effect_name: S, value: f64) -> Self {
+    pub fn new_infinite_max_val<T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Self {
         Self::new_infinite(DynPropDurEffectType::MaxVal, from_name, effect_name, value)
     }
 
-    pub fn new_infinite_max_per(from_name: S, effect_name: S, value: f64) -> Self {
+    pub fn new_infinite_max_per<T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Self {
         Self::new_infinite(DynPropDurEffectType::MaxPer, from_name, effect_name, value)
     }
 
-    pub fn new_infinite_min_val(from_name: S, effect_name: S, value: f64) -> Self {
+    pub fn new_infinite_min_val<T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Self {
         Self::new_infinite(DynPropDurEffectType::MinVal, from_name, effect_name, value)
     }
 
     // =================================================================================
 
-    pub fn new_duration_max_val(from_name: S, effect_name: S, value: f64, duration_time: f64) -> Self {
+    pub fn new_duration_max_val<T: Into<S>>(from_name: T, effect_name: T, value: f64, duration_time: f64) -> Self {
         Self::new_duration(DynPropDurEffectType::MaxVal, from_name, effect_name, value, duration_time)
     }
 
-    pub fn new_duration_max_per(from_name: S, effect_name: S, value: f64, duration_time: f64) -> Self {
+    pub fn new_duration_max_per<T: Into<S>>(from_name: T, effect_name: T, value: f64, duration_time: f64) -> Self {
         Self::new_duration(DynPropDurEffectType::MaxPer, from_name, effect_name, value, duration_time)
     }
 
-    pub fn new_duration_min_val(from_name: S, effect_name: S, value: f64, duration_time: f64) -> Self {
+    pub fn new_duration_min_val<T: Into<S>>(from_name: T, effect_name: T, value: f64, duration_time: f64) -> Self {
         Self::new_duration(DynPropDurEffectType::MinVal, from_name, effect_name, value, duration_time)
     }
 

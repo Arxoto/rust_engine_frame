@@ -56,10 +56,10 @@ where
     S: FixedName,
 {
     /// 无限存在的效果
-    pub fn new_infinite(
+    pub fn new_infinite<T: Into<S>>(
         the_type: DynPropDurEffectType,
-        from_name: S,
-        effect_name: S,
+        from_name: T,
+        effect_name: T,
         value: f64,
     ) -> Self {
         Self {
@@ -69,10 +69,10 @@ where
     }
 
     /// 持续一段时间的效果
-    pub fn new_duration(
+    pub fn new_duration<T: Into<S>>(
         the_type: DynPropDurEffectType,
-        from_name: S,
-        effect_name: S,
+        from_name: T,
+        effect_name: T,
         value: f64,
         duration_time: f64,
     ) -> Self {

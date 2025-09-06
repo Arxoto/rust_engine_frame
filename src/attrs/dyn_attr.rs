@@ -96,7 +96,7 @@ mod tests {
 
     #[test]
     fn refresh_value() {
-        let mut attr = DynAttr::new(20.0);
+        let mut attr: DynAttr<&str> = DynAttr::new(20.0);
         assert_eq!(attr.get_current(), 20.0);
 
         attr.put_or_stack_effect(DynAttrEffect::new_infinite_basic_add(
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn duration() {
-        let mut attr = DynAttr::new(100.0);
+        let mut attr: DynAttr<&str> = DynAttr::new(100.0);
         attr.put_or_stack_effect(DynAttrEffect::new_duration_basic_percent(
             "someone", "per", 0.5, 1.0,
         ));
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn period_stack() {
-        let mut attr = DynAttr::new(100.0);
+        let mut attr: DynAttr<&str> = DynAttr::new(100.0);
         let mut eff = DynAttrEffect::new_duration_basic_add("someone", "eff", 50.0, 10.0);
         eff.set_wait_time(2.0);
         eff.set_period_time(1.0);
