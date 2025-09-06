@@ -22,8 +22,6 @@ pub enum DynPropPeriodEffectType {
     CurMaxPer,
 
     /// 使当前值逐渐逼近特定值 注意当效果值为负数时会不断远离
-    ///
-    /// 注意 由于效果容器底层为进行遍历时key不固
     CurValToVal(f64),
 }
 
@@ -103,8 +101,6 @@ where
     }
 
     /// 生效效果 仅属性类调用
-    ///
-    /// 当且仅当 **修改当前值** 时生效（依赖于 [`Self::put_effect_proxy`] 中的逻辑，仅这些类型时才放入自己的容器中）
     pub(crate) fn do_effect_alter_proxy(&self, prop: &mut DynProp<S>, periods: i64) {
         let eff_value = self.effect.get_value() * (self.effect.get_stack() as f64);
         for _ in 0..periods {

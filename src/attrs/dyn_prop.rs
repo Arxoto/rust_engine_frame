@@ -87,9 +87,14 @@ where
         e.put_effect_proxy(self);
     }
 
+    /// 刷新周期效果的优先级列表
+    pub fn refresh_period_effect(&mut self) {
+        self.effects.refresh_order_keys();
+    }
+
     /// 周期效果 可外部调用
     ///
-    /// 而后需 **手动调用** 刷新属性值 [`Self::refresh_value`]
+    /// 而后需 **手动调用** 刷新属性值 [`Self::refresh_period_effect`]
     pub fn put_period_effect(&mut self, e: DynPropPeriodEffect<S>) {
         self.effects.put_or_stack_effect(e);
     }
@@ -109,7 +114,8 @@ where
         self.the_min.process_time(delta);
         self.fix_current();
 
-        for ele in self.effects.each_effect_names() {
+        let mut period_changed = false;
+        for ele in self.effects.keys() {
             let Some(eff) = self.effects.get_effect_mut(&ele) else {
                 continue;
             };
@@ -119,9 +125,14 @@ where
 
             if eff.is_expired() {
                 self.effects.del_effect(&ele);
+                period_changed = true;
             } else if periods > 0 {
                 eff.do_effect_alter_proxy(self, periods);
             }
+        }
+        
+        if period_changed {
+            self.refresh_period_effect();
         }
     }
 
@@ -246,7 +257,7 @@ mod tests {
             1.0,
         );
         prop.put_period_effect(eff);
-        prop.refresh_value();
+        prop.refresh_period_effect();
         assert_eq!(prop.get_current(), 100.0);
         prop.process_time(0.5);
         assert_eq!(prop.get_current(), 100.0);
@@ -261,7 +272,7 @@ mod tests {
             1.0,
         );
         prop.put_period_effect(eff);
-        prop.refresh_value();
+        prop.refresh_period_effect();
         assert_eq!(prop.get_current(), 100.0);
         prop.process_time(0.5);
         assert_eq!(prop.get_current(), 100.0);
@@ -276,7 +287,7 @@ mod tests {
             1.0,
         );
         prop.put_period_effect(eff);
-        prop.refresh_value();
+        prop.refresh_period_effect();
         assert_eq!(prop.get_current(), 100.0);
         prop.process_time(0.5);
         assert_eq!(prop.get_current(), 100.0);
@@ -297,7 +308,7 @@ mod tests {
         eff.set_max_stack(2);
         eff.set_stack(2);
         prop.put_period_effect(eff);
-        prop.refresh_value();
+        prop.refresh_period_effect();
 
         // 持续逼近
         prop.process_time(1.0);
@@ -331,7 +342,7 @@ mod tests {
             1.0,
         );
         prop.put_period_effect(eff);
-        prop.refresh_value();
+        prop.refresh_period_effect();
 
         // 持续逼近
         prop.process_time(1.0);

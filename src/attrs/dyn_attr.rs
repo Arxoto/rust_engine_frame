@@ -39,8 +39,10 @@ where
 
     /// 效果更新后刷新属性
     pub fn refresh_value(&mut self) {
+        self.effects.refresh_order_keys();
+
         let mut dyn_attr_modifier = DynAttrModifier::default();
-        for ele in self.effects.each_effect_names() {
+        for ele in self.effects.keys() {
             if let Some(eff) = self.effects.get_effect(&ele) {
                 dyn_attr_modifier.reduce(eff);
             }
@@ -65,7 +67,7 @@ where
     /// 无需手动刷新属性
     pub fn process_time(&mut self, delta: f64) {
         let mut changed = false;
-        for ele in self.effects.each_effect_names() {
+        for ele in self.effects.keys() {
             let Some(eff) = self.effects.get_effect_mut(&ele) else {
                 continue;
             };
@@ -161,9 +163,9 @@ mod tests {
         // 结束
         attr.process_time(4.5);
         assert_eq!(attr.get_current(), 100.0);
-        assert_eq!(attr.effects.each_effect_names().len(), 0);
+        assert_eq!(attr.effects.keys().len(), 0);
 
         attr.process_time(1.0);
-        assert_eq!(attr.effects.each_effect_names().len(), 0);
+        assert_eq!(attr.effects.keys().len(), 0);
     }
 }
