@@ -48,25 +48,25 @@ where
         }
     }
 
-    /// 生效效果 应仅由prop调用
-    pub(crate) fn do_effect_proxy(self, prop: &mut DynProp<S>) -> f64 {
+    /// 将瞬时效果转换成针对当前值的实际效果
+    pub(crate) fn convert_real_inst_effect(self, prop: &DynProp<S>) -> InstantEffect<S> {
         match self.the_type {
-            DynPropInstEffectType::CurVal => prop.alter_current_value_proxy(self.effect),
+            DynPropInstEffectType::CurVal => self.effect,
             DynPropInstEffectType::CurPer => {
                 let v = self.effect.get_value() * prop.get_current();
-                prop.alter_current_value_proxy(InstantEffect::new_instant(
+                InstantEffect::new_instant(
                     self.effect.get_from_name().clone(),
                     self.effect.get_effect_name().clone(),
                     v,
-                ))
+                )
             }
             DynPropInstEffectType::CurMaxPer => {
                 let v = self.effect.get_value() * prop.get_max();
-                prop.alter_current_value_proxy(InstantEffect::new_instant(
+                InstantEffect::new_instant(
                     self.effect.get_from_name().clone(),
                     self.effect.get_effect_name().clone(),
                     v,
-                ))
+                )
             }
         }
     }

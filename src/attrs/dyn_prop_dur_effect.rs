@@ -3,10 +3,20 @@ use crate::{
     cores::unify_type::FixedName,
     effects::{
         duration_effect::{DurationEffect, ProxyDurationEffect},
+        instant_effect::InstantEffect,
         native_duration::{Duration, ProxyDuration},
         native_effect::{Effect, ProxyEffect},
     },
 };
+
+/// prop属性持久效果的生效对象
+#[derive(Clone, Copy)]
+pub(crate) enum DynPropDurEffectTarget {
+    /// 修改最大值
+    ForMax,
+    /// 修改最小值
+    ForMin,
+}
 
 /// prop属性持久效果的类型
 ///
@@ -86,33 +96,45 @@ where
         Self { the_type, effect }
     }
 
-    /// 赋予效果 仅属性类调用
-    pub(crate) fn put_effect_proxy(self, prop: &mut DynProp<S>) {
+    /// 获取该效果的目标对象
+    pub(crate) fn which_target(&self) -> DynPropDurEffectTarget {
         match self.the_type {
-            DynPropDurEffectType::MaxVal => {
-                prop.put_max_attr_effect_proxy(DynAttrEffect::new_basic_add(self.effect))
-            }
-            DynPropDurEffectType::MaxPer => {
-                prop.put_max_attr_effect_proxy(DynAttrEffect::new_basic_percent(self.effect))
-            }
-            DynPropDurEffectType::MinVal => {
-                prop.put_min_attr_effect_proxy(DynAttrEffect::new_basic_add(self.effect))
-            }
+            DynPropDurEffectType::MaxVal => DynPropDurEffectTarget::ForMax,
+            DynPropDurEffectType::MaxPer => DynPropDurEffectTarget::ForMax,
+            DynPropDurEffectType::MinVal => DynPropDurEffectTarget::ForMin,
         }
     }
 
-    // /// 赋予效果 并立即对当前值进行对应修改 仅属性类调用
-    // ///
-    // /// 当且仅当 **修改极值** 时生效（依赖于 [`Self::put_effect_proxy`] 中的逻辑，仅这些类型时才能一次性影响当前值）
-    // pub(crate) fn put_and_use_effect_proxy(self, prop: &mut DynProp<S>) {
-    //     match self.the_type {
-    //         DynPropDurEffectType::MaxVal => {}
-    //         DynPropDurEffectType::MaxPer => {}
-    //         DynPropDurEffectType::MinVal => {}
-    //         _ => return,
-    //     }
+    /// 将该类型转换成针对属性的对应效果
+    pub(crate) fn convert_attr_effect(self) -> DynAttrEffect<S> {
+        match self.the_type {
+            DynPropDurEffectType::MaxVal => DynAttrEffect::new_basic_add(self.effect),
+            DynPropDurEffectType::MaxPer => DynAttrEffect::new_basic_percent(self.effect),
+            DynPropDurEffectType::MinVal => DynAttrEffect::new_basic_add(self.effect),
+        }
+    }
 
-    // }
+    /// 基于一个持久效果（提升最大生命值） 生成对应的瞬时效果（加血）
+    ///
+    /// 注意 仅支持【最大值的增益】 否则应该基于上下界限去自动调整
+    pub(crate) fn gen_real_inst_effect_for_max_buff(&self, prop: &DynProp<S>) -> Option<InstantEffect<S>> {
+        if !self.nature_is_buff() {
+            return None;
+        }
+        match self.the_type {
+            DynPropDurEffectType::MaxVal => Some(InstantEffect::new_instant(
+                self.get_from_name().clone(),
+                self.get_effect_name().clone(),
+                self.get_value(),
+            )),
+            DynPropDurEffectType::MaxPer => Some(InstantEffect::new_instant(
+                self.get_from_name().clone(),
+                self.get_effect_name().clone(),
+                self.get_value() * prop.get_current(),
+            )),
+            DynPropDurEffectType::MinVal => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -140,7 +162,8 @@ mod tests {
 
         for the_type in types {
             let value = get_base_line(&the_type);
-            let eff: DynPropDurEffect<&str> = DynPropDurEffect::new_infinite(the_type, "from_name", "effect_name", value);
+            let eff: DynPropDurEffect<&str> =
+                DynPropDurEffect::new_infinite(the_type, "from_name", "effect_name", value);
             assert!(matches!(eff.which_nature(), EffectNature::Neutral));
         }
     }

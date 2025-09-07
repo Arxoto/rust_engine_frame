@@ -1,13 +1,16 @@
 use crate::{
     attrs::{
-        dyn_attr::DynAttr, dyn_attr_effect::DynAttrEffect, dyn_prop_dur_effect::DynPropDurEffect,
-        dyn_prop_inst_effect::DynPropInstEffect, dyn_prop_period_effect::DynPropPeriodEffect,
+        dyn_attr::DynAttr,
+        dyn_attr_effect::DynAttrEffect,
+        dyn_prop_dur_effect::{DynPropDurEffect, DynPropDurEffectTarget},
+        dyn_prop_inst_effect::DynPropInstEffect,
+        dyn_prop_period_effect::DynPropPeriodEffect,
         effect_container::EffectContainer,
     },
     cores::unify_type::FixedName,
     effects::{
-        duration_effect::ProxyDurationEffect, native_duration::ProxyDuration,
-        native_effect::ProxyEffect,
+        duration_effect::ProxyDurationEffect, instant_effect::InstantEffect,
+        native_duration::ProxyDuration, native_effect::ProxyEffect,
     },
 };
 
@@ -70,7 +73,8 @@ where
     ///
     /// 无需手动修正属性值
     pub fn use_inst_effect(&mut self, e: DynPropInstEffect<S>) -> f64 {
-        e.do_effect_proxy(self)
+        let real_eff = e.convert_real_inst_effect(&self);
+        self.alter_current_value(real_eff)
     }
 
     /// 对 max 或 min 装载了效果后 需要刷新以应用
@@ -84,7 +88,12 @@ where
     ///
     /// 而后需 **手动调用** 刷新属性值 [`Self::refresh_value`]
     pub fn put_dur_effect(&mut self, e: DynPropDurEffect<S>) {
-        e.put_effect_proxy(self);
+        let target = e.which_target();
+        let attr_eff = e.convert_attr_effect();
+        match target {
+            DynPropDurEffectTarget::ForMax => self.put_max_attr_effect(attr_eff),
+            DynPropDurEffectTarget::ForMin => self.put_min_attr_effect(attr_eff),
+        }
     }
 
     /// 移除持久效果（上下界限同时移除） 可外部调用
@@ -93,6 +102,20 @@ where
     pub fn del_dur_effect(&mut self, s: &S) {
         self.the_max.del_effect(s);
         self.the_min.del_effect(s);
+    }
+
+    /// 给予一个持久效果的同时自动修改当前值 可外部调用
+    /// 
+    /// 注意【仅增益效果会修改当前值（如提升最大生命值）】
+    ///
+    /// 无需手动调用刷新属性值
+    pub fn do_put_dur_effect(&mut self, e: DynPropDurEffect<S>) {
+        let some_real_eff = e.gen_real_inst_effect_for_max_buff(self);
+        self.put_dur_effect(e);
+        self.refresh_value();
+        if let Some(real_eff) = some_real_eff {
+            self.alter_current_value(real_eff);
+        }
     }
 
     /// 刷新周期效果的优先级列表
@@ -142,7 +165,11 @@ where
                 self.effects.del_effect(&ele);
                 period_changed = true;
             } else if periods > 0 {
-                eff.do_effect_alter_proxy(self, periods);
+                let inst_eff = eff.convert_prop_inst_effect(&self);
+                let real_eff = inst_eff.convert_real_inst_effect(&self);
+                for _ in 0..periods {
+                    self.alter_current_value(real_eff.clone());
+                }
             }
         }
 
@@ -154,17 +181,17 @@ where
     // =================================================================================
 
     /// 赋予最大值效果 仅effect内部调用 需要刷新
-    pub(crate) fn put_max_attr_effect_proxy(&mut self, e: DynAttrEffect<S>) {
+    pub(crate) fn put_max_attr_effect(&mut self, e: DynAttrEffect<S>) {
         self.the_max.put_or_stack_effect(e);
     }
 
     /// 赋予最小值效果 仅effect内部调用 需要刷新
-    pub(crate) fn put_min_attr_effect_proxy(&mut self, e: DynAttrEffect<S>) {
+    pub(crate) fn put_min_attr_effect(&mut self, e: DynAttrEffect<S>) {
         self.the_min.put_or_stack_effect(e);
     }
 
     /// 如对血量直接造成伤害 return delta 用于处理护盾逻辑 无需再次刷新
-    pub(crate) fn alter_current_value_proxy<T: ProxyEffect<S>>(&mut self, e: T) -> f64 {
+    fn alter_current_value(&mut self, e: InstantEffect<S>) -> f64 {
         let the_old = self.get_current();
         self.current += e.get_value();
         self.fix_current();
@@ -263,6 +290,13 @@ mod tests {
         ));
         assert_eq!(prop.get_current(), 100.0);
     }
+
+    
+    #[test]
+    fn do_put_dur_effect() {
+        todo!("add test for do_put_dur_effect (buff and debuff)")
+    }
+    
 
     #[test]
     fn put_period_effect_each_cur() {

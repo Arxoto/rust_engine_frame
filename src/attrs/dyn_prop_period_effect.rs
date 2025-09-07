@@ -110,27 +110,24 @@ where
         eff
     }
 
-    /// 生效效果 仅属性类调用
-    pub(crate) fn do_effect_alter_proxy(&self, prop: &mut DynProp<S>, periods: i64) {
+    /// 基于一个周期效果（流血） 生成对应的瞬时效果（扣血）
+    pub(crate) fn convert_prop_inst_effect(self, prop: &DynProp<S>) -> DynPropInstEffect<S> {
         let eff_value = self.effect.get_value() * (self.effect.get_stack() as f64);
-        for _ in 0..periods {
-            let (the_type, value) = match self.the_type {
-                DynPropPeriodEffectType::CurVal => (DynPropInstEffectType::CurVal, eff_value),
-                DynPropPeriodEffectType::CurPer => (DynPropInstEffectType::CurPer, eff_value),
-                DynPropPeriodEffectType::CurMaxPer => (DynPropInstEffectType::CurMaxPer, eff_value),
-                DynPropPeriodEffectType::CurValToVal(to_val) => (
-                    DynPropInstEffectType::CurVal,
-                    move_toward_delta(prop.get_current(), to_val, eff_value),
-                ),
-            };
-            let effect = DynPropInstEffect::new_instant(
-                the_type,
-                self.effect.get_from_name().clone(),
-                self.effect.get_effect_name().clone(),
-                value,
-            );
-            effect.do_effect_proxy(prop);
-        }
+        let (the_type, value) = match self.the_type {
+            DynPropPeriodEffectType::CurVal => (DynPropInstEffectType::CurVal, eff_value),
+            DynPropPeriodEffectType::CurPer => (DynPropInstEffectType::CurPer, eff_value),
+            DynPropPeriodEffectType::CurMaxPer => (DynPropInstEffectType::CurMaxPer, eff_value),
+            DynPropPeriodEffectType::CurValToVal(to_val) => (
+                DynPropInstEffectType::CurVal,
+                move_toward_delta(prop.get_current(), to_val, eff_value),
+            ),
+        };
+        DynPropInstEffect::new_instant(
+            the_type,
+            self.effect.get_from_name().clone(),
+            self.effect.get_effect_name().clone(),
+            value,
+        )
     }
 }
 
@@ -213,7 +210,8 @@ mod tests {
 
         for the_type in types {
             let value = get_base_line(&the_type);
-            let eff: DynPropPeriodEffect<&str> = DynPropPeriodEffect::new_infinite(the_type, "from_name", "effect_name", value, 0.0);
+            let eff: DynPropPeriodEffect<&str> =
+                DynPropPeriodEffect::new_infinite(the_type, "from_name", "effect_name", value, 0.0);
             assert!(matches!(eff.which_nature(), EffectNature::Neutral));
         }
     }
