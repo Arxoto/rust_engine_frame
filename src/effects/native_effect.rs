@@ -19,6 +19,29 @@ impl<S> Effect<S> {
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum EffectNature {
+    /// 增益效果
+    Buff,
+    /// 减益效果
+    Debuff,
+    /// 中性效果
+    Neutral,
+}
+
+impl EffectNature {
+    /// 根据基线判断效果值为增益减益
+    pub fn which_nature(value: f64, base_line: f64) -> EffectNature {
+        if value > base_line {
+            EffectNature::Buff
+        } else if value < base_line {
+            EffectNature::Debuff
+        } else {
+            EffectNature::Neutral
+        }
+    }
+}
+
 // =================================================================================
 
 /// 代理类型效果描述
@@ -48,6 +71,29 @@ pub trait ProxyEffect<S> {
 
     fn set_value(&mut self, v: f64) {
         self.as_mut_effect().value = v
+    }
+
+    // ===========================
+    // 业务逻辑
+    // ===========================
+
+    /// 判断效果为增益减益
+    ///
+    /// 默认通过值进行判断 参照物默认为 0.0 根据业务逻辑自行覆盖
+    fn which_nature(&self) -> EffectNature {
+        EffectNature::which_nature(self.get_value(), 0.0)
+    }
+
+    fn nature_is_buff(&self) -> bool {
+        matches!(self.which_nature(), EffectNature::Buff)
+    }
+
+    fn nature_is_debuff(&self) -> bool {
+        matches!(self.which_nature(), EffectNature::Debuff)
+    }
+
+    fn nature_is_neutral(&self) -> bool {
+        matches!(self.which_nature(), EffectNature::Neutral)
     }
 }
 

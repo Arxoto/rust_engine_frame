@@ -81,3 +81,40 @@ impl<S> ProxyEffect<S> for DynPropInstEffect<S> {
         self.effect.as_mut_effect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(test)]
+    mod tests {
+        use crate::effects::native_effect::EffectNature;
+
+        use super::*;
+
+        /// 提醒：每当增加类型时，判断其是否符合 [`DynAttrEffect::which_nature`]
+        #[test]
+        fn test_nature_tips() {
+            let types = vec![
+                DynPropInstEffectType::CurVal,
+                DynPropInstEffectType::CurPer,
+                DynPropInstEffectType::CurMaxPer,
+            ];
+
+            fn get_base_line(the_type: &DynPropInstEffectType) -> f64 {
+                match the_type {
+                    DynPropInstEffectType::CurVal => 0.0,
+                    DynPropInstEffectType::CurPer => 0.0,
+                    DynPropInstEffectType::CurMaxPer => 0.0,
+                }
+            }
+
+            for the_type in types {
+                let value = get_base_line(&the_type);
+                let eff: DynPropInstEffect<&str> =
+                    DynPropInstEffect::new_instant(the_type, "from_name", "effect_name", value);
+                assert!(matches!(eff.which_nature(), EffectNature::Neutral));
+            }
+        }
+    }
+}

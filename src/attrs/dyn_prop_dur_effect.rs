@@ -114,3 +114,34 @@ where
 
     // }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::effects::native_effect::EffectNature;
+
+    use super::*;
+
+    /// 提醒：每当增加类型时，判断其是否符合 [`DynAttrEffect::which_nature`]
+    #[test]
+    fn test_nature_tips() {
+        let types = vec![
+            DynPropDurEffectType::MaxVal,
+            DynPropDurEffectType::MaxPer,
+            DynPropDurEffectType::MinVal,
+        ];
+
+        fn get_base_line(the_type: &DynPropDurEffectType) -> f64 {
+            match the_type {
+                DynPropDurEffectType::MaxVal => 0.0,
+                DynPropDurEffectType::MaxPer => 0.0,
+                DynPropDurEffectType::MinVal => 0.0,
+            }
+        }
+
+        for the_type in types {
+            let value = get_base_line(&the_type);
+            let eff: DynPropDurEffect<&str> = DynPropDurEffect::new_infinite(the_type, "from_name", "effect_name", value);
+            assert!(matches!(eff.which_nature(), EffectNature::Neutral));
+        }
+    }
+}

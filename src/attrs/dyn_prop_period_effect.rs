@@ -21,7 +21,7 @@ pub enum DynPropPeriodEffectType {
     /// 持续根据最大值的百分比修改当前值
     CurMaxPer,
 
-    /// 使当前值逐渐逼近特定值 注意当效果值为负数时会不断远离
+    /// 中性效果 使当前值逐渐逼近特定值 注意当效果值为负数时会不断远离
     CurValToVal(f64),
 }
 
@@ -38,6 +38,16 @@ impl<S> ProxyEffect<S> for DynPropPeriodEffect<S> {
 
     fn as_mut_effect(&mut self) -> &mut Effect<S> {
         self.effect.as_mut_effect()
+    }
+
+    fn which_nature(&self) -> crate::effects::native_effect::EffectNature {
+        // 若类型为引力斥力 则始终呈现中性效果
+        match self.the_type {
+            DynPropPeriodEffectType::CurValToVal(_) => {
+                crate::effects::native_effect::EffectNature::Neutral
+            }
+            _ => self.effect.which_nature(),
+        }
     }
 }
 
@@ -149,6 +159,8 @@ fn move_toward_delta(source: f64, target: f64, step: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use crate::effects::native_effect::EffectNature;
+
     use super::*;
 
     #[test]
@@ -178,5 +190,31 @@ mod tests {
         assert_eq!(move_toward_delta(150.0, 100.0, 0.0), 0.0);
         assert_eq!(move_toward_delta(50.0, 100.0, 0.0), 0.0);
         assert_eq!(move_toward_delta(50.0, 50.0, 100.0), 0.0);
+    }
+
+    /// 提醒：每当增加类型时，判断其是否符合 [`DynAttrEffect::which_nature`]
+    #[test]
+    fn test_nature_tips() {
+        let types = vec![
+            DynPropPeriodEffectType::CurVal,
+            DynPropPeriodEffectType::CurPer,
+            DynPropPeriodEffectType::CurMaxPer,
+            DynPropPeriodEffectType::CurValToVal(0.0),
+        ];
+
+        fn get_base_line(the_type: &DynPropPeriodEffectType) -> f64 {
+            match the_type {
+                DynPropPeriodEffectType::CurVal => 0.0,
+                DynPropPeriodEffectType::CurPer => 0.0,
+                DynPropPeriodEffectType::CurMaxPer => 0.0,
+                DynPropPeriodEffectType::CurValToVal(_) => f64::MAX,
+            }
+        }
+
+        for the_type in types {
+            let value = get_base_line(&the_type);
+            let eff: DynPropPeriodEffect<&str> = DynPropPeriodEffect::new_infinite(the_type, "from_name", "effect_name", value, 0.0);
+            assert!(matches!(eff.which_nature(), EffectNature::Neutral));
+        }
     }
 }
