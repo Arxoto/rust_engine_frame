@@ -26,7 +26,7 @@ pub enum DynPropPeriodEffectType {
 }
 
 #[derive(Clone)]
-pub struct DynPropPeriodEffect<S> {
+pub struct DynPropPeriodEffect<S = String> {
     pub(crate) the_type: DynPropPeriodEffectType,
     pub(crate) effect: Effect<S>,
     pub(crate) duration: Duration,
@@ -184,7 +184,7 @@ mod tests {
 
         for the_type in types {
             let value = get_base_line(&the_type);
-            let eff: DynPropPeriodEffect<&str> = DynPropPeriodEffect::new(
+            let eff: DynPropPeriodEffect = DynPropPeriodEffect::new(
                 the_type,
                 EffectBuilder::new_infinite("from_name", "effect_name", value),
                 0.0,

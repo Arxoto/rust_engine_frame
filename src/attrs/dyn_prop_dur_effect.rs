@@ -33,7 +33,7 @@ pub enum DynPropDurEffectType {
 
 /// prop属性持久效果 包括直接作用于最大最小值的效果 还有特殊效果如持续流血回蓝等
 #[derive(Clone)]
-pub struct DynPropDurEffect<S> {
+pub struct DynPropDurEffect<S = String> {
     pub(crate) the_type: DynPropDurEffectType,
     pub(crate) effect: Effect<S>,
     pub(crate) duration: Duration,
@@ -132,7 +132,7 @@ mod tests {
 
         for the_type in types {
             let value = get_base_line(&the_type);
-            let eff: DynPropDurEffect<&str> = DynPropDurEffect::new(
+            let eff: DynPropDurEffect<String> = DynPropDurEffect::new(
                 the_type,
                 EffectBuilder::new_infinite("from_name", "effect_name", value),
             );

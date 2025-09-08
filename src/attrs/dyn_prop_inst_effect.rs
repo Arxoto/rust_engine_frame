@@ -17,7 +17,7 @@ pub enum DynPropInstEffectType {
 
 /// prop属性瞬时效果 一般用作扣血蓝耗等
 #[derive(Clone)]
-pub struct DynPropInstEffect<S> {
+pub struct DynPropInstEffect<S = String> {
     pub(crate) the_type: DynPropInstEffectType,
     pub(crate) effect: Effect<S>,
 }
@@ -86,7 +86,7 @@ mod tests {
 
             for the_type in types {
                 let value = get_base_line(&the_type);
-                let eff: DynPropInstEffect<&str> = DynPropInstEffect::new(
+                let eff: DynPropInstEffect = DynPropInstEffect::new(
                     the_type,
                     EffectBuilder::new_instant("from_name", "effect_name", value),
                 );
