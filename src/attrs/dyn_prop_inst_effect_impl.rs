@@ -4,10 +4,7 @@ use crate::{
     effects::native_effect::Effect,
 };
 
-impl<S> DynPropInstEffect<S>
-where
-    S: FixedName,
-{
+impl<S: FixedName> DynPropInstEffect<S> {
     pub fn new_cur_val(effect: Effect<S>) -> Self {
         Self::new(DynPropInstEffectType::CurVal, effect)
     }

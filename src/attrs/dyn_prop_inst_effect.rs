@@ -22,10 +22,7 @@ pub struct DynPropInstEffect<S> {
     pub(crate) effect: Effect<S>,
 }
 
-impl<S> DynPropInstEffect<S>
-where
-    S: FixedName,
-{
+impl<S: FixedName> DynPropInstEffect<S> {
     pub fn new(the_type: DynPropInstEffectType, effect: Effect<S>) -> Self {
         Self { the_type, effect }
     }

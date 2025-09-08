@@ -4,10 +4,7 @@ use crate::{
     effects::{native_duration::Duration, native_effect::Effect},
 };
 
-impl<S> DynPropPeriodEffect<S>
-where
-    S: FixedName,
-{
+impl<S: FixedName> DynPropPeriodEffect<S> {
     pub fn new_cur_val(effect: (Effect<S>, Duration), period_time: f64) -> Self {
         Self::new(DynPropPeriodEffectType::CurVal, effect, period_time)
     }

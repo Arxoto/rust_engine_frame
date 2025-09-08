@@ -8,19 +8,13 @@ use crate::{
 };
 
 /// dynamic_attribute 属性 一般用作角色属性值 可被效果影响
-pub struct DynAttr<S>
-where
-    S: FixedName,
-{
+pub struct DynAttr<S: FixedName> {
     origin: f64,
     current: f64,
     effects: EffectContainer<S, DynAttrEffect<S>>,
 }
 
-impl<S> DynAttr<S>
-where
-    S: FixedName,
-{
+impl<S: FixedName> DynAttr<S> {
     pub fn new(v: f64) -> Self {
         Self {
             origin: v,

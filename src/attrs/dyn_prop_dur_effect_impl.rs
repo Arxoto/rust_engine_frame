@@ -4,10 +4,7 @@ use crate::{
     effects::{native_duration::Duration, native_effect::Effect},
 };
 
-impl<S> DynPropDurEffect<S>
-where
-    S: FixedName,
-{
+impl<S: FixedName> DynPropDurEffect<S> {
     pub fn new_max_val(effect: (Effect<S>, Duration)) -> Self {
         Self::new(DynPropDurEffectType::MaxVal, effect)
     }

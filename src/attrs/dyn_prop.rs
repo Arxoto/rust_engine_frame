@@ -16,10 +16,7 @@ use crate::{
 };
 
 /// dynamic_property 属性 一般用作角色资源槽 可被效果影响
-pub struct DynProp<S>
-where
-    S: FixedName,
-{
+pub struct DynProp<S: FixedName> {
     the_min: DynAttr<S>,
     the_max: DynAttr<S>,
 
@@ -36,10 +33,7 @@ where
     effects: EffectContainer<S, DynPropPeriodEffect<S>>,
 }
 
-impl<S> DynProp<S>
-where
-    S: FixedName,
-{
+impl<S: FixedName> DynProp<S> {
     pub fn new(v: f64, the_max: f64, the_min: f64) -> Self {
         Self {
             the_min: DynAttr::new(the_min),

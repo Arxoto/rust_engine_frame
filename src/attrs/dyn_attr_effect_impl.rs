@@ -1,9 +1,10 @@
 use crate::{
     attrs::dyn_attr_effect::{DynAttrEffect, DynAttrEffectType},
+    cores::unify_type::FixedName,
     effects::{native_duration::Duration, native_effect::Effect},
 };
 
-impl<S: Clone> DynAttrEffect<S> {
+impl<S: FixedName> DynAttrEffect<S> {
     pub fn new_basic_add(effect: (Effect<S>, Duration)) -> Self {
         Self::new(DynAttrEffectType::BasicAdd, effect)
     }

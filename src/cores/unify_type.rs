@@ -9,10 +9,7 @@ mod tests {
 
     // define in lib
 
-    pub struct FixedNameBox<S>
-    where
-        S: FixedName,
-    {
+    pub struct FixedNameBox<S: FixedName> {
         the_name: S,
     }
 
@@ -58,7 +55,8 @@ mod tests {
 
     #[test]
     fn test_func() {
-        let fixed_name_box: FixedNameBox<FixedNameWrapper> = FixedNameBox::new(get_value_for_type());
+        let fixed_name_box: FixedNameBox<FixedNameWrapper> =
+            FixedNameBox::new(get_value_for_type());
         let real_name: AnyType = fixed_name_box.get_name().into();
         assert_eq!(real_name, get_value_for_type());
     }

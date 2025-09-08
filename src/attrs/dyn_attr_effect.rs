@@ -1,7 +1,10 @@
-use crate::effects::{
-    duration_effect::ProxyDurationEffect,
-    native_duration::{Duration, ProxyDuration},
-    native_effect::{Effect, ProxyEffect},
+use crate::{
+    cores::unify_type::FixedName,
+    effects::{
+        duration_effect::ProxyDurationEffect,
+        native_duration::{Duration, ProxyDuration},
+        native_effect::{Effect, ProxyEffect},
+    },
 };
 
 /// Attr属性效果的类型
@@ -26,7 +29,7 @@ pub struct DynAttrEffect<S> {
     pub(crate) duration: Duration,
 }
 
-impl<S: Clone> DynAttrEffect<S> {
+impl<S: FixedName> DynAttrEffect<S> {
     pub fn new(the_type: DynAttrEffectType, (effect, duration): (Effect<S>, Duration)) -> Self {
         Self {
             the_type,

@@ -61,10 +61,7 @@ impl<S> ProxyDuration for DynPropDurEffect<S> {
 
 impl<S: Clone> ProxyDurationEffect<S> for DynPropDurEffect<S> {}
 
-impl<S> DynPropDurEffect<S>
-where
-    S: FixedName,
-{
+impl<S: FixedName> DynPropDurEffect<S> {
     pub fn new(the_type: DynPropDurEffectType, (effect, duration): (Effect<S>, Duration)) -> Self {
         Self {
             the_type,
