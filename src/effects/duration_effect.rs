@@ -1,30 +1,37 @@
 use crate::effects::native_duration::{Duration, ProxyDuration};
 use crate::effects::native_effect::{Effect, ProxyEffect};
 
-/// 持续型效果
-#[derive(Default, Clone)]
-pub struct DurationEffect<S> {
-    effect: Effect<S>,
-    duration: Duration,
-}
+pub struct EffectBuilder;
 
-impl<S> ProxyEffect<S> for DurationEffect<S> {
-    fn as_effect(&self) -> &Effect<S> {
-        &self.effect
+impl EffectBuilder {
+    /// 瞬时效果
+    pub fn new_instant<S, T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Effect<S> {
+        Effect::new(from_name, effect_name, value)
     }
 
-    fn as_mut_effect(&mut self) -> &mut Effect<S> {
-        &mut self.effect
+    /// 持久效果（无限存在）
+    pub fn new_infinite<S, T: Into<S>>(
+        from_name: T,
+        effect_name: T,
+        value: f64,
+    ) -> (Effect<S>, Duration) {
+        (
+            Effect::new(from_name, effect_name, value),
+            Duration::new_infinite(),
+        )
     }
-}
 
-impl<S> ProxyDuration for DurationEffect<S> {
-    fn as_duration(&self) -> &Duration {
-        &self.duration
-    }
-
-    fn as_mut_duration(&mut self) -> &mut Duration {
-        &mut self.duration
+    /// 持久效果（持续时间）
+    pub fn new_duration<S, T: Into<S>>(
+        from_name: T,
+        effect_name: T,
+        value: f64,
+        duration_time: f64,
+    ) -> (Effect<S>, Duration) {
+        (
+            Effect::new(from_name, effect_name, value),
+            Duration::new_duration(duration_time),
+        )
     }
 }
 
@@ -52,26 +59,28 @@ pub trait ProxyDurationEffect<S: Clone>: ProxyEffect<S> + ProxyDuration {
     }
 }
 
-impl<S: Clone> ProxyDurationEffect<S> for DurationEffect<S> {}
+// =================================================================================
 
-impl<S> DurationEffect<S> {
-    /// 无限存在的效果
-    pub fn new_infinite<T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Self {
-        Self {
-            effect: Effect::new(from_name, effect_name, value),
-            duration: Duration::new_infinite(),
-        }
+type DurationEffect<S> = (Effect<S>, Duration);
+
+impl<S> ProxyEffect<S> for DurationEffect<S> {
+    fn as_effect(&self) -> &Effect<S> {
+        &self.0
     }
 
-    /// 持续一段时间的效果
-    pub fn new_duration<T: Into<S>>(from_name: T, effect_name: T, value: f64, duration_time: f64) -> Self {
-        Self {
-            effect: Effect::new(from_name, effect_name, value),
-            duration: Duration::new_duration(duration_time),
-        }
-    }
-
-    pub fn new(effect: Effect<S>, duration: Duration) -> Self {
-        Self { effect, duration }
+    fn as_mut_effect(&mut self) -> &mut Effect<S> {
+        &mut self.0
     }
 }
+
+impl<S> ProxyDuration for DurationEffect<S> {
+    fn as_duration(&self) -> &Duration {
+        &self.1
+    }
+
+    fn as_mut_duration(&mut self) -> &mut Duration {
+        &mut self.1
+    }
+}
+
+impl<S: Clone> ProxyDurationEffect<S> for DurationEffect<S> {}

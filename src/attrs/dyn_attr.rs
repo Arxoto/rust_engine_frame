@@ -94,6 +94,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::effects::duration_effect::EffectBuilder;
+
     use super::*;
 
     #[test]
@@ -101,14 +103,14 @@ mod tests {
         let mut attr: DynAttr<&str> = DynAttr::new(20.0);
         assert_eq!(attr.get_current(), 20.0);
 
-        attr.put_or_stack_effect(DynAttrEffect::new_infinite_basic_add(
+        attr.put_or_stack_effect(DynAttrEffect::new_basic_add(EffectBuilder::new_infinite(
             "someone", "add", 70.0,
+        )));
+        attr.put_or_stack_effect(DynAttrEffect::new_basic_percent(
+            EffectBuilder::new_infinite("someone", "per", 0.5),
         ));
-        attr.put_or_stack_effect(DynAttrEffect::new_infinite_basic_percent(
-            "someone", "per", 0.5,
-        ));
-        attr.put_or_stack_effect(DynAttrEffect::new_infinite_final_percent(
-            "someone", "perf", 0.5,
+        attr.put_or_stack_effect(DynAttrEffect::new_final_percent(
+            EffectBuilder::new_infinite("someone", "perf", 0.5),
         ));
         attr.refresh_value();
         assert_eq!(attr.get_current(), 150.0);
@@ -117,8 +119,8 @@ mod tests {
     #[test]
     fn duration() {
         let mut attr: DynAttr<&str> = DynAttr::new(100.0);
-        attr.put_or_stack_effect(DynAttrEffect::new_duration_basic_percent(
-            "someone", "per", 0.5, 1.0,
+        attr.put_or_stack_effect(DynAttrEffect::new_basic_percent(
+            EffectBuilder::new_duration("someone", "per", 0.5, 1.0),
         ));
         attr.refresh_value();
         assert_eq!(attr.get_current(), 150.0);
@@ -135,7 +137,8 @@ mod tests {
     #[test]
     fn period_stack() {
         let mut attr: DynAttr<&str> = DynAttr::new(100.0);
-        let mut eff = DynAttrEffect::new_duration_basic_add("someone", "eff", 50.0, 10.0);
+        let mut eff =
+            DynAttrEffect::new_basic_add(EffectBuilder::new_duration("someone", "eff", 50.0, 10.0));
         eff.set_wait_time(2.0);
         eff.set_period_time(1.0);
         eff.set_max_stack(0);

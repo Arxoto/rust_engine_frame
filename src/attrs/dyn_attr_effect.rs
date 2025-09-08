@@ -1,5 +1,5 @@
 use crate::effects::{
-    duration_effect::{DurationEffect, ProxyDurationEffect},
+    duration_effect::ProxyDurationEffect,
     native_duration::{Duration, ProxyDuration},
     native_effect::{Effect, ProxyEffect},
 };
@@ -21,48 +21,28 @@ pub enum DynAttrEffectType {
 /// Attr属性效果（周期性触发时堆叠效果）
 #[derive(Clone)]
 pub struct DynAttrEffect<S> {
-    the_type: DynAttrEffectType,
-    effect: DurationEffect<S>,
+    pub(crate) the_type: DynAttrEffectType,
+    pub(crate) effect: Effect<S>,
+    pub(crate) duration: Duration,
 }
 
 impl<S: Clone> DynAttrEffect<S> {
-    pub fn new_infinite<T: Into<S>>(
-        the_type: DynAttrEffectType,
-        from_name: T,
-        effect_name: T,
-        value: f64,
-    ) -> Self {
+    pub fn new(the_type: DynAttrEffectType, (effect, duration): (Effect<S>, Duration)) -> Self {
         Self {
             the_type,
-            effect: DurationEffect::new_infinite(from_name, effect_name, value),
+            effect,
+            duration,
         }
-    }
-
-    pub fn new_duration<T: Into<S>>(
-        the_type: DynAttrEffectType,
-        from_name: T,
-        effect_name: T,
-        value: f64,
-        duration_time: f64,
-    ) -> Self {
-        Self {
-            the_type,
-            effect: DurationEffect::new_duration(from_name, effect_name, value, duration_time),
-        }
-    }
-
-    pub fn new(the_type: DynAttrEffectType, effect: DurationEffect<S>) -> Self {
-        Self { the_type, effect }
     }
 }
 
 impl<S> ProxyEffect<S> for DynAttrEffect<S> {
     fn as_effect(&self) -> &Effect<S> {
-        self.effect.as_effect()
+        &self.effect
     }
 
     fn as_mut_effect(&mut self) -> &mut Effect<S> {
-        self.effect.as_mut_effect()
+        &mut self.effect
     }
 
     fn which_nature(&self) -> crate::effects::native_effect::EffectNature {
@@ -77,11 +57,11 @@ impl<S> ProxyEffect<S> for DynAttrEffect<S> {
 
 impl<S> ProxyDuration for DynAttrEffect<S> {
     fn as_duration(&self) -> &Duration {
-        self.effect.as_duration()
+        &self.duration
     }
 
     fn as_mut_duration(&mut self) -> &mut Duration {
-        self.effect.as_mut_duration()
+        &mut self.duration
     }
 }
 
@@ -109,9 +89,8 @@ impl Default for DynAttrModifier {
 }
 
 impl DynAttrModifier {
-    pub fn reduce<S>(&mut self, e: &DynAttrEffect<S>) {
-        let eff = &e.effect;
-        match e.the_type {
+    pub fn reduce<S>(&mut self, eff: &DynAttrEffect<S>) {
+        match eff.the_type {
             DynAttrEffectType::BasicAdd => {
                 self.basic_add += eff.get_value() * eff.get_stack() as f64
             }
@@ -140,7 +119,7 @@ impl DynAttrModifier {
 
 #[cfg(test)]
 mod tests {
-    use crate::effects::native_effect::EffectNature;
+    use crate::effects::{duration_effect::EffectBuilder, native_effect::EffectNature};
 
     use super::*;
 
@@ -149,8 +128,10 @@ mod tests {
         let mut modifier = DynAttrModifier::default();
 
         for _ in 0..5 {
-            let eff: DynAttrEffect<&str> =
-                DynAttrEffect::new_infinite(DynAttrEffectType::BasicAdd, "", "", 1.0);
+            let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+                DynAttrEffectType::BasicAdd,
+                EffectBuilder::new_infinite("", "", 1.0),
+            );
             modifier.reduce(&eff);
         }
 
@@ -162,8 +143,10 @@ mod tests {
         let mut modifier = DynAttrModifier::default();
 
         for _ in 0..5 {
-            let eff: DynAttrEffect<&str> =
-                DynAttrEffect::new_infinite(DynAttrEffectType::BasicPercent, "", "", 0.1);
+            let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+                DynAttrEffectType::BasicPercent,
+                EffectBuilder::new_infinite("", "", 0.1),
+            );
             modifier.reduce(&eff);
         }
 
@@ -175,14 +158,18 @@ mod tests {
         let mut modifier = DynAttrModifier::default();
 
         for _ in 0..3 {
-            let eff: DynAttrEffect<&str> =
-                DynAttrEffect::new_infinite(DynAttrEffectType::BasicAdd, "", "", 1.0);
+            let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+                DynAttrEffectType::BasicAdd,
+                EffectBuilder::new_infinite("", "", 1.0),
+            );
             modifier.reduce(&eff);
         }
 
         for _ in 0..3 {
-            let eff: DynAttrEffect<&str> =
-                DynAttrEffect::new_infinite(DynAttrEffectType::BasicPercent, "", "", 0.1);
+            let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+                DynAttrEffectType::BasicPercent,
+                EffectBuilder::new_infinite("", "", 0.1),
+            );
             modifier.reduce(&eff);
         }
 
@@ -194,14 +181,18 @@ mod tests {
         let mut modifier = DynAttrModifier::default();
 
         for _ in 0..5 {
-            let eff: DynAttrEffect<&str> =
-                DynAttrEffect::new_infinite(DynAttrEffectType::BasicAdd, "", "", 1.0);
+            let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+                DynAttrEffectType::BasicAdd,
+                EffectBuilder::new_infinite("", "", 1.0),
+            );
             modifier.reduce(&eff);
         }
 
         for _ in 0..5 {
-            let eff: DynAttrEffect<&str> =
-                DynAttrEffect::new_infinite(DynAttrEffectType::FinalPercent, "", "", 0.1);
+            let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+                DynAttrEffectType::FinalPercent,
+                EffectBuilder::new_infinite("", "", 0.1),
+            );
             modifier.reduce(&eff);
         }
 
@@ -213,14 +204,18 @@ mod tests {
         let mut modifier = DynAttrModifier::default();
 
         for _ in 0..5 {
-            let eff: DynAttrEffect<&str> =
-                DynAttrEffect::new_infinite(DynAttrEffectType::BasicAdd, "", "", 1.0);
+            let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+                DynAttrEffectType::BasicAdd,
+                EffectBuilder::new_infinite("", "", 1.0),
+            );
             modifier.reduce(&eff);
         }
 
         for _ in 0..5 {
-            let eff: DynAttrEffect<&str> =
-                DynAttrEffect::new_infinite(DynAttrEffectType::FinalMulti, "", "", 10.0);
+            let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+                DynAttrEffectType::FinalMulti,
+                EffectBuilder::new_infinite("", "", 10.0),
+            );
             modifier.reduce(&eff);
         }
 
@@ -232,29 +227,39 @@ mod tests {
         let mut modifier = DynAttrModifier::default();
 
         for _ in 0..2 {
-            let eff: DynAttrEffect<&str> =
-                DynAttrEffect::new_infinite(DynAttrEffectType::BasicAdd, "", "", 1.0);
+            let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+                DynAttrEffectType::BasicAdd,
+                EffectBuilder::new_infinite("", "", 1.0),
+            );
             modifier.reduce(&eff);
         }
 
         for _ in 0..3 {
-            let eff: DynAttrEffect<&str> =
-                DynAttrEffect::new_infinite(DynAttrEffectType::BasicPercent, "", "", 0.2);
+            let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+                DynAttrEffectType::BasicPercent,
+                EffectBuilder::new_infinite("", "", 0.2),
+            );
             modifier.reduce(&eff);
         }
 
         for _ in 0..1 {
-            let eff: DynAttrEffect<&str> =
-                DynAttrEffect::new_infinite(DynAttrEffectType::FinalPercent, "", "", 0.1);
+            let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+                DynAttrEffectType::FinalPercent,
+                EffectBuilder::new_infinite("", "", 0.1),
+            );
             modifier.reduce(&eff);
         }
 
-        let eff: DynAttrEffect<&str> =
-            DynAttrEffect::new_infinite(DynAttrEffectType::FinalMulti, "", "", 2.0);
+        let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+            DynAttrEffectType::FinalMulti,
+            EffectBuilder::new_infinite("", "", 2.0),
+        );
         modifier.reduce(&eff);
 
-        let eff: DynAttrEffect<&str> =
-            DynAttrEffect::new_infinite(DynAttrEffectType::FinalMulti, "", "", 3.0);
+        let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+            DynAttrEffectType::FinalMulti,
+            EffectBuilder::new_infinite("", "", 3.0),
+        );
         modifier.reduce(&eff);
 
         assert_eq!(modifier.do_effect(1.0), (2.0 + 1.0 * 1.6) * 1.1 * 2.0 * 3.0);
@@ -263,8 +268,10 @@ mod tests {
     #[test]
     fn test_nature() {
         let mut dyn_attr_modifier = DynAttrModifier::default();
-        let eff: DynAttrEffect<&str> =
-            DynAttrEffect::new_infinite_basic_add("from_name", "effect_name", 1.0);
+        let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+            DynAttrEffectType::BasicAdd,
+            EffectBuilder::new_infinite("from_name", "effect_name", 1.0),
+        );
         dyn_attr_modifier.reduce(&eff);
 
         let vvv = 1.0;
@@ -273,16 +280,22 @@ mod tests {
             matches!(eff.which_nature(), EffectNature::Buff)
         );
 
-        let eff: DynAttrEffect<&str> =
-            DynAttrEffect::new_infinite_final_multi("from_name", "effect_name", 1.0);
+        let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+            DynAttrEffectType::FinalMulti,
+            EffectBuilder::new_infinite("from_name", "effect_name", 1.0),
+        );
         assert!(matches!(eff.which_nature(), EffectNature::Neutral));
 
-        let eff: DynAttrEffect<&str> =
-            DynAttrEffect::new_infinite_basic_percent("from_name", "effect_name", -0.1);
+        let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+            DynAttrEffectType::BasicPercent,
+            EffectBuilder::new_infinite("from_name", "effect_name", -0.1),
+        );
         assert!(matches!(eff.which_nature(), EffectNature::Debuff));
 
-        let eff: DynAttrEffect<&str> =
-            DynAttrEffect::new_infinite_basic_percent("from_name", "effect_name", 0.1);
+        let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+            DynAttrEffectType::BasicPercent,
+            EffectBuilder::new_infinite("from_name", "effect_name", 0.1),
+        );
         assert!(matches!(eff.which_nature(), EffectNature::Buff));
     }
 
@@ -307,8 +320,10 @@ mod tests {
 
         for the_type in types {
             let value = get_base_line(&the_type);
-            let eff: DynAttrEffect<&str> =
-                DynAttrEffect::new_infinite(the_type, "from_name", "effect_name", value);
+            let eff: DynAttrEffect<&str> = DynAttrEffect::new(
+                the_type,
+                EffectBuilder::new_infinite("from_name", "effect_name", value),
+            );
             assert!(matches!(eff.which_nature(), EffectNature::Neutral));
         }
     }

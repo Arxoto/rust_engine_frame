@@ -5,7 +5,7 @@ use crate::{
     },
     cores::unify_type::FixedName,
     effects::{
-        duration_effect::{DurationEffect, ProxyDurationEffect},
+        duration_effect::{EffectBuilder, ProxyDurationEffect},
         native_duration::{Duration, ProxyDuration},
         native_effect::{Effect, ProxyEffect},
     },
@@ -27,17 +27,18 @@ pub enum DynPropPeriodEffectType {
 
 #[derive(Clone)]
 pub struct DynPropPeriodEffect<S> {
-    the_type: DynPropPeriodEffectType,
-    effect: DurationEffect<S>,
+    pub(crate) the_type: DynPropPeriodEffectType,
+    pub(crate) effect: Effect<S>,
+    pub(crate) duration: Duration,
 }
 
 impl<S> ProxyEffect<S> for DynPropPeriodEffect<S> {
     fn as_effect(&self) -> &Effect<S> {
-        self.effect.as_effect()
+        &self.effect
     }
 
     fn as_mut_effect(&mut self) -> &mut Effect<S> {
-        self.effect.as_mut_effect()
+        &mut self.effect
     }
 
     fn which_nature(&self) -> crate::effects::native_effect::EffectNature {
@@ -53,11 +54,11 @@ impl<S> ProxyEffect<S> for DynPropPeriodEffect<S> {
 
 impl<S> ProxyDuration for DynPropPeriodEffect<S> {
     fn as_duration(&self) -> &Duration {
-        self.effect.as_duration()
+        &self.duration
     }
 
     fn as_mut_duration(&mut self) -> &mut Duration {
-        self.effect.as_mut_duration()
+        &mut self.duration
     }
 }
 
@@ -67,53 +68,24 @@ impl<S> DynPropPeriodEffect<S>
 where
     S: FixedName,
 {
-    /// 无限存在的效果
-    pub fn new_infinite<T: Into<S>>(
-        the_type: DynPropPeriodEffectType,
-        from_name: T,
-        effect_name: T,
-        value: f64,
-        period_time: f64,
-    ) -> Self {
-        let mut eff = Self {
-            the_type,
-            effect: DurationEffect::new_infinite(from_name, effect_name, value),
-        };
-        eff.set_period_time(period_time);
-        eff
-    }
-
-    /// 持续一段时间的效果
-    pub fn new_duration<T: Into<S>>(
-        the_type: DynPropPeriodEffectType,
-        from_name: T,
-        effect_name: T,
-        value: f64,
-        duration_time: f64,
-        period_time: f64,
-    ) -> Self {
-        let mut eff = Self {
-            the_type,
-            effect: DurationEffect::new_duration(from_name, effect_name, value, duration_time),
-        };
-        eff.set_period_time(period_time);
-        eff
-    }
-
     pub fn new(
         the_type: DynPropPeriodEffectType,
-        effect: DurationEffect<S>,
+        (effect, mut duration): (Effect<S>, Duration),
         period_time: f64,
     ) -> Self {
-        let mut eff = Self { the_type, effect };
-        eff.set_period_time(period_time);
-        eff
+        duration.period_time = period_time;
+        Self {
+            the_type,
+            effect,
+            duration,
+        }
     }
 
     /// 基于一个周期效果（流血） 生成对应的瞬时效果（扣血）
     pub(crate) fn convert_prop_inst_effect(self, prop: &DynProp<S>) -> DynPropInstEffect<S> {
-        let eff_value = self.effect.get_value() * (self.effect.get_stack() as f64);
-        let (the_type, value) = match self.the_type {
+        let eff_value = self.effect.get_value() * (self.duration.get_stack() as f64);
+
+        let (the_type, real_value) = match self.the_type {
             DynPropPeriodEffectType::CurVal => (DynPropInstEffectType::CurVal, eff_value),
             DynPropPeriodEffectType::CurPer => (DynPropInstEffectType::CurPer, eff_value),
             DynPropPeriodEffectType::CurMaxPer => (DynPropInstEffectType::CurMaxPer, eff_value),
@@ -122,11 +94,16 @@ where
                 move_toward_delta(prop.get_current(), to_val, eff_value),
             ),
         };
-        DynPropInstEffect::new_instant(
+
+        let Effect {
+            from_name,
+            effect_name,
+            ..
+        } = self.effect;
+
+        DynPropInstEffect::new(
             the_type,
-            self.effect.get_from_name().clone(),
-            self.effect.get_effect_name().clone(),
-            value,
+            EffectBuilder::new_instant(from_name, effect_name, real_value),
         )
     }
 }
@@ -210,8 +187,11 @@ mod tests {
 
         for the_type in types {
             let value = get_base_line(&the_type);
-            let eff: DynPropPeriodEffect<&str> =
-                DynPropPeriodEffect::new_infinite(the_type, "from_name", "effect_name", value, 0.0);
+            let eff: DynPropPeriodEffect<&str> = DynPropPeriodEffect::new(
+                the_type,
+                EffectBuilder::new_infinite("from_name", "effect_name", value),
+                0.0,
+            );
             assert!(matches!(eff.which_nature(), EffectNature::Neutral));
         }
     }

@@ -1,26 +1,13 @@
-use crate::{attrs::dyn_prop_inst_effect::{DynPropInstEffect, DynPropInstEffectType}, cores::unify_type::FixedName, effects::native_effect::Effect};
+use crate::{
+    attrs::dyn_prop_inst_effect::{DynPropInstEffect, DynPropInstEffectType},
+    cores::unify_type::FixedName,
+    effects::native_effect::Effect,
+};
 
 impl<S> DynPropInstEffect<S>
 where
     S: FixedName,
 {
-    
-    // =================================================================================
-
-    pub fn new_instant_cur_val<T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Self {
-        Self::new_instant(DynPropInstEffectType::CurVal, from_name, effect_name, value)
-    }
-
-    pub fn new_instant_cur_per<T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Self {
-        Self::new_instant(DynPropInstEffectType::CurPer, from_name, effect_name, value)
-    }
-
-    pub fn new_instant_cur_max_per<T: Into<S>>(from_name: T, effect_name: T, value: f64) -> Self {
-        Self::new_instant(DynPropInstEffectType::CurMaxPer, from_name, effect_name, value)
-    }
-    
-    // =================================================================================
-
     pub fn new_cur_val(effect: Effect<S>) -> Self {
         Self::new(DynPropInstEffectType::CurVal, effect)
     }

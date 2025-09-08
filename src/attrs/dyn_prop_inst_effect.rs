@@ -1,10 +1,7 @@
 use crate::{
     attrs::dyn_prop::DynProp,
     cores::unify_type::FixedName,
-    effects::{
-        instant_effect::InstantEffect,
-        native_effect::{Effect, ProxyEffect},
-    },
+    effects::native_effect::{Effect, ProxyEffect},
 };
 
 /// prop属性瞬时效果的类型
@@ -21,52 +18,33 @@ pub enum DynPropInstEffectType {
 /// prop属性瞬时效果 一般用作扣血蓝耗等
 #[derive(Clone)]
 pub struct DynPropInstEffect<S> {
-    the_type: DynPropInstEffectType,
-    effect: InstantEffect<S>,
+    pub(crate) the_type: DynPropInstEffectType,
+    pub(crate) effect: Effect<S>,
 }
 
 impl<S> DynPropInstEffect<S>
 where
     S: FixedName,
 {
-    pub fn new_instant<T: Into<S>>(
-        the_type: DynPropInstEffectType,
-        from_name: T,
-        effect_name: T,
-        value: f64,
-    ) -> Self {
-        Self {
-            the_type,
-            effect: InstantEffect::new_instant(from_name, effect_name, value),
-        }
-    }
-
     pub fn new(the_type: DynPropInstEffectType, effect: Effect<S>) -> Self {
-        Self {
-            the_type,
-            effect: InstantEffect::new(effect),
-        }
+        Self { the_type, effect }
     }
 
     /// 将瞬时效果转换成针对当前值的实际效果
-    pub(crate) fn convert_real_inst_effect(self, prop: &DynProp<S>) -> InstantEffect<S> {
-        match self.the_type {
-            DynPropInstEffectType::CurVal => self.effect,
+    pub(crate) fn convert_real_effect(self, prop: &DynProp<S>) -> Effect<S> {
+        let DynPropInstEffect {
+            the_type,
+            mut effect,
+        } = self;
+        match the_type {
+            DynPropInstEffectType::CurVal => effect,
             DynPropInstEffectType::CurPer => {
-                let v = self.effect.get_value() * prop.get_current();
-                InstantEffect::new_instant(
-                    self.effect.get_from_name().clone(),
-                    self.effect.get_effect_name().clone(),
-                    v,
-                )
+                effect.value *= prop.get_current();
+                effect
             }
             DynPropInstEffectType::CurMaxPer => {
-                let v = self.effect.get_value() * prop.get_max();
-                InstantEffect::new_instant(
-                    self.effect.get_from_name().clone(),
-                    self.effect.get_effect_name().clone(),
-                    v,
-                )
+                effect.value *= prop.get_max();
+                effect
             }
         }
     }
@@ -74,11 +52,11 @@ where
 
 impl<S> ProxyEffect<S> for DynPropInstEffect<S> {
     fn as_effect(&self) -> &crate::effects::native_effect::Effect<S> {
-        self.effect.as_effect()
+        &self.effect
     }
 
     fn as_mut_effect(&mut self) -> &mut crate::effects::native_effect::Effect<S> {
-        self.effect.as_mut_effect()
+        &mut self.effect
     }
 }
 
@@ -88,7 +66,7 @@ mod tests {
 
     #[cfg(test)]
     mod tests {
-        use crate::effects::native_effect::EffectNature;
+        use crate::effects::{duration_effect::EffectBuilder, native_effect::EffectNature};
 
         use super::*;
 
@@ -111,8 +89,10 @@ mod tests {
 
             for the_type in types {
                 let value = get_base_line(&the_type);
-                let eff: DynPropInstEffect<&str> =
-                    DynPropInstEffect::new_instant(the_type, "from_name", "effect_name", value);
+                let eff: DynPropInstEffect<&str> = DynPropInstEffect::new(
+                    the_type,
+                    EffectBuilder::new_instant("from_name", "effect_name", value),
+                );
                 assert!(matches!(eff.which_nature(), EffectNature::Neutral));
             }
         }

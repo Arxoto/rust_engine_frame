@@ -2,18 +2,18 @@
 #[derive(Clone)]
 pub struct Duration {
     /// 存在计时
-    life_time: f64,
+    pub(crate) life_time: f64,
     /// 持续时间 零和负数表示无限存在
-    duration_time: f64,
+    pub(crate) duration_time: f64,
     /// 触发周期【默认不触发】 零和负数表示不重复触发 如果仅表示一种状态那就不要用触发
-    period_time: f64,
+    pub(crate) period_time: f64,
     /// 触发等待时间【默认没有】 注意每满一个周期才会触发 即第一次触发时间是等待时间加触发周期
-    wait_time: f64,
+    pub(crate) wait_time: f64,
 
     /// 堆叠层数【初始一层】 重新添加效果时触发
-    stack: i64,
+    pub(crate) stack: i64,
     /// 堆叠上限【默认上限一层】 零和负数表示无上限
-    max_stack: i64,
+    pub(crate) max_stack: i64,
 }
 
 impl Default for Duration {

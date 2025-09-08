@@ -2,11 +2,11 @@
 #[derive(Default, Clone)]
 pub struct Effect<S> {
     /// 效果名称
-    effect_name: S,
+    pub(crate) effect_name: S,
     /// 效果来源
-    from_name: S,
+    pub(crate) from_name: S,
     /// 效果值 部分效果的生效不取决于该值 但仍可根据正负判断是否增益
-    value: f64,
+    pub(crate) value: f64,
 }
 
 impl<S> Effect<S> {
@@ -44,7 +44,7 @@ impl EffectNature {
 
 // =================================================================================
 
-/// 代理类型效果描述
+/// 代理类型 效果描述
 pub trait ProxyEffect<S> {
     fn as_effect(&self) -> &Effect<S>;
     fn as_mut_effect(&mut self) -> &mut Effect<S>;

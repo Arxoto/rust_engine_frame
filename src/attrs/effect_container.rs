@@ -113,7 +113,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::effects::{
-        duration_effect::DurationEffect, native_duration::ProxyDuration, native_effect::ProxyEffect,
+        duration_effect::EffectBuilder, native_duration::ProxyDuration, native_effect::ProxyEffect,
     };
 
     use super::*;
@@ -122,15 +122,15 @@ mod tests {
     fn refresh_order_keys() {
         let mut container = EffectContainer::new();
 
-        container.put_or_stack_effect(DurationEffect::new_infinite("aaa", "1", 1.0));
-        container.put_or_stack_effect(DurationEffect::new_infinite("aaa", "2", 1.0));
+        container.put_or_stack_effect(EffectBuilder::new_infinite("aaa", "1", 1.0));
+        container.put_or_stack_effect(EffectBuilder::new_infinite("aaa", "2", 1.0));
         container.refresh_when_put(&"a");
         container.refresh_when_put(&"b");
         container.refresh_order_keys();
         assert_eq!(container.keys(), ["1", "2", "a", "b"]);
 
         // 触发重新排序
-        container.put_or_stack_effect(DurationEffect::new_infinite("aaa", "1", 1.0));
+        container.put_or_stack_effect(EffectBuilder::new_infinite("aaa", "1", 1.0));
         container.refresh_when_put(&"b");
         container.refresh_order_keys();
         assert_eq!(container.keys(), ["2", "a", "1", "b"]);
@@ -148,9 +148,9 @@ mod tests {
         let _ = effect_container.get_effect(&""); // 提前推理类型
 
         // put
-        effect_container.put_or_stack_effect(DurationEffect::new_infinite("aaa", "1", 1.0));
-        effect_container.put_or_stack_effect(DurationEffect::new_infinite("aaa", "2", 1.0));
-        effect_container.put_or_stack_effect(DurationEffect::new_infinite("aaa", "3", 1.0));
+        effect_container.put_or_stack_effect(EffectBuilder::new_infinite("aaa", "1", 1.0));
+        effect_container.put_or_stack_effect(EffectBuilder::new_infinite("aaa", "2", 1.0));
+        effect_container.put_or_stack_effect(EffectBuilder::new_infinite("aaa", "3", 1.0));
         effect_container.refresh_order_keys();
         let mut effect_names = effect_container.keys();
         effect_names.sort();
@@ -171,7 +171,7 @@ mod tests {
         effect.set_max_stack(2);
 
         // stack
-        effect_container.put_or_stack_effect(DurationEffect::new_infinite("bbb", "1", 2.0));
+        effect_container.put_or_stack_effect(EffectBuilder::new_infinite("bbb", "1", 2.0));
         effect_container.refresh_order_keys();
 
         let effect = effect_container.get_effect_mut(&"1").unwrap();

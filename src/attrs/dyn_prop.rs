@@ -9,8 +9,9 @@ use crate::{
     },
     cores::unify_type::FixedName,
     effects::{
-        duration_effect::ProxyDurationEffect, instant_effect::InstantEffect,
-        native_duration::ProxyDuration, native_effect::ProxyEffect,
+        duration_effect::ProxyDurationEffect,
+        native_duration::ProxyDuration,
+        native_effect::{Effect, ProxyEffect},
     },
 };
 
@@ -73,7 +74,7 @@ where
     ///
     /// 无需手动修正属性值
     pub fn use_inst_effect(&mut self, e: DynPropInstEffect<S>) -> f64 {
-        let real_eff = e.convert_real_inst_effect(&self);
+        let real_eff = e.convert_real_effect(&self);
         self.alter_current_value(real_eff)
     }
 
@@ -88,8 +89,7 @@ where
     ///
     /// 而后需 **手动调用** 刷新属性值 [`Self::refresh_value`]
     pub fn put_dur_effect(&mut self, e: DynPropDurEffect<S>) {
-        let target = e.which_target();
-        let attr_eff = e.convert_attr_effect();
+        let (target, attr_eff) = e.convert_attr_effect();
         match target {
             DynPropDurEffectTarget::ForMax => self.put_max_attr_effect(attr_eff),
             DynPropDurEffectTarget::ForMin => self.put_min_attr_effect(attr_eff),
@@ -105,15 +105,14 @@ where
     }
 
     /// 给予一个持久效果的同时自动修改当前值 可外部调用
-    /// 
+    ///
     /// 注意【仅增益效果会修改当前值（如提升最大生命值）】
     ///
     /// 无需手动调用刷新属性值
     pub fn do_put_dur_effect(&mut self, e: DynPropDurEffect<S>) {
-        let some_real_eff = e.gen_real_inst_effect_for_max_buff(self);
-        self.put_dur_effect(e);
+        self.put_dur_effect(e.clone());
         self.refresh_value();
-        if let Some(real_eff) = some_real_eff {
+        if let Some(real_eff) = e.convert_real_effect_for_max_buff(self) {
             self.alter_current_value(real_eff);
         }
     }
@@ -166,7 +165,7 @@ where
                 period_changed = true;
             } else if periods > 0 {
                 let inst_eff = eff.convert_prop_inst_effect(&self);
-                let real_eff = inst_eff.convert_real_inst_effect(&self);
+                let real_eff = inst_eff.convert_real_effect(&self);
                 for _ in 0..periods {
                     self.alter_current_value(real_eff.clone());
                 }
@@ -191,7 +190,7 @@ where
     }
 
     /// 如对血量直接造成伤害 return delta 用于处理护盾逻辑 无需再次刷新
-    fn alter_current_value(&mut self, e: InstantEffect<S>) -> f64 {
+    fn alter_current_value(&mut self, e: Effect<S>) -> f64 {
         let the_old = self.get_current();
         self.current += e.get_value();
         self.fix_current();
@@ -203,14 +202,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::effects::{duration_effect::DurationEffect, native_effect::Effect};
+    use crate::effects::{duration_effect::EffectBuilder, native_effect::Effect};
 
     use super::*;
 
     #[test]
     fn put_dur_effect_each_max_min() {
         let mut prop: DynProp<&str> = DynProp::new_with_max(100.0);
-        prop.put_dur_effect(DynPropDurEffect::new_max_per(DurationEffect::new_infinite(
+        prop.put_dur_effect(DynPropDurEffect::new_max_per(EffectBuilder::new_infinite(
             "from_name",
             "effect_name",
             -0.5,
@@ -220,7 +219,7 @@ mod tests {
         assert_eq!(prop.get_current(), 50.0);
 
         let mut prop: DynProp<&str> = DynProp::new_with_max(100.0);
-        prop.put_dur_effect(DynPropDurEffect::new_max_per(DurationEffect::new_infinite(
+        prop.put_dur_effect(DynPropDurEffect::new_max_per(EffectBuilder::new_infinite(
             "from_name",
             "effect_name",
             0.5,
@@ -230,7 +229,7 @@ mod tests {
         assert_eq!(prop.get_current(), 100.0);
 
         let mut prop: DynProp<&str> = DynProp::new_with_max(100.0);
-        prop.put_dur_effect(DynPropDurEffect::new_max_val(DurationEffect::new_infinite(
+        prop.put_dur_effect(DynPropDurEffect::new_max_val(EffectBuilder::new_infinite(
             "from_name",
             "effect_name",
             -50.0,
@@ -240,12 +239,12 @@ mod tests {
         assert_eq!(prop.get_current(), 50.0);
 
         let mut prop: DynProp<&str> = DynProp::new_with_max(100.0);
-        prop.put_dur_effect(DynPropDurEffect::new_max_val(DurationEffect::new_infinite(
+        prop.put_dur_effect(DynPropDurEffect::new_max_val(EffectBuilder::new_infinite(
             "from_name",
             "effect_name",
             100.0,
         )));
-        prop.put_dur_effect(DynPropDurEffect::new_min_val(DurationEffect::new_infinite(
+        prop.put_dur_effect(DynPropDurEffect::new_min_val(EffectBuilder::new_infinite(
             "from_name",
             "effect_name",
             150.0,
@@ -262,47 +261,62 @@ mod tests {
         let mut prop: DynProp<&str> = DynProp::new_with_max(100.0);
         assert_eq!(prop.get_current(), 100.0);
 
-        prop.use_inst_effect(DynPropInstEffect::new_instant_cur_val(
+        prop.use_inst_effect(DynPropInstEffect::new_cur_val(EffectBuilder::new_instant(
             "someone",
             "effect_name",
             -50.0,
-        ));
+        )));
         assert_eq!(prop.get_current(), 50.0);
 
-        prop.use_inst_effect(DynPropInstEffect::new_instant_cur_val(
+        prop.use_inst_effect(DynPropInstEffect::new_cur_val(EffectBuilder::new_instant(
             "someone",
             "effect_name",
             -50.0,
-        ));
+        )));
         assert_eq!(prop.get_current(), 0.0);
 
-        prop.use_inst_effect(DynPropInstEffect::new_instant_cur_val(
+        prop.use_inst_effect(DynPropInstEffect::new_cur_val(EffectBuilder::new_instant(
             "someone",
             "effect_name",
             -50.0,
-        ));
+        )));
         assert_eq!(prop.get_current(), 0.0);
 
-        prop.use_inst_effect(DynPropInstEffect::new_instant_cur_val(
+        prop.use_inst_effect(DynPropInstEffect::new_cur_val(EffectBuilder::new_instant(
             "someone",
             "effect_name",
             200.0,
-        ));
+        )));
         assert_eq!(prop.get_current(), 100.0);
     }
 
-    
     #[test]
     fn do_put_dur_effect() {
-        todo!("add test for do_put_dur_effect (buff and debuff)")
+        let mut prop: DynProp<&str> = DynProp::new_with_max(50.0);
+        let eff = DynPropDurEffect::new_max_per(EffectBuilder::new_infinite(
+            "from_name",
+            "effect_name1",
+            0.2,
+        ));
+        prop.do_put_dur_effect(eff);
+        assert_eq!(prop.get_current(), 60.0);
+
+        prop.current = 20.0;
+        let eff = DynPropDurEffect::new_max_val(EffectBuilder::new_infinite(
+            "from_name",
+            "effect_name2",
+            10.0,
+        ));
+        prop.do_put_dur_effect(eff);
+        assert_eq!(prop.get_current(), 30.0);
+        assert_eq!(prop.get_max(), 70.0);
     }
-    
 
     #[test]
     fn put_period_effect_each_cur() {
         let mut prop: DynProp<&str> = DynProp::new_with_max(100.0);
         let eff = DynPropPeriodEffect::new_cur_val(
-            DurationEffect::new_infinite("from_name", "effect_name", -10.0),
+            EffectBuilder::new_infinite("from_name", "effect_name", -10.0),
             1.0,
         );
         prop.put_period_effect(eff);
@@ -317,7 +331,7 @@ mod tests {
 
         let mut prop: DynProp<&str> = DynProp::new_with_max(100.0);
         let eff = DynPropPeriodEffect::new_cur_per(
-            DurationEffect::new_infinite("from_name", "effect_name", -0.1),
+            EffectBuilder::new_infinite("from_name", "effect_name", -0.1),
             1.0,
         );
         prop.put_period_effect(eff);
@@ -332,7 +346,7 @@ mod tests {
 
         let mut prop: DynProp<&str> = DynProp::new_with_max(100.0);
         let eff = DynPropPeriodEffect::new_cur_max_per(
-            DurationEffect::new_infinite("from_name", "effect_name", -0.1),
+            EffectBuilder::new_infinite("from_name", "effect_name", -0.1),
             1.0,
         );
         prop.put_period_effect(eff);
@@ -350,7 +364,7 @@ mod tests {
     fn put_period_effect_to_val_near() {
         let mut prop: DynProp<&str> = DynProp::new_with_max(100.0);
         let mut eff = DynPropPeriodEffect::new_cur_val_to_val(
-            DurationEffect::new_infinite("from_name", "effect_name", 9.0),
+            EffectBuilder::new_infinite("from_name", "effect_name", 9.0),
             50.0,
             1.0,
         );
@@ -386,7 +400,7 @@ mod tests {
         let mut prop: DynProp<&str> = DynProp::new_with_max(100.0);
         prop.current = 50.0;
         let eff = DynPropPeriodEffect::new_cur_val_to_val(
-            DurationEffect::new_infinite("from_name", "effect_name", -9.0),
+            EffectBuilder::new_infinite("from_name", "effect_name", -9.0),
             50.0,
             1.0,
         );
@@ -419,13 +433,13 @@ mod tests {
     fn put_period_effect_to_val_twice() {
         let mut prop: DynProp<&str> = DynProp::new_with_max(100.0);
         let eff = DynPropPeriodEffect::new_cur_val_to_val(
-            DurationEffect::new_infinite("from_name", "1", 20.0),
+            EffectBuilder::new_infinite("from_name", "1", 20.0),
             50.0,
             6.0,
         );
         prop.put_period_effect(eff);
         let eff = DynPropPeriodEffect::new_cur_val_to_val(
-            DurationEffect::new_infinite("from_name", "2", 3.0),
+            EffectBuilder::new_infinite("from_name", "2", 3.0),
             10.0,
             1.0,
         );
@@ -479,7 +493,7 @@ mod tests {
     fn restart_for_wait_and_expired_time() {
         let mut prop: DynProp<&str> = DynProp::new_with_max(100.0);
         let mut eff = DynPropPeriodEffect::new_cur_val(
-            DurationEffect::new_duration("from_name", "1", -10.0, 10.0),
+            EffectBuilder::new_duration("from_name", "1", -10.0, 10.0),
             1.0,
         );
         eff.set_wait_time(5.0);
@@ -511,7 +525,7 @@ mod tests {
 
         // new one
         let mut eff = DynPropPeriodEffect::new_cur_val(
-            DurationEffect::new_duration("from_name", "1", -10.0, 5.0),
+            EffectBuilder::new_duration("from_name", "1", -10.0, 5.0),
             1.0,
         );
         eff.set_wait_time(2.0);
@@ -547,7 +561,7 @@ mod tests {
     fn put_for_stack() {
         let mut prop: DynProp<&str> = DynProp::new_with_max(100.0);
         let mut eff = DynPropPeriodEffect::new_cur_val(
-            DurationEffect::new_infinite("from_name", "1", -1.0),
+            EffectBuilder::new_infinite("from_name", "1", -1.0),
             1.0,
         );
         eff.set_max_stack(3);
@@ -558,7 +572,7 @@ mod tests {
         assert_eq!(prop.get_current(), 99.0); // -1
 
         prop.put_period_effect(DynPropPeriodEffect::new_cur_val(
-            DurationEffect::new_infinite("from_name", "1", -1.0),
+            EffectBuilder::new_infinite("from_name", "1", -1.0),
             1.0,
         ));
         prop.refresh_period_effect();
@@ -566,7 +580,7 @@ mod tests {
         assert_eq!(prop.get_current(), 97.0); // -2
 
         prop.put_period_effect(DynPropPeriodEffect::new_cur_val(
-            DurationEffect::new_infinite("from_name", "1", -1.0),
+            EffectBuilder::new_infinite("from_name", "1", -1.0),
             1.0,
         ));
         prop.refresh_period_effect();
@@ -574,7 +588,7 @@ mod tests {
         assert_eq!(prop.get_current(), 94.0); // -3
 
         prop.put_period_effect(DynPropPeriodEffect::new_cur_val(
-            DurationEffect::new_infinite("from_name", "1", -1.0),
+            EffectBuilder::new_infinite("from_name", "1", -1.0),
             1.0,
         ));
         prop.refresh_period_effect();
