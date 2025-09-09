@@ -24,14 +24,6 @@ impl<S: FixedName> DynAttr<S> {
         }
     }
 
-    pub fn new_with_current(v: f64, current: f64) -> Self {
-        Self {
-            origin: v,
-            current: current,
-            effects: EffectContainer::new(),
-        }
-    }
-
     pub fn get_origin(&self) -> f64 {
         self.origin
     }
