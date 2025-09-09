@@ -16,6 +16,7 @@ use crate::{
 };
 
 /// dynamic_property 属性 一般用作角色资源槽 可被效果影响
+#[derive(Debug)]
 pub struct DynProp<S: FixedName = String> {
     the_min: DynAttr<S>,
     the_max: DynAttr<S>,

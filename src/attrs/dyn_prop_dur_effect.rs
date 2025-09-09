@@ -21,7 +21,7 @@ pub(crate) enum DynPropDurEffectTarget {
 ///
 /// 若想修改最大值的同时修改当前值，同时赋予持久和瞬时效果即可；
 /// 因为最大值的修改仅限于基础值，与其他效果互不影响，因此修改的值是绝对的。
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum DynPropDurEffectType {
     /// 修改最大值
     MaxVal,
@@ -32,7 +32,7 @@ pub enum DynPropDurEffectType {
 }
 
 /// prop属性持久效果 包括直接作用于最大最小值的效果 还有特殊效果如持续流血回蓝等
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DynPropDurEffect<S = String> {
     pub(crate) the_type: DynPropDurEffectType,
     pub(crate) effect: Effect<S>,

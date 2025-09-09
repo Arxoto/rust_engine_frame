@@ -12,7 +12,7 @@ use crate::{
 };
 
 /// prop属性周期效果的类型
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum DynPropPeriodEffectType {
     /// 持续修改当前值
     CurVal,
@@ -25,7 +25,7 @@ pub enum DynPropPeriodEffectType {
     CurValToVal(f64),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DynPropPeriodEffect<S = String> {
     pub(crate) the_type: DynPropPeriodEffectType,
     pub(crate) effect: Effect<S>,

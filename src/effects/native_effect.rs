@@ -1,5 +1,5 @@
 /// 效果描述 不实现具体效果
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct Effect<S> {
     /// 效果名称
     pub(crate) effect_name: S,

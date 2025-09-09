@@ -34,7 +34,7 @@ mod tests {
 
     /// same as [`FixedName`]
     #[derive(PartialEq, Hash, Eq, Clone)]
-    pub struct FixedNameWrapper(AnyType);
+    pub struct FixedNameWrapper(pub AnyType);
 
     impl From<AnyType> for FixedNameWrapper {
         fn from(value: AnyType) -> Self {

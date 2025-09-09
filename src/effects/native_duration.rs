@@ -1,5 +1,5 @@
 /// 效果持续方式
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Duration {
     /// 存在计时
     pub(crate) life_time: f64,

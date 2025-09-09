@@ -8,6 +8,7 @@ use crate::{
 };
 
 /// dynamic_attribute 属性 一般用作角色属性值 可被效果影响
+#[derive(Debug)]
 pub struct DynAttr<S: FixedName = String> {
     origin: f64,
     current: f64,
@@ -19,6 +20,14 @@ impl<S: FixedName> DynAttr<S> {
         Self {
             origin: v,
             current: v,
+            effects: EffectContainer::new(),
+        }
+    }
+
+    pub fn new_with_current(v: f64, current: f64) -> Self {
+        Self {
+            origin: v,
+            current: current,
             effects: EffectContainer::new(),
         }
     }

@@ -5,7 +5,7 @@ use crate::{
 };
 
 /// prop属性瞬时效果的类型
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum DynPropInstEffectType {
     /// 直接修改当前值
     CurVal,
@@ -16,7 +16,7 @@ pub enum DynPropInstEffectType {
 }
 
 /// prop属性瞬时效果 一般用作扣血蓝耗等
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DynPropInstEffect<S = String> {
     pub(crate) the_type: DynPropInstEffectType,
     pub(crate) effect: Effect<S>,

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{cores::unify_type::FixedName, effects::duration_effect::ProxyDurationEffect};
 
 /// 持久效果的容器 key是效果名称
+#[derive(Debug)]
 pub struct EffectContainer<S, E>
 where
     S: FixedName,

@@ -61,7 +61,7 @@ pub trait ProxyDurationEffect<S: Clone>: ProxyEffect<S> + ProxyDuration {
 
 // =================================================================================
 
-type DurationEffect<S> = (Effect<S>, Duration);
+pub type DurationEffect<S> = (Effect<S>, Duration);
 
 impl<S> ProxyEffect<S> for DurationEffect<S> {
     fn as_effect(&self) -> &Effect<S> {

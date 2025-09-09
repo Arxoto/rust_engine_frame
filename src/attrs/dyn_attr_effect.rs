@@ -8,7 +8,7 @@ use crate::{
 };
 
 /// Attr属性效果的类型
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum DynAttrEffectType {
     /// 基础加法（描述参考：基础伤害增加xx）
     BasicAdd,
@@ -22,7 +22,7 @@ pub enum DynAttrEffectType {
 }
 
 /// Attr属性效果（周期性触发时堆叠效果）
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DynAttrEffect<S = String> {
     pub(crate) the_type: DynAttrEffectType,
     pub(crate) effect: Effect<S>,
