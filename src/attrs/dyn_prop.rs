@@ -99,6 +99,26 @@ impl<S: FixedName> DynProp<S> {
         self.the_min.del_effect(s);
     }
 
+    /// 获取当前所有的针对 max 的持久效果名称
+    pub fn get_max_dur_effect_names(&self) -> Vec<S> {
+        self.the_max.get_effect_names()
+    }
+
+    /// 根据名称获取当前针对 max 的持久效果名称
+    pub fn get_max_dur_effect_by_name(&self, s: &S) -> Option<DynAttrEffect<S>> {
+        self.the_max.get_effect_by_name(s)
+    }
+
+    /// 获取当前所有的针对 min 的持久效果名称
+    pub fn get_min_dur_effect_names(&self) -> Vec<S> {
+        self.the_min.get_effect_names()
+    }
+
+    /// 根据名称获取当前针对 min 的持久效果名称
+    pub fn get_min_dur_effect_by_name(&self, s: &S) -> Option<DynAttrEffect<S>> {
+        self.the_min.get_effect_by_name(s)
+    }
+
     /// 给予一个持久效果的同时自动修改当前值 可外部调用
     ///
     /// 注意【仅增益效果会修改当前值（如提升最大生命值）】
@@ -140,8 +160,22 @@ impl<S: FixedName> DynProp<S> {
         }
     }
 
+    /// 获取当前所有的周期效果名称
+    pub fn get_period_effect_names(&self) -> Vec<S> {
+        self.period_effects.keys()
+    }
+
+    /// 根据名称获取当前周期效果
+    pub fn get_period_effect_by_name(&self, s: &S) -> Option<DynPropPeriodEffect<S>> {
+        self.period_effects.get_effect(s).cloned()
+    }
+
     // todo 支持触发型效果
     // /// 当占比小于【一定比率】时 自动修改当前值 （用于斩杀或救命）
+    // todo 是否应该将多个prop聚合成一个 如血量和护盾的关系
+    // 优点 能在框架内进行测试验证
+    // 优点 做触发效果时较为内聚（思考如何实现，是否基于游戏引擎去解耦开，传入或返回一个闭包）
+    // 缺点 不同类型的伤害护盾计算逻辑可能需要在框架写死（致命）
 
     /// 无需手动刷新属性值
     pub fn process_time(&mut self, delta: f64) {
@@ -319,6 +353,7 @@ mod tests {
         );
         prop.put_period_effect(eff);
         prop.refresh_period_effect();
+        assert_eq!(prop.get_period_effect_names().iter().count(), 1);
         assert_eq!(prop.get_current(), 100.0);
         prop.process_time(0.5);
         assert_eq!(prop.get_current(), 100.0);
@@ -558,10 +593,8 @@ mod tests {
     #[test]
     fn put_for_stack() {
         let mut prop: DynProp = DynProp::new_by_max(100.0);
-        let mut eff = DynPropPeriodEffect::new_val(
-            EffectBuilder::new_infinite("from_name", "1", -1.0),
-            1.0,
-        );
+        let mut eff =
+            DynPropPeriodEffect::new_val(EffectBuilder::new_infinite("from_name", "1", -1.0), 1.0);
         eff.set_max_stack(3);
         prop.put_period_effect(eff);
         prop.refresh_period_effect();

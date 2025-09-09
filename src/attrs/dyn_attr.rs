@@ -59,6 +59,16 @@ impl<S: FixedName> DynAttr<S> {
         self.effects.del_effect(s);
     }
 
+    /// 获取当前所有的周期效果名称
+    pub fn get_effect_names(&self) -> Vec<S> {
+        self.effects.keys()
+    }
+
+    /// 根据名称获取当前周期效果
+    pub fn get_effect_by_name(&self, s: &S) -> Option<DynAttrEffect<S>> {
+        self.effects.get_effect(s).cloned()
+    }
+
     /// 无需手动刷新属性
     pub fn process_time(&mut self, delta: f64) {
         let mut changed = false;
