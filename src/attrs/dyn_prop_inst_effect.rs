@@ -8,11 +8,14 @@ use crate::{
 #[derive(Clone, Copy, Debug)]
 pub enum DynPropInstEffectType {
     /// 直接修改当前值
-    CurVal,
-    /// 根据当前值的百分比修改当前值
+    Val,
+    /// 根据当前值的百分比 修改当前值
     CurPer,
-    /// 根据最大值的百分比修改当前值
-    CurMaxPer,
+    /// 根据最大值的百分比 修改当前值
+    MaxPer,
+    // todo
+    // /// 根据差值的百分比 修改当前值 （最大值越多修改越明显）
+    // DeltaPer,
 }
 
 /// prop属性瞬时效果 一般用作扣血蓝耗等
@@ -34,12 +37,12 @@ impl<S: FixedName> DynPropInstEffect<S> {
             mut effect,
         } = self;
         match the_type {
-            DynPropInstEffectType::CurVal => effect,
+            DynPropInstEffectType::Val => effect,
             DynPropInstEffectType::CurPer => {
                 effect.value *= prop.get_current();
                 effect
             }
-            DynPropInstEffectType::CurMaxPer => {
+            DynPropInstEffectType::MaxPer => {
                 effect.value *= prop.get_max();
                 effect
             }
@@ -71,16 +74,16 @@ mod tests {
         #[test]
         fn test_nature_tips() {
             let types = vec![
-                DynPropInstEffectType::CurVal,
+                DynPropInstEffectType::Val,
                 DynPropInstEffectType::CurPer,
-                DynPropInstEffectType::CurMaxPer,
+                DynPropInstEffectType::MaxPer,
             ];
 
             fn get_base_line(the_type: &DynPropInstEffectType) -> f64 {
                 match the_type {
-                    DynPropInstEffectType::CurVal => 0.0,
+                    DynPropInstEffectType::Val => 0.0,
                     DynPropInstEffectType::CurPer => 0.0,
-                    DynPropInstEffectType::CurMaxPer => 0.0,
+                    DynPropInstEffectType::MaxPer => 0.0,
                 }
             }
 

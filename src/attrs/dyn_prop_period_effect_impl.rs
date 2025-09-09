@@ -5,16 +5,16 @@ use crate::{
 };
 
 impl<S: FixedName> DynPropPeriodEffect<S> {
-    pub fn new_cur_val(effect: (Effect<S>, Duration), period_time: f64) -> Self {
-        Self::new(DynPropPeriodEffectType::CurVal, effect, period_time)
+    pub fn new_val(effect: (Effect<S>, Duration), period_time: f64) -> Self {
+        Self::new(DynPropPeriodEffectType::Val, effect, period_time)
     }
 
     pub fn new_cur_per(effect: (Effect<S>, Duration), period_time: f64) -> Self {
         Self::new(DynPropPeriodEffectType::CurPer, effect, period_time)
     }
 
-    pub fn new_cur_max_per(effect: (Effect<S>, Duration), period_time: f64) -> Self {
-        Self::new(DynPropPeriodEffectType::CurMaxPer, effect, period_time)
+    pub fn new_max_per(effect: (Effect<S>, Duration), period_time: f64) -> Self {
+        Self::new(DynPropPeriodEffectType::MaxPer, effect, period_time)
     }
 
     pub fn new_cur_val_to_val(

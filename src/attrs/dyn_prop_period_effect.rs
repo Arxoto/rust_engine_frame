@@ -15,11 +15,11 @@ use crate::{
 #[derive(Clone, Copy, Debug)]
 pub enum DynPropPeriodEffectType {
     /// 持续修改当前值
-    CurVal,
+    Val,
     /// 持续百分比地增加当前值
     CurPer,
     /// 持续根据最大值的百分比修改当前值
-    CurMaxPer,
+    MaxPer,
 
     /// 中性效果 使当前值逐渐逼近特定值 注意当效果值为负数时会不断远离
     CurValToVal(f64),
@@ -83,11 +83,11 @@ impl<S: FixedName> DynPropPeriodEffect<S> {
         let eff_value = self.effect.get_value() * (self.duration.get_stack() as f64);
 
         let (the_type, real_value) = match self.the_type {
-            DynPropPeriodEffectType::CurVal => (DynPropInstEffectType::CurVal, eff_value),
+            DynPropPeriodEffectType::Val => (DynPropInstEffectType::Val, eff_value),
             DynPropPeriodEffectType::CurPer => (DynPropInstEffectType::CurPer, eff_value),
-            DynPropPeriodEffectType::CurMaxPer => (DynPropInstEffectType::CurMaxPer, eff_value),
+            DynPropPeriodEffectType::MaxPer => (DynPropInstEffectType::MaxPer, eff_value),
             DynPropPeriodEffectType::CurValToVal(to_val) => (
-                DynPropInstEffectType::CurVal,
+                DynPropInstEffectType::Val,
                 move_toward_delta(prop.get_current(), to_val, eff_value),
             ),
         };
@@ -167,17 +167,17 @@ mod tests {
     #[test]
     fn test_nature_tips() {
         let types = vec![
-            DynPropPeriodEffectType::CurVal,
+            DynPropPeriodEffectType::Val,
             DynPropPeriodEffectType::CurPer,
-            DynPropPeriodEffectType::CurMaxPer,
+            DynPropPeriodEffectType::MaxPer,
             DynPropPeriodEffectType::CurValToVal(0.0),
         ];
 
         fn get_base_line(the_type: &DynPropPeriodEffectType) -> f64 {
             match the_type {
-                DynPropPeriodEffectType::CurVal => 0.0,
+                DynPropPeriodEffectType::Val => 0.0,
                 DynPropPeriodEffectType::CurPer => 0.0,
-                DynPropPeriodEffectType::CurMaxPer => 0.0,
+                DynPropPeriodEffectType::MaxPer => 0.0,
                 DynPropPeriodEffectType::CurValToVal(_) => f64::MAX,
             }
         }
