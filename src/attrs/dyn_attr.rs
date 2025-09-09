@@ -8,7 +8,7 @@ use crate::{
 };
 
 /// dynamic_attribute 属性 一般用作角色属性值 可被效果影响
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DynAttr<S: FixedName = String> {
     origin: f64,
     current: f64,

@@ -15,18 +15,28 @@ where
     next_order: usize,
 }
 
-impl<S, E> EffectContainer<S, E>
+impl<S, E> Default for EffectContainer<S, E>
 where
     S: FixedName,
     E: ProxyDurationEffect<S>,
 {
-    pub fn new() -> Self {
+    fn default() -> Self {
         Self {
             effects: HashMap::new(),
             key_order_map: HashMap::new(),
             next_order: 0,
             sorted_keys: Vec::new(),
         }
+    }
+}
+
+impl<S, E> EffectContainer<S, E>
+where
+    S: FixedName,
+    E: ProxyDurationEffect<S>,
+{
+    pub fn new() -> Self {
+        Default::default()
     }
 
     /// put 时更新 [`Self::key_order_map`] 和 [`Self::next_order`]
