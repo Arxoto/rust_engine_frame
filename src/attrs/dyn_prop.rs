@@ -3,6 +3,7 @@ use crate::{
         dyn_attr::DynAttr,
         dyn_attr_effect::DynAttrEffect,
         dyn_prop_dur_effect::{DynPropDurEffect, DynPropDurEffectTarget},
+        dyn_prop_event::{DynPropEvent, OnCurrentMin},
         dyn_prop_inst_effect::DynPropInstEffect,
         dyn_prop_period_effect::DynPropPeriodEffect,
         effect_container::EffectContainer,
@@ -63,6 +64,7 @@ impl<S: FixedName> DynProp<S> {
     fn fix_current(&mut self) {
         self.current = self.current.min(self.get_max());
         self.current = self.current.max(self.get_min());
+        // event force_to_max force_to_min
     }
 
     /// 瞬时效果 返回对当前值的修改值 如造成伤害时处理护盾血量逻辑
@@ -228,15 +230,52 @@ impl<S: FixedName> DynProp<S> {
         self.fix_current();
         self.get_current() - the_old
     }
+
+    /// just for test
+    fn test_alter_current_value<F1: OnCurrentMin>(
+        &mut self,
+        e: Effect<S>,
+        event: &mut DynPropEvent<F1>,
+    ) -> f64 {
+        let the_old = self.get_current();
+        self.current += e.get_value();
+        self.fix_current();
+        if let Some(notice) = &mut event.on_current_min {
+            if self.get_current() == self.get_min() {
+                notice();
+            }
+        }
+        self.get_current() - the_old
+    }
 }
 
 // =================================================================================
 
 #[cfg(test)]
 mod tests {
+    use std::cell::Cell;
+
     use crate::effects::{duration_effect::EffectBuilder, native_effect::Effect};
 
     use super::*;
+
+    #[test]
+    fn test_func() {
+        let mut prop: DynProp = DynProp::new_by_max(10.0);
+        let eff = Effect::new("from_name", "effect_name", -5.0);
+
+        let mut count = Cell::new(0);
+        let mut event = DynPropEvent::default();
+        event.on_current_min = Some(|| {
+            *count.get_mut() += 1;
+        });
+
+        for _ in 0..5 {
+            prop.test_alter_current_value(eff.clone(), &mut event);
+        }
+
+        assert_eq!(count.get(), 4); // 第一次结果是5 第二次及以后是0 因此触发4次
+    }
 
     #[test]
     fn put_dur_effect_each_max_min() {
