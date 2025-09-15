@@ -1,8 +1,12 @@
 // Trait Alias 简化复杂的 trait 约束，提高代码可读性和一致性
 pub trait FixedName: Eq + std::hash::Hash + Clone {}
 
+pub trait FixedString: Eq + std::hash::Hash + Clone {}
+
 impl FixedName for String {}
 impl FixedName for &str {}
+impl FixedString for String {}
+impl FixedString for &str {}
 
 #[cfg(test)]
 mod tests {

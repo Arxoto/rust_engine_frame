@@ -6,3 +6,6 @@ pub mod effects;
 
 // Damage
 pub mod damage;
+
+// Action Component
+pub mod movements;
