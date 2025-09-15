@@ -1,3 +1,4 @@
+// Trait Alias 简化复杂的 trait 约束，提高代码可读性和一致性
 pub trait FixedName: Eq + std::hash::Hash + Clone {}
 
 impl FixedName for String {}
@@ -9,6 +10,8 @@ mod tests {
 
     // define in lib
 
+    // New Type 创建有明确语义的新类型，增强类型安全性和封装性
+    // 这里使用 New Type 来为其他crate的类型实现 Trait Alias 绕过孤儿原则
     pub struct FixedNameBox<S: FixedName> {
         the_name: S,
     }

@@ -1,21 +1,6 @@
-pub trait OnCurrentMin: FnMut() {}
-impl<T: FnMut()> OnCurrentMin for T {}
+//! 动态属性 property 的响应事件类型
 
-#[derive(Debug)]
-pub struct DynPropEvent<F1>
-where
-    F1: OnCurrentMin,
-{
-    pub on_current_min: Option<F1>,
-}
+use crate::{cores::unify_type::FixedName, effects::native_effect::Effect};
 
-impl<F1> Default for DynPropEvent<F1>
-where
-    F1: OnCurrentMin,
-{
-    fn default() -> Self {
-        Self {
-            on_current_min: None,
-        }
-    }
-}
+pub trait OnceCurMin<S: FixedName>: FnMut(&Effect<S>) {}
+impl<S: FixedName, T: FnMut(&Effect<S>)> OnceCurMin<S> for T {}

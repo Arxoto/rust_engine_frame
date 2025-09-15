@@ -3,7 +3,7 @@ use crate::{
         dyn_attr::DynAttr,
         dyn_attr_effect::DynAttrEffect,
         dyn_prop_dur_effect::{DynPropDurEffect, DynPropDurEffectTarget},
-        dyn_prop_event::{DynPropEvent, OnCurrentMin},
+        dyn_prop_event::OnceCurMin,
         dyn_prop_inst_effect::DynPropInstEffect,
         dyn_prop_period_effect::DynPropPeriodEffect,
         effect_container::EffectContainer,
@@ -72,7 +72,7 @@ impl<S: FixedName> DynProp<S> {
     /// 无需手动修正属性值
     pub fn use_inst_effect(&mut self, e: DynPropInstEffect<S>) -> f64 {
         let real_eff = e.convert_real_effect(&self);
-        self.alter_current_value(real_eff)
+        self.alter_current_value(&real_eff)
     }
 
     /// 对 max 或 min 装载了效果后 需要刷新以应用
@@ -130,7 +130,7 @@ impl<S: FixedName> DynProp<S> {
         self.put_dur_effect(e.clone());
         self.refresh_value();
         if let Some(real_eff) = e.convert_real_effect_for_max_buff(self) {
-            self.alter_current_value(real_eff);
+            self.alter_current_value(&real_eff);
         }
     }
 
@@ -201,7 +201,7 @@ impl<S: FixedName> DynProp<S> {
                 let inst_eff = eff.convert_prop_inst_effect(&self);
                 let real_eff = inst_eff.convert_real_effect(&self);
                 for _ in 0..periods {
-                    self.alter_current_value(real_eff.clone());
+                    self.alter_current_value(&real_eff);
                 }
             }
         }
@@ -224,7 +224,7 @@ impl<S: FixedName> DynProp<S> {
     }
 
     /// 如对血量直接造成伤害 return delta 用于处理护盾逻辑 无需再次刷新
-    fn alter_current_value(&mut self, e: Effect<S>) -> f64 {
+    fn alter_current_value(&mut self, e: &Effect<S>) -> f64 {
         let the_old = self.get_current();
         self.current += e.get_value();
         self.fix_current();
@@ -232,20 +232,23 @@ impl<S: FixedName> DynProp<S> {
     }
 
     /// just for test
-    fn test_alter_current_value<F1: OnCurrentMin>(
+    fn test_alter_current_value<F1: OnceCurMin<S>>(
         &mut self,
-        e: Effect<S>,
-        event: &mut DynPropEvent<F1>,
+        e: &Effect<S>,
+        once_cur_min: Option<&mut F1>,
     ) -> f64 {
         let the_old = self.get_current();
         self.current += e.get_value();
         self.fix_current();
-        if let Some(notice) = &mut event.on_current_min {
-            if self.get_current() == self.get_min() {
-                notice();
+        let the_new = self.get_current();
+        let the_delta = the_new - the_old;
+
+        if let Some(notify) = once_cur_min {
+            if the_delta < 0.0 && the_new == self.get_min() {
+                notify(e);
             }
         }
-        self.get_current() - the_old
+        the_delta
     }
 }
 
@@ -253,7 +256,6 @@ impl<S: FixedName> DynProp<S> {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::Cell;
 
     use crate::effects::{duration_effect::EffectBuilder, native_effect::Effect};
 
@@ -262,19 +264,19 @@ mod tests {
     #[test]
     fn test_func() {
         let mut prop: DynProp = DynProp::new_by_max(10.0);
-        let eff = Effect::new("from_name", "effect_name", -5.0);
 
-        let mut count = Cell::new(0);
-        let mut event = DynPropEvent::default();
-        event.on_current_min = Some(|| {
-            *count.get_mut() += 1;
-        });
+        let mut count = "".to_string();
 
-        for _ in 0..5 {
-            prop.test_alter_current_value(eff.clone(), &mut event);
+        for i in 0..5 {
+            prop.test_alter_current_value(
+                &Effect::new(format!("from_name-{}", i), "effect_name".to_string(), -4.6),
+                Some(&mut |eff| {
+                    count = eff.get_from_name().to_string();
+                }),
+            );
         }
 
-        assert_eq!(count.get(), 4); // 第一次结果是5 第二次及以后是0 因此触发4次
+        assert_eq!(count, "from_name-2"); // killed by
     }
 
     #[test]
