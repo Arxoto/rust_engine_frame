@@ -19,7 +19,7 @@ pub struct Action<S: FixedString, PhysicalEffect: Copy> {
     pub movement_keep: HashSet<MovementMode>,
 
     /// 退出逻辑与下一个动作
-    pub exit_logic_and_next_action: HashMap<ActionExitLogic, S>,
+    pub exit_logic_and_next_action: Vec<(ActionExitLogic, S)>,
     /// 指令与信号触发的下一个动作
     pub trigger_to_next_action: HashMap<ActionTrigger, S>,
 
@@ -48,25 +48,14 @@ impl From<bool> for ActionCanCover {
     }
 }
 
-// #[derive(Clone, Copy, Debug)]
-// pub struct ActionShouldForceStop(pub bool);
-
-// impl From<bool> for ActionShouldForceStop {
-//     fn from(value: bool) -> Self {
-//         Self(value)
-//     }
-// }
-
 impl<S: FixedString, P: Copy> Action<S, P> {
     pub fn new_empty(action_name: S, anim_first: S) -> Self {
-        // 兼容全部运动模式
-        let movement_modes = MovementMode::gen_set();
         Self {
             action_name,
             trigger: Vec::new(),
-            movement_modes,
-            movement_keep: HashSet::new(), // 因为兼容全部所以不用额外设置保持
-            exit_logic_and_next_action: HashMap::new(),
+            movement_modes: MovementMode::gen_set(), // 兼容全部运动模式
+            movement_keep: HashSet::new(),           // 因为兼容全部所以不用额外设置保持
+            exit_logic_and_next_action: Vec::new(),
             trigger_to_next_action: HashMap::new(),
             action_priority: 0,
             action_switch_relation: HashMap::new(),
@@ -77,23 +66,23 @@ impl<S: FixedString, P: Copy> Action<S, P> {
         }
     }
 
-    pub fn should_trigger_when_movement(&self, movement_mode: &MovementMode) -> bool {
+    pub fn can_trigger_when_movement(&self, movement_mode: &MovementMode) -> bool {
         self.movement_modes.contains(movement_mode)
     }
 
     pub fn should_force_stop_by_movement(&self, movement_mode: &MovementMode) -> bool {
         if self.movement_modes.contains(movement_mode) {
-            true
-        } else if self.movement_keep.contains(movement_mode) {
-            true
-        } else {
             false
+        } else if self.movement_keep.contains(movement_mode) {
+            false
+        } else {
+            true
         }
     }
 
-    /// return None if should not exit
-    pub fn should_exit_to_next_action(&self, exit_logic: &ActionExitLogic) -> Option<&S> {
-        self.exit_logic_and_next_action.get(exit_logic)
+    /// 调用方去迭代 exit_logic
+    pub fn exit_logic_slice(&self) -> &[(ActionExitLogic, S)] {
+        &self.exit_logic_and_next_action
     }
 
     /// return None if should not trigger other action
@@ -125,5 +114,69 @@ impl<S: FixedString, P: Copy> Action<S, P> {
 
     pub fn get_physics_effect_by_trigger(&self, trigger: &ActionTrigger) -> Option<P> {
         self.trigger_physics.get(trigger).copied()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn gen_for_test() -> Action<String, (f64, f64)> {
+        Action {
+            action_name: "attack".to_string(),
+            trigger: Vec::from([ActionTrigger::AttackInstruction]),
+            movement_modes: HashSet::from([MovementMode::OnFloor, MovementMode::InAir]),
+            movement_keep: HashSet::from([MovementMode::UnderWater]),
+            exit_logic_and_next_action: Vec::from([
+                (ActionExitLogic::AnimFinished, "idle".to_string()),
+                (ActionExitLogic::WantMove(0.6), "move".to_string()),
+            ]),
+            trigger_to_next_action: HashMap::from([
+                (ActionTrigger::AttackInstruction, "double_atk".to_string()),
+                (ActionTrigger::JumpInstruction, "jump_atk".to_string()),
+            ]),
+            action_priority: 1,
+            action_switch_relation: HashMap::from([
+                ("be_knocked_down".to_string(), true.into()),
+                ("burning".to_string(), false.into()), // 燃烧
+            ]),
+            anim_first: "attack_begin".to_string(),
+            anim_next: HashMap::from([
+                ("attack_begin".to_string(), "attack_middle".to_string()),
+                ("attack_middle".to_string(), "attack_end".to_string()),
+            ]),
+            anim_physics: HashMap::from([
+                ("attack_begin".to_string(), (1.0, 0.0)),
+                ("attack_middle".to_string(), (1.0, 0.0)),
+                ("attack_end".to_string(), (1.0, 0.0)),
+            ]),
+            trigger_physics: HashMap::from([(ActionTrigger::JumpInstruction, (0.0, 5.0))]),
+        }
+    }
+
+    #[test]
+    fn test_func() {
+        let test_action = gen_for_test();
+
+        assert!(test_action.can_trigger_when_movement(&MovementMode::OnFloor));
+        assert!(!test_action.can_trigger_when_movement(&MovementMode::UnderWater));
+
+        assert!(!test_action.should_force_stop_by_movement(&MovementMode::InAir));
+        assert!(test_action.should_force_stop_by_movement(&MovementMode::ClimbWall));
+
+        let res = test_action.should_trigger_to_next_action(&ActionTrigger::AttackInstruction);
+        assert_eq!(res.unwrap(), &"double_atk".to_string());
+        let res = test_action.should_trigger_to_next_action(&ActionTrigger::DodgeInstruction);
+        assert_eq!(res, None);
+
+        // by action_priority
+        let empty_action = Action::new_empty("tmp".to_string(), "tmp".to_string());
+        assert!(!test_action.should_switch_other_action(&empty_action));
+        // by can_cover
+        let mut test2 = gen_for_test();
+        test2.action_name = "be_knocked_down".to_string();
+        assert!(test_action.should_switch_other_action(&test2));
+        test2.action_name = "burning".to_string();
+        assert!(!test_action.should_switch_other_action(&test2));
     }
 }

@@ -24,12 +24,36 @@ impl MovementMode {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum ActionExitLogic {}
+#[derive(Clone, Copy, Debug)]
+pub enum ActionExitLogic {
+    /// 动画结束播放
+    AnimFinished,
+    /// 移动 多长时间后才可取消后摇
+    WantMove(f64),
+}
+
+impl ActionExitLogic {
+    pub fn gen_list() -> &'static [ActionExitLogic] {
+        &[ActionExitLogic::AnimFinished]
+    }
+}
 
 /// Instruction or Signal
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum ActionTrigger {}
+pub enum ActionTrigger {
+    /// 跳跃指令
+    JumpInstruction,
+    /// 闪避指令
+    DodgeInstruction,
+    /// 攻击指令
+    AttackInstruction,
+    /// 防御指令
+    DefenceInstruction,
+    /// 命中对方
+    HitSignal,
+    /// 被命中
+    BeHitSignal,
+}
 
 #[cfg(test)]
 mod tests {
@@ -49,5 +73,20 @@ mod tests {
             }
         }
         assert_eq!(count, the_set.iter().count());
+    }
+
+    /// 什么都不做 仅用于确保生成的集合附带全量类型
+    #[test]
+    fn test_exit_logic() {
+        let mut count = 0;
+        let exit_logic_list = ActionExitLogic::gen_list();
+        for ele in exit_logic_list.iter() {
+            match ele {
+                ActionExitLogic::AnimFinished => count += 1,
+                ActionExitLogic::WantMove(_) => count += 1,
+            }
+        }
+
+        assert_eq!(count, exit_logic_list.iter().count());
     }
 }
