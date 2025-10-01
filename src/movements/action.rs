@@ -4,11 +4,11 @@ use crate::cores::unify_type::FixedString;
 
 /// 动作 纯数据 实现固定效果
 #[derive(Clone, Debug)]
-pub struct Action<S, Event, ExitParam, ExitLogic, PhyEff>
+pub struct Action<S, Event, ExitLogic, PhyEff>
 where
     S: FixedString,
     Event: Clone + std::fmt::Debug + Eq + std::hash::Hash + PartialEq,
-    ExitLogic: ActionExitLogic<ExitParam> + Clone + std::fmt::Debug,
+    ExitLogic: ActionExitLogic + Clone + std::fmt::Debug,
 {
     /// 动作名称
     pub action_name: S,
@@ -35,13 +35,17 @@ where
     pub anim_physics: HashMap<S, PhyEff>,
     /// 事件响应时的物理效果
     pub trigger_physics: HashMap<Event, PhyEff>,
-
-    // 让编译器以为使用了该泛型 零成本
+    /*
+    // ActionExitLogic 的参数使用【泛型方式】去实现的话需要如下实现
+    // 若使用【关联类型】去实现（当前选择这个方案） 则无需这样做
+    // 让编译器以为使用了该泛型 零成本 （实例化时直接 `_marker: std::marker::PhantomData,` ）
     _marker: std::marker::PhantomData<ExitParam>,
+     */
 }
 
-pub trait ActionExitLogic<ExitParam> {
-    fn should_exit(p: &ExitParam) -> bool;
+pub trait ActionExitLogic {
+    type ExitParam;
+    fn should_exit(p: &Self::ExitParam) -> bool;
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -53,18 +57,16 @@ impl From<bool> for ActionCanCover {
     }
 }
 
-impl<S, Event, ExitParam, ExitLogic, PhyEff> Action<S, Event, ExitParam, ExitLogic, PhyEff>
+impl<S, Event, ExitLogic, PhyEff> Action<S, Event, ExitLogic, PhyEff>
 where
     S: FixedString,
     Event: Clone + std::fmt::Debug + Eq + std::hash::Hash + PartialEq,
-    ExitLogic: ActionExitLogic<ExitParam> + Clone + std::fmt::Debug,
+    ExitLogic: ActionExitLogic + Clone + std::fmt::Debug,
 {
     pub fn new_empty(action_name: S, anim_first: S) -> Self {
         Self {
             action_name,
             trigger: Vec::new(),
-            // movement_modes: MovementMode::gen_set(), // 兼容全部运动模式
-            // movement_keep: HashSet::new(),           // 因为兼容全部所以不用额外设置保持
             tick_to_next_action: Vec::new(),
             trigger_to_next_action: HashMap::new(),
             action_priority: 0,
@@ -73,7 +75,6 @@ where
             anim_next: HashMap::new(),
             anim_physics: HashMap::new(),
             trigger_physics: HashMap::new(),
-            _marker: std::marker::PhantomData,
         }
     }
 
@@ -116,12 +117,19 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::movements::action_impl::{ActionBaseExitLogic, ActionBaseEvent};
+    use crate::movements::action_impl::{ActionBaseEvent, ActionBaseExitLogic};
 
     use super::*;
 
-    fn gen_for_test()
-    -> Action<&'static str, ActionBaseEvent, bool, ActionBaseExitLogic, (f64, f64)> {
+    impl ActionExitLogic for ActionBaseExitLogic {
+        type ExitParam = bool;
+
+        fn should_exit(p: &Self::ExitParam) -> bool {
+            *p
+        }
+    }
+
+    fn gen_for_test() -> Action<&'static str, ActionBaseEvent, ActionBaseExitLogic, (f64, f64)> {
         Action {
             action_name: "attack",
             trigger: Vec::from([ActionBaseEvent::AttackInstruction]),
@@ -149,7 +157,6 @@ mod tests {
                 ("attack_end", (1.0, 0.0)),
             ]),
             trigger_physics: HashMap::from([(ActionBaseEvent::JumpInstruction, (0.0, 5.0))]),
-            _marker: std::marker::PhantomData,
         }
     }
 

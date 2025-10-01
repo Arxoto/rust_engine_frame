@@ -1,5 +1,3 @@
-use crate::movements::action::ActionExitLogic;
-
 /// 动作的触发（指令 Instruction or 信号 Signal）
 ///
 /// 若有必要可以和 [`MovementMode`] 组合去实现 ActionEvent 来通过触发条件判断运动状态
@@ -21,7 +19,7 @@ pub enum ActionBaseEvent {
 }
 
 /// 动作的退出逻辑
-/// 
+///
 /// 若有必要可以包含 [`MovementMode`] 来实现运动状态切换导致动作退出
 #[derive(Clone, Copy, Debug)]
 pub enum ActionBaseExitLogic {
@@ -31,10 +29,4 @@ pub enum ActionBaseExitLogic {
     WantMove(f64),
     /// 多长时间后，跳跃可打断
     WantJump(f64),
-}
-
-impl ActionExitLogic<bool> for ActionBaseExitLogic {
-    fn should_exit(p: &bool) -> bool {
-        *p
-    }
 }
