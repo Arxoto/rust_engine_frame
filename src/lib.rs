@@ -1,11 +1,11 @@
 pub mod cores;
 
-// AbilitySystemComponent
+// Ability System Component
 pub mod attrs;
 pub mod effects;
 
-// Damage
+// Damage System Component
 pub mod damage;
 
-// Action Component
-pub mod movements;
+// Motion System Component
+pub mod motion;

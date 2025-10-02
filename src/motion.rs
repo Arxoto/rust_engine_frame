@@ -1,4 +1,4 @@
-pub mod movement;
+pub mod movement_impl;
 
 pub mod behaviour;
 

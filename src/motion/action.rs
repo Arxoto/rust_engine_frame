@@ -89,6 +89,8 @@ where
     }
 
     /// 本动作可以切换到另一个动作
+    /// 
+    /// 先判断自定义覆盖 后判断优先级 优先级相同也允许覆盖
     pub fn should_switch_other_action(&self, other: &Self) -> bool {
         if let Some(can_cover) = self.action_switch_relation.get(&other.action_name) {
             can_cover.0
@@ -117,7 +119,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::movements::action_impl::{ActionBaseEvent, ActionBaseExitLogic};
+    use super::super::action_impl::{ActionBaseEvent, ActionBaseExitLogic};
 
     use super::*;
 
