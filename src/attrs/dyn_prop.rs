@@ -3,10 +3,10 @@ use crate::{
         dyn_attr::DynAttr,
         dyn_attr_effect::DynAttrEffect,
         dyn_prop_dur_effect::{DynPropDurEffect, DynPropDurEffectTarget},
-        dyn_prop_event::OnceCurMin,
         dyn_prop_inst_effect::DynPropInstEffect,
         dyn_prop_period_effect::DynPropPeriodEffect,
         effect_container::EffectContainer,
+        event_prop::DynPropEvents,
     },
     cores::unify_type::FixedName,
     effects::{
@@ -70,9 +70,12 @@ impl<S: FixedName> DynProp<S> {
     /// 瞬时效果 返回对当前值的修改值 如造成伤害时处理护盾血量逻辑
     ///
     /// 无需手动修正属性值
-    pub fn use_inst_effect(&mut self, e: DynPropInstEffect<S>) -> f64 {
+    pub fn use_inst_effect<E>(&mut self, e: DynPropInstEffect<S>, prop_events: &mut E) -> f64
+    where
+        E: DynPropEvents<S>,
+    {
         let real_eff = e.convert_real_effect(&self);
-        self.alter_current_value(&real_eff)
+        self.alter_current_value(&real_eff, prop_events)
     }
 
     /// 对 max 或 min 装载了效果后 需要刷新以应用
@@ -126,11 +129,14 @@ impl<S: FixedName> DynProp<S> {
     /// 注意【仅增益效果会修改当前值（如提升最大生命值）】
     ///
     /// 无需手动调用刷新属性值
-    pub fn do_put_dur_effect(&mut self, e: DynPropDurEffect<S>) {
+    pub fn do_put_dur_effect<E>(&mut self, e: DynPropDurEffect<S>, prop_events: &mut E)
+    where
+        E: DynPropEvents<S>,
+    {
         self.put_dur_effect(e.clone());
         self.refresh_value();
         if let Some(real_eff) = e.convert_real_effect_for_max_buff(self) {
-            self.alter_current_value(&real_eff);
+            self.alter_current_value(&real_eff, prop_events);
         }
     }
 
@@ -180,7 +186,10 @@ impl<S: FixedName> DynProp<S> {
     // 缺点 不同类型的伤害护盾计算逻辑可能需要在框架写死（致命）
 
     /// 无需手动刷新属性值
-    pub fn process_time(&mut self, delta: f64) {
+    pub fn process_time<E>(&mut self, delta: f64, prop_events: &mut E)
+    where
+        E: DynPropEvents<S>,
+    {
         self.the_max.process_time(delta);
         self.the_min.process_time(delta);
         self.fix_current();
@@ -201,7 +210,7 @@ impl<S: FixedName> DynProp<S> {
                 let inst_eff = eff.convert_prop_inst_effect(&self);
                 let real_eff = inst_eff.convert_real_effect(&self);
                 for _ in 0..periods {
-                    self.alter_current_value(&real_eff);
+                    self.alter_current_value(&real_eff, prop_events);
                 }
             }
         }
@@ -224,29 +233,18 @@ impl<S: FixedName> DynProp<S> {
     }
 
     /// 如对血量直接造成伤害 return delta 用于处理护盾逻辑 无需再次刷新
-    fn alter_current_value(&mut self, e: &Effect<S>) -> f64 {
-        let the_old = self.get_current();
-        self.current += e.get_value();
-        self.fix_current();
-        self.get_current() - the_old
-    }
-
-    /// just for test
-    fn test_alter_current_value<F1: OnceCurMin<S>>(
-        &mut self,
-        e: &Effect<S>,
-        once_cur_min: Option<&mut F1>,
-    ) -> f64 {
+    fn alter_current_value<E>(&mut self, e: &Effect<S>, prop_events: &mut E) -> f64
+    where
+        E: DynPropEvents<S>,
+    {
         let the_old = self.get_current();
         self.current += e.get_value();
         self.fix_current();
         let the_new = self.get_current();
         let the_delta = the_new - the_old;
 
-        if let Some(notify) = once_cur_min {
-            if the_delta < 0.0 && the_new == self.get_min() {
-                notify(e);
-            }
+        if the_delta < 0.0 && the_new == self.get_min() {
+            prop_events.once_current_to_min(e);
         }
         the_delta
     }
@@ -257,26 +255,32 @@ impl<S: FixedName> DynProp<S> {
 #[cfg(test)]
 mod tests {
 
-    use crate::effects::{duration_effect::EffectBuilder, native_effect::Effect};
+    use crate::{
+        attrs::event_prop::{DynPropEventsImpl, create_empty_events},
+        effects::{duration_effect::EffectBuilder, native_effect::Effect},
+    };
 
     use super::*;
 
     #[test]
-    fn test_func() {
+    fn event_once_cur_min() {
         let mut prop: DynProp = DynProp::new_by_max(10.0);
 
         let mut count = "".to_string();
 
         for i in 0..5 {
-            prop.test_alter_current_value(
-                &Effect::new(format!("from_name-{}", i), "effect_name".to_string(), -4.6),
-                Some(&mut |eff| {
-                    count = eff.get_from_name().to_string();
-                }),
+            prop.alter_current_value(
+                &Effect::new(format!("killed_by_{}", i), "effect_name".to_string(), -4.6),
+                &mut DynPropEventsImpl {
+                    once_current_to_min: Some(|eff: &Effect<String>| {
+                        count = eff.get_from_name().to_string();
+                    }),
+                    ..Default::default()
+                },
             );
         }
 
-        assert_eq!(count, "from_name-2"); // killed by
+        assert_eq!(count, "killed_by_2");
     }
 
     #[test]
@@ -334,32 +338,28 @@ mod tests {
         let mut prop: DynProp = DynProp::new_by_max(100.0);
         assert_eq!(prop.get_current(), 100.0);
 
-        prop.use_inst_effect(DynPropInstEffect::new_val(EffectBuilder::new_instant(
-            "someone",
-            "effect_name",
-            -50.0,
-        )));
+        prop.use_inst_effect(
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("someone", "effect_name", -50.0)),
+            &mut create_empty_events(),
+        );
         assert_eq!(prop.get_current(), 50.0);
 
-        prop.use_inst_effect(DynPropInstEffect::new_val(EffectBuilder::new_instant(
-            "someone",
-            "effect_name",
-            -50.0,
-        )));
+        prop.use_inst_effect(
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("someone", "effect_name", -50.0)),
+            &mut create_empty_events(),
+        );
         assert_eq!(prop.get_current(), 0.0);
 
-        prop.use_inst_effect(DynPropInstEffect::new_val(EffectBuilder::new_instant(
-            "someone",
-            "effect_name",
-            -50.0,
-        )));
+        prop.use_inst_effect(
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("someone", "effect_name", -50.0)),
+            &mut create_empty_events(),
+        );
         assert_eq!(prop.get_current(), 0.0);
 
-        prop.use_inst_effect(DynPropInstEffect::new_val(EffectBuilder::new_instant(
-            "someone",
-            "effect_name",
-            200.0,
-        )));
+        prop.use_inst_effect(
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("someone", "effect_name", 200.0)),
+            &mut create_empty_events(),
+        );
         assert_eq!(prop.get_current(), 100.0);
     }
 
@@ -371,7 +371,7 @@ mod tests {
             "effect_name1",
             0.2,
         ));
-        prop.do_put_dur_effect(eff);
+        prop.do_put_dur_effect(eff, &mut create_empty_events());
         assert_eq!(prop.get_current(), 60.0);
 
         prop.current = 20.0;
@@ -380,7 +380,7 @@ mod tests {
             "effect_name2",
             10.0,
         ));
-        prop.do_put_dur_effect(eff);
+        prop.do_put_dur_effect(eff, &mut create_empty_events());
         assert_eq!(prop.get_current(), 30.0);
         assert_eq!(prop.get_max(), 70.0);
     }
@@ -396,11 +396,11 @@ mod tests {
         prop.refresh_period_effect();
         assert_eq!(prop.get_period_effect_names().iter().count(), 1);
         assert_eq!(prop.get_current(), 100.0);
-        prop.process_time(0.5);
+        prop.process_time(0.5, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 90.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 80.0);
 
         let mut prop: DynProp = DynProp::new_by_max(100.0);
@@ -411,11 +411,11 @@ mod tests {
         prop.put_period_effect(eff);
         prop.refresh_period_effect();
         assert_eq!(prop.get_current(), 100.0);
-        prop.process_time(0.5);
+        prop.process_time(0.5, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 90.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 81.0);
 
         let mut prop: DynProp = DynProp::new_by_max(100.0);
@@ -426,11 +426,11 @@ mod tests {
         prop.put_period_effect(eff);
         prop.refresh_period_effect();
         assert_eq!(prop.get_current(), 100.0);
-        prop.process_time(0.5);
+        prop.process_time(0.5, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 90.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 80.0);
     }
 
@@ -448,24 +448,24 @@ mod tests {
         prop.refresh_period_effect();
 
         // 持续逼近
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0 - 18.0 * 1.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0 - 18.0 * 2.0);
         // 达到目标值
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 50.0);
 
         // 另一个方向
         prop.current = 0.0;
 
         // 持续逼近
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 18.0 * 1.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 18.0 * 2.0);
         // 达到目标值
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 50.0);
     }
 
@@ -482,24 +482,24 @@ mod tests {
         prop.refresh_period_effect();
 
         // 持续逼近
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 50.0 - 9.0 * 1.0);
-        prop.process_time(2.0);
+        prop.process_time(2.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 50.0 - 9.0 * 3.0);
         // 达到目标值
-        prop.process_time(3.0);
+        prop.process_time(3.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 0.0);
 
         // 另一个方向
         prop.current = 51.0;
 
         // 持续逼近
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 51.0 + 9.0 * 1.0);
-        prop.process_time(2.0);
+        prop.process_time(2.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 51.0 + 9.0 * 3.0);
         // 达到目标值
-        prop.process_time(3.0);
+        prop.process_time(3.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0);
     }
 
@@ -520,46 +520,46 @@ mod tests {
         prop.put_period_effect(eff);
         prop.refresh_period_effect();
 
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0 - 3.0 * 1.0 - 20.0 * 0.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0 - 3.0 * 2.0 - 20.0 * 0.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0 - 3.0 * 3.0 - 20.0 * 0.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0 - 3.0 * 4.0 - 20.0 * 0.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0 - 3.0 * 5.0 - 20.0 * 0.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0 - 3.0 * 6.0 - 20.0 * 1.0); // 6.0s
         assert_eq!(prop.get_current(), 62.0);
 
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0 - 3.0 * 7.0 - 20.0 * 1.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0 - 3.0 * 8.0 - 20.0 * 1.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0 - 3.0 * 9.0 - 20.0 * 1.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0 - 3.0 * 10.0 - 20.0 * 1.0);
         assert_eq!(prop.get_current(), 50.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0 - 3.0 * 11.0 - 20.0 * 1.0);
         assert_eq!(prop.get_current(), 47.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 50.0 - 3.0); // 6.0s 小于 50 因此 +20.0 且先执行
 
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 50.0 - 3.0 * 2.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 50.0 - 3.0 * 3.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 50.0 - 3.0 * 4.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 50.0 - 3.0 * 5.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 50.0 - 3.0 * 6.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 50.0 - 3.0 * 1.0); // 6.0s
     }
 
@@ -574,27 +574,27 @@ mod tests {
         prop.put_period_effect(eff);
         prop.refresh_period_effect();
 
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 100.0); // 5.0s wait 结束
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 90.0); // 6.0s 第一个周期
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 80.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 70.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 60.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 60.0); // 10.0s 恰好没触发
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 60.0);
 
         // new one
@@ -607,27 +607,27 @@ mod tests {
         prop.refresh_period_effect();
 
         // restart_for_wait_time
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 60.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 60.0);
         prop.restart_period_effect(&Effect::new("from_name", "1", 1.0));
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 60.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 60.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 50.0); // 3.0s 第一个周期
 
         // restart_for_expired_time
         prop.restart_period_effect(&Effect::new("from_name", "1", 1.0));
-        prop.process_time(2.0);
+        prop.process_time(2.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 50.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 40.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 30.0);
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 30.0); // 5.0s 老化
     }
 
@@ -640,7 +640,7 @@ mod tests {
         prop.put_period_effect(eff);
         prop.refresh_period_effect();
 
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 99.0); // -1
 
         prop.put_period_effect(DynPropPeriodEffect::new_val(
@@ -648,7 +648,7 @@ mod tests {
             1.0,
         ));
         prop.refresh_period_effect();
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 97.0); // -2
 
         prop.put_period_effect(DynPropPeriodEffect::new_val(
@@ -656,7 +656,7 @@ mod tests {
             1.0,
         ));
         prop.refresh_period_effect();
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 94.0); // -3
 
         prop.put_period_effect(DynPropPeriodEffect::new_val(
@@ -664,7 +664,7 @@ mod tests {
             1.0,
         ));
         prop.refresh_period_effect();
-        prop.process_time(1.0);
+        prop.process_time(1.0, &mut create_empty_events());
         assert_eq!(prop.get_current(), 91.0); // -3 max
     }
 }

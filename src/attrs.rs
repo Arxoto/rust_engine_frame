@@ -12,6 +12,6 @@ pub mod dyn_prop_inst_effect_impl;
 pub mod dyn_prop_period_effect;
 pub mod dyn_prop_period_effect_impl;
 
-pub mod dyn_prop_event;
+pub mod event_prop;
 
 pub mod dyn_prop;
