@@ -1,6 +1,8 @@
+//! 动作系统的【事件】和【退出逻辑】实现案例
+
+use crate::motion::action_types::ActionEvent;
+
 /// 动作的触发（指令 Instruction or 信号 Signal）
-///
-/// 若有必要可以和 [`MovementMode`] 组合去实现 ActionEvent 来通过触发条件判断运动状态
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ActionBaseEvent {
     /// 跳跃指令
@@ -18,9 +20,9 @@ pub enum ActionBaseEvent {
     BeHitSignal,
 }
 
+impl ActionEvent for ActionBaseEvent {}
+
 /// 动作的退出逻辑
-///
-/// 若有必要可以包含 [`MovementMode`] 来实现运动状态切换导致动作退出
 #[derive(Clone, Copy, Debug)]
 pub enum ActionBaseExitLogic {
     /// 动画结束播放

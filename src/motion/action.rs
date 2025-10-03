@@ -1,14 +1,19 @@
+//! 动作系统的动作数据结构
+
 use std::collections::HashMap;
 
-use crate::cores::unify_type::FixedString;
+use crate::{
+    cores::unify_type::FixedString,
+    motion::action_types::{ActionCanCover, ActionEvent, ActionExitLogic},
+};
 
 /// 动作 纯数据 实现固定效果
 #[derive(Clone, Debug)]
 pub struct Action<S, Event, ExitLogic, PhyEff>
 where
     S: FixedString,
-    Event: Clone + std::fmt::Debug + Eq + std::hash::Hash + PartialEq,
-    ExitLogic: ActionExitLogic + Clone + std::fmt::Debug,
+    Event: ActionEvent,
+    ExitLogic: ActionExitLogic,
 {
     /// 动作名称
     pub action_name: S,
@@ -33,8 +38,6 @@ where
 
     /// 每帧的物理效果 key 为动画名称
     pub anim_physics: HashMap<S, PhyEff>,
-    /// 事件响应时的物理效果
-    pub trigger_physics: HashMap<Event, PhyEff>,
     /*
     // ActionExitLogic 的参数使用【泛型方式】去实现的话需要如下实现
     // 若使用【关联类型】去实现（当前选择这个方案） 则无需这样做
@@ -43,25 +46,11 @@ where
      */
 }
 
-pub trait ActionExitLogic {
-    type ExitParam;
-    fn should_exit(p: &Self::ExitParam) -> bool;
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct ActionCanCover(pub bool);
-
-impl From<bool> for ActionCanCover {
-    fn from(value: bool) -> Self {
-        Self(value)
-    }
-}
-
 impl<S, Event, ExitLogic, PhyEff> Action<S, Event, ExitLogic, PhyEff>
 where
     S: FixedString,
-    Event: Clone + std::fmt::Debug + Eq + std::hash::Hash + PartialEq,
-    ExitLogic: ActionExitLogic + Clone + std::fmt::Debug,
+    Event: ActionEvent,
+    ExitLogic: ActionExitLogic,
 {
     pub fn new_empty(action_name: S, anim_first: S) -> Self {
         Self {
@@ -74,24 +63,18 @@ where
             anim_first,
             anim_next: HashMap::new(),
             anim_physics: HashMap::new(),
-            trigger_physics: HashMap::new(),
         }
     }
 
-    /// 调用方去迭代 exit_logic
-    pub fn exit_logic_slice(&self) -> &[(ExitLogic, S)] {
-        &self.tick_to_next_action
-    }
-
     /// return None if should not trigger other action
-    pub fn should_trigger_to_next_action(&self, trigger: &Event) -> Option<&S> {
+    pub fn fetch_next_action_by_trigger(&self, trigger: &Event) -> Option<&S> {
         self.trigger_to_next_action.get(trigger)
     }
 
     /// 本动作可以切换到另一个动作
     ///
-    /// 先判断自定义覆盖 后判断优先级 优先级相同也允许覆盖
-    pub fn should_switch_other_action(&self, other: &Self) -> bool {
+    /// 先判断自定义覆盖 后判断优先级 优先级相同也允许覆盖（反复击飞）
+    pub fn can_switch_other_action(&self, other: &Self) -> bool {
         if let Some(can_cover) = self.action_switch_relation.get(&other.action_name) {
             can_cover.0
         } else {
@@ -111,10 +94,6 @@ where
     pub fn get_phy_eff_by_anim(&self, anim: &S) -> Option<&PhyEff> {
         self.anim_physics.get(anim)
     }
-
-    pub fn get_phy_eff_by_trigger(&self, trigger: &Event) -> Option<&PhyEff> {
-        self.trigger_physics.get(trigger)
-    }
 }
 
 #[cfg(test)]
@@ -126,7 +105,7 @@ mod tests {
     impl ActionExitLogic for ActionBaseExitLogic {
         type ExitParam = bool;
 
-        fn should_exit(p: &Self::ExitParam) -> bool {
+        fn should_exit(&self, p: &Self::ExitParam) -> bool {
             *p
         }
     }
@@ -158,27 +137,26 @@ mod tests {
                 ("attack_middle", (1.0, 0.0)),
                 ("attack_end", (1.0, 0.0)),
             ]),
-            trigger_physics: HashMap::from([(ActionBaseEvent::JumpInstruction, (0.0, 5.0))]),
         }
     }
 
     #[test]
-    fn test_func() {
+    fn test_event_trigger_and_action_priority() {
         let test_action = gen_for_test();
-
-        let res = test_action.should_trigger_to_next_action(&ActionBaseEvent::AttackInstruction);
+        assert_eq!(test_action.action_name, "attack");
+        let res = test_action.fetch_next_action_by_trigger(&ActionBaseEvent::AttackInstruction);
         assert_eq!(res.unwrap(), &"twice_atk");
-        let res = test_action.should_trigger_to_next_action(&ActionBaseEvent::DodgeInstruction);
+        let res = test_action.fetch_next_action_by_trigger(&ActionBaseEvent::DodgeInstruction);
         assert_eq!(res, None);
 
         // by action_priority
         let empty_action = Action::new_empty("tmp", "tmp");
-        assert!(!test_action.should_switch_other_action(&empty_action));
+        assert!(!test_action.can_switch_other_action(&empty_action));
         // by can_cover
         let mut test2 = gen_for_test();
         test2.action_name = "be_knocked_down";
-        assert!(test_action.should_switch_other_action(&test2));
+        assert!(test_action.can_switch_other_action(&test2));
         test2.action_name = "burning";
-        assert!(!test_action.should_switch_other_action(&test2));
+        assert!(!test_action.can_switch_other_action(&test2));
     }
 }

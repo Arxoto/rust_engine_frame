@@ -70,7 +70,7 @@ mod tests {
 
         use super::*;
 
-        /// 提醒：每当增加类型时，判断其是否符合 [`DynAttrEffect::which_nature`]
+        /// 提醒：每当增加类型时，判断其是否符合 [`DynPropInstEffect::which_nature`]
         #[test]
         fn test_nature_tips() {
             let types = vec![

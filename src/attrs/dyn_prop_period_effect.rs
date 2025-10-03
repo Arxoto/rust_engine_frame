@@ -163,7 +163,7 @@ mod tests {
         assert_eq!(move_toward_delta(50.0, 50.0, 100.0), 0.0);
     }
 
-    /// 提醒：每当增加类型时，判断其是否符合 [`DynAttrEffect::which_nature`]
+    /// 提醒：每当增加类型时，判断其是否符合 [`DynPropPeriodEffect::which_nature`]
     #[test]
     fn test_nature_tips() {
         let types = vec![
