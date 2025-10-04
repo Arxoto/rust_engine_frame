@@ -4,7 +4,7 @@ use crate::{
     cores::unify_type::FixedString,
     motion::{
         movement_impl::MovementMode,
-        state_machine_types_impl::{EnterParam, FrameParam, MovementBehaviour, PhyParam},
+        state_machine_types_impl::{FrameParam, MovementBehaviour, PhyParam},
     },
 };
 
@@ -23,9 +23,9 @@ where
 }
 
 impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
-    fn fetch_next_stat_id(&self, p: &EnterParam) -> Option<usize> {
+    fn fetch_next_stat_id(&self, enter_param: &FrameParam<S>) -> Option<usize> {
         for (id, ele) in self.stats.iter().enumerate() {
-            if ele.will_enter(p) && id != self.current_id {
+            if ele.will_enter(enter_param) && id != self.current_id {
                 return Some(id);
             }
         }
@@ -35,9 +35,9 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
     /// 更新状态 返回运动模式的切换
     pub(crate) fn update_stat(
         &mut self,
-        p: &EnterParam,
+        enter_param: &FrameParam<S>,
     ) -> (Option<MovementMode>, Option<MovementMode>) {
-        let Some(next_stat_id) = self.fetch_next_stat_id(p) else {
+        let Some(next_stat_id) = self.fetch_next_stat_id(enter_param) else {
             return (None, None);
         };
 
@@ -59,19 +59,23 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
     }
 
     /// 渲染帧执行
-    pub(crate) fn tick_frame(&mut self, p: &FrameParam<S>) -> Option<FrameEff> {
+    ///
+    /// 行为侧重逻辑，返回值一般认为是临时生成的，所以返回所有权
+    pub(crate) fn tick_frame(&mut self, frame_param: &FrameParam<S>) -> Option<FrameEff> {
         let Some(stat) = self.stats.get_mut(self.current_id) else {
             return None;
         };
-        Some(stat.tick_frame(p))
+        Some(stat.tick_frame(frame_param))
     }
 
     /// 物理帧执行
-    pub(crate) fn tick_physics(&mut self, p: &PhyParam<S>) -> Option<PhyEff> {
+    ///
+    /// 行为侧重逻辑，返回值一般认为是临时生成的，所以返回所有权
+    pub(crate) fn tick_physics(&mut self, phy_param: &PhyParam<S>) -> Option<PhyEff> {
         let Some(stat) = self.stats.get_mut(self.current_id) else {
             return None;
         };
-        Some(stat.tick_physics(p))
+        Some(stat.tick_physics(phy_param))
     }
 
     /// 初始化时新增

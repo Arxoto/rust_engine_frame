@@ -3,10 +3,10 @@
 use crate::{
     cores::unify_type::FixedString,
     motion::{
-        movement_action_impl::{ActionMovementExitParam, MovementActionEvent},
+        movement_action_impl::MovementActionEvent,
         state_machine_action_impl::ActionMachine,
         state_machine_behaviour_impl::BehaviourMachine,
-        state_machine_types_impl::{EnterParam, FrameParam, PhyParam},
+        state_machine_types_impl::{FrameParam, PhyParam},
     },
 };
 
@@ -21,6 +21,10 @@ where
 {
     pub(crate) action_machine: ActionMachine<S, PhyEff>,
     pub(crate) behaviour_machine: BehaviourMachine<S, FrameEff, PhyEff>,
+
+    // inner stat
+    /// 动作的持续时间
+    action_duration: f64,
 }
 
 impl<S, FrameEff, PhyEff> PlayerMachine<S, FrameEff, PhyEff>
@@ -35,20 +39,21 @@ where
     }
 
     /// 渲染帧执行
-    pub fn tick_frame(
-        &mut self,
-        enter_param: &EnterParam,
-        frame_param: &FrameParam<S>,
-        exit_param: &mut ActionMovementExitParam,
-    ) -> Option<FrameEff> {
+    pub fn tick_frame(&mut self, p: &mut FrameParam<S>) -> Option<FrameEff> {
         // update
-        let movement_changed = self.behaviour_machine.update_stat(enter_param);
-        exit_param.movement_changed = movement_changed; // set exit_param immediately
-        self.action_machine.update_action_by_tick(exit_param);
+        let movement_changed = self.behaviour_machine.update_stat(p);
+        p.movement_changed = movement_changed; // set exit_param immediately
+        // 内部维护动作持续时间
+        self.action_duration += p.delta;
+        p.action_duration = self.action_duration;
+        let action_updated = self.action_machine.update_action_by_tick(p);
+        if action_updated {
+            self.action_duration = 0.0;
+        }
 
         // tick
-        let frame_eff = self.behaviour_machine.tick_frame(frame_param);
-        let anim_name = self.action_machine.tick_frame(frame_param);
+        let frame_eff = self.behaviour_machine.tick_frame(p);
+        let anim_name = self.action_machine.tick_frame(p);
 
         // anim_name first, and then frame_eff
         match FrameEff::try_from(anim_name.clone()) {

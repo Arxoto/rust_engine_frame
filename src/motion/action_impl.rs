@@ -28,7 +28,7 @@ pub enum ActionBaseExitLogic {
     /// 动画结束播放
     AnimFinished,
     /// 多长时间后，移动可取消后摇
-    WantMove(f64),
+    MoveAfter(f64),
     /// 多长时间后，跳跃可打断
-    WantJump(f64),
+    JumpAfter(f64),
 }

@@ -6,7 +6,7 @@ use crate::{
     cores::unify_type::FixedString,
     motion::{
         action_types::ActionExitLogic,
-        movement_action_impl::{ActionMovementExitParam, MovementActionEvent},
+        movement_action_impl::MovementActionEvent,
         state_machine_types_impl::{FrameParam, MovementAction, PhyParam},
     },
 };
@@ -87,12 +87,12 @@ where
             .or_else(|| self.fetch_next_action_name_by_event_global(e))
     }
 
-    fn fetch_next_action_name_by_tick(&self, p: &ActionMovementExitParam) -> Option<S> {
+    fn fetch_next_action_name_by_tick(&self, exit_param: &FrameParam<S>) -> Option<S> {
         let Some(the_action) = self.get_current_action() else {
             return None;
         };
         for (exit_logic, next_action_name) in the_action.tick_to_next_action.iter() {
-            if exit_logic.should_exit(p) {
+            if exit_logic.should_exit(exit_param) {
                 return Some(next_action_name.clone());
             }
         }
@@ -100,22 +100,28 @@ where
     }
 
     /// 事件触发的状态更新
-    pub(crate) fn update_action_by_event(&mut self, e: &MovementActionEvent) {
+    pub(crate) fn update_action_by_event(&mut self, e: &MovementActionEvent) -> bool {
         if let Some(next_action_name) = self.fetch_next_action_name_by_event(e) {
             self.do_update_action(next_action_name);
+            return true;
         }
+        return false;
     }
 
     /// 每帧进行状态更新
-    pub(crate) fn update_action_by_tick(&mut self, p: &ActionMovementExitParam) {
-        if let Some(next_action_name) = self.fetch_next_action_name_by_tick(p) {
+    pub(crate) fn update_action_by_tick(&mut self, exit_param: &FrameParam<S>) -> bool {
+        if let Some(next_action_name) = self.fetch_next_action_name_by_tick(exit_param) {
             self.do_update_action(next_action_name);
+            return true;
         }
+        return false;
     }
 
     /// 渲染帧执行 返回当前帧的动画名称
-    pub(crate) fn tick_frame(&mut self, p: &FrameParam<S>) -> &S {
-        if p.anim_name == self.current_anim_name && p.anim_finished {
+    ///
+    /// 动作侧重数据，返回值一般认为是固定的，所以仅返回引用
+    pub(crate) fn tick_frame(&mut self, frame_param: &FrameParam<S>) -> &S {
+        if frame_param.anim_name == self.current_anim_name && frame_param.anim_finished {
             // new anim
             if let Some(action) = self.get_current_action() {
                 if let Some(next_anim_name) = action.next_anim(&self.current_anim_name) {
@@ -127,6 +133,8 @@ where
     }
 
     /// 物理帧执行 返回物理效果
+    ///
+    /// 动作侧重数据，返回值一般认为是固定的，所以仅返回引用
     pub(crate) fn tick_physics(&mut self, p: &PhyParam<S>) -> Option<&PhyEff> {
         if let Some(action) = self.get_current_action() {
             action.get_phy_eff_by_anim(&p.anim_name)

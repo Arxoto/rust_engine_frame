@@ -9,11 +9,11 @@ use crate::{
 
 /// 动作 纯数据 实现固定效果
 #[derive(Clone, Debug)]
-pub struct Action<S, Event, ExitLogic, PhyEff>
+pub struct Action<S, Event, ExitParam, ExitLogic, PhyEff>
 where
     S: FixedString,
     Event: ActionEvent,
-    ExitLogic: ActionExitLogic,
+    ExitLogic: ActionExitLogic<ExitParam>,
 {
     /// 动作名称
     pub action_name: S,
@@ -38,19 +38,19 @@ where
 
     /// 每帧的物理效果 key 为动画名称
     pub anim_physics: HashMap<S, PhyEff>,
-    /*
+
     // ActionExitLogic 的参数使用【泛型方式】去实现的话需要如下实现
-    // 若使用【关联类型】去实现（当前选择这个方案） 则无需这样做
     // 让编译器以为使用了该泛型 零成本 （实例化时直接 `_marker: std::marker::PhantomData,` ）
+    // 若使用【关联类型】去实现 则无需这样做
+    // （没有选择【关联类型】这个方案，因为关联类型本身不支持泛型，编写框架时受限，且支持泛型后能够将多个参数合并：动作的退出逻辑、行为的进入逻辑等）
     _marker: std::marker::PhantomData<ExitParam>,
-     */
 }
 
-impl<S, Event, ExitLogic, PhyEff> Action<S, Event, ExitLogic, PhyEff>
+impl<S, Event, ExitParam, ExitLogic, PhyEff> Action<S, Event, ExitParam, ExitLogic, PhyEff>
 where
     S: FixedString,
     Event: ActionEvent,
-    ExitLogic: ActionExitLogic,
+    ExitLogic: ActionExitLogic<ExitParam>,
 {
     pub fn new_empty(action_name: S, anim_first: S) -> Self {
         Self {
@@ -63,6 +63,7 @@ where
             anim_first,
             anim_next: HashMap::new(),
             anim_physics: HashMap::new(),
+            _marker: Default::default(),
         }
     }
 
@@ -102,21 +103,20 @@ mod tests {
 
     use super::*;
 
-    impl ActionExitLogic for ActionBaseExitLogic {
-        type ExitParam = bool;
-
-        fn should_exit(&self, p: &Self::ExitParam) -> bool {
+    impl ActionExitLogic<bool> for ActionBaseExitLogic {
+        fn should_exit(&self, p: &bool) -> bool {
             *p
         }
     }
 
-    fn gen_for_test() -> Action<&'static str, ActionBaseEvent, ActionBaseExitLogic, (f64, f64)> {
+    fn gen_for_test() -> Action<&'static str, ActionBaseEvent, bool, ActionBaseExitLogic, (f64, f64)>
+    {
         Action {
             action_name: "attack",
             trigger: Vec::from([ActionBaseEvent::AttackInstruction]),
             tick_to_next_action: Vec::from([
                 (ActionBaseExitLogic::AnimFinished, "idle"),
-                (ActionBaseExitLogic::WantMove(0.6), "move"),
+                (ActionBaseExitLogic::MoveAfter(0.6), "move"),
             ]),
             trigger_to_next_action: HashMap::from([
                 (ActionBaseEvent::AttackInstruction, "twice_atk"),
@@ -137,6 +137,7 @@ mod tests {
                 ("attack_middle", (1.0, 0.0)),
                 ("attack_end", (1.0, 0.0)),
             ]),
+            _marker: Default::default(),
         }
     }
 

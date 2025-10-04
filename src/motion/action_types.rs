@@ -8,9 +8,8 @@ pub trait ActionEvent: Clone + std::fmt::Debug + Eq + std::hash::Hash + PartialE
 /// 动作关联的退出逻辑
 ///
 /// 一般用于每帧检查
-pub trait ActionExitLogic: Clone + std::fmt::Debug {
-    type ExitParam;
-    fn should_exit(&self, p: &Self::ExitParam) -> bool;
+pub trait ActionExitLogic<ExitParam>: Clone + std::fmt::Debug {
+    fn should_exit(&self, exit_param: &ExitParam) -> bool;
 }
 
 /// 动作能否覆盖
