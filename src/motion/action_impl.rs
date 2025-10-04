@@ -1,6 +1,6 @@
 //! 动作系统的【事件】和【退出逻辑】实现案例
 
-use crate::motion::action_types::ActionEvent;
+use crate::{cores::unify_type::FixedString, motion::action_types::ActionEvent};
 
 /// 动作的触发（指令 Instruction or 信号 Signal）
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -24,9 +24,9 @@ impl ActionEvent for ActionBaseEvent {}
 
 /// 动作的退出逻辑
 #[derive(Clone, Copy, Debug)]
-pub enum ActionBaseExitLogic {
+pub enum ActionBaseExitLogic<S: FixedString> {
     /// 动画结束播放
-    AnimFinished,
+    AnimFinished(S),
     /// 多长时间后，移动可取消后摇
     MoveAfter(f64),
     /// 多长时间后，跳跃可打断

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::{
     cores::unify_type::FixedString,
-    motion::action_types::{ActionCanCover, ActionEvent, ActionExitLogic},
+    motion::action_types::{ActionEvent, ActionExitLogic},
 };
 
 /// 动作 纯数据 实现固定效果
@@ -29,7 +29,7 @@ where
     /// 动作优先级
     pub action_priority: i64,
     /// 动作自定义覆盖关系 true能被其他覆盖 false不能
-    pub action_switch_relation: HashMap<S, ActionCanCover>,
+    pub action_switch_relation: HashMap<S, bool>,
 
     /// 初始播放的动画名称
     pub anim_first: S,
@@ -43,7 +43,7 @@ where
     // 让编译器以为使用了该泛型 零成本 （实例化时直接 `_marker: std::marker::PhantomData,` ）
     // 若使用【关联类型】去实现 则无需这样做
     // （没有选择【关联类型】这个方案，因为关联类型本身不支持泛型，编写框架时受限，且支持泛型后能够将多个参数合并：动作的退出逻辑、行为的进入逻辑等）
-    _marker: std::marker::PhantomData<ExitParam>,
+    pub _marker: std::marker::PhantomData<ExitParam>,
 }
 
 impl<S, Event, ExitParam, ExitLogic, PhyEff> Action<S, Event, ExitParam, ExitLogic, PhyEff>
@@ -77,7 +77,7 @@ where
     /// 先判断自定义覆盖 后判断优先级 优先级相同也允许覆盖（反复击飞）
     pub fn can_switch_other_action(&self, other: &Self) -> bool {
         if let Some(can_cover) = self.action_switch_relation.get(&other.action_name) {
-            can_cover.0
+            *can_cover
         } else {
             other.action_priority >= self.action_priority
         }
@@ -103,19 +103,19 @@ mod tests {
 
     use super::*;
 
-    impl ActionExitLogic<bool> for ActionBaseExitLogic {
+    impl<S: FixedString> ActionExitLogic<bool> for ActionBaseExitLogic<S> {
         fn should_exit(&self, p: &bool) -> bool {
             *p
         }
     }
 
-    fn gen_for_test() -> Action<&'static str, ActionBaseEvent, bool, ActionBaseExitLogic, (f64, f64)>
+    fn gen_for_test() -> Action<&'static str, ActionBaseEvent, bool, ActionBaseExitLogic<&'static str>, (f64, f64)>
     {
         Action {
             action_name: "attack",
             trigger: Vec::from([ActionBaseEvent::AttackInstruction]),
             tick_to_next_action: Vec::from([
-                (ActionBaseExitLogic::AnimFinished, "idle"),
+                (ActionBaseExitLogic::AnimFinished("attack_end"), "idle"),
                 (ActionBaseExitLogic::MoveAfter(0.6), "move"),
             ]),
             trigger_to_next_action: HashMap::from([
@@ -124,8 +124,8 @@ mod tests {
             ]),
             action_priority: 1,
             action_switch_relation: HashMap::from([
-                ("be_knocked_down", true.into()),
-                ("burning", false.into()), // 燃烧
+                ("be_knocked_down", true),
+                ("burning", false), // 燃烧
             ]),
             anim_first: "attack_begin",
             anim_next: HashMap::from([
@@ -146,7 +146,7 @@ mod tests {
         let test_action = gen_for_test();
         assert_eq!(test_action.action_name, "attack");
         let res = test_action.fetch_next_action_by_trigger(&ActionBaseEvent::AttackInstruction);
-        assert_eq!(res.unwrap(), &"twice_atk");
+        assert_eq!(res, Some(&"twice_atk"));
         let res = test_action.fetch_next_action_by_trigger(&ActionBaseEvent::DodgeInstruction);
         assert_eq!(res, None);
 

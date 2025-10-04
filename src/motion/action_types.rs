@@ -11,13 +11,3 @@ pub trait ActionEvent: Clone + std::fmt::Debug + Eq + std::hash::Hash + PartialE
 pub trait ActionExitLogic<ExitParam>: Clone + std::fmt::Debug {
     fn should_exit(&self, exit_param: &ExitParam) -> bool;
 }
-
-/// 动作能否覆盖
-#[derive(Clone, Copy, Debug)]
-pub struct ActionCanCover(pub(crate) bool);
-
-impl From<bool> for ActionCanCover {
-    fn from(value: bool) -> Self {
-        Self(value)
-    }
-}

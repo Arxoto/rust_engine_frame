@@ -1,7 +1,7 @@
 // Trait Alias 简化复杂的 trait 约束，提高代码可读性和一致性
-pub trait FixedName: Eq + std::hash::Hash + Clone {}
+pub trait FixedName: Eq + std::hash::Hash + Clone + std::fmt::Debug {}
 
-pub trait FixedString: Eq + std::hash::Hash + Clone {}
+pub trait FixedString: Eq + std::hash::Hash + Clone + std::fmt::Debug {}
 
 impl FixedName for String {}
 impl FixedName for &str {}
@@ -40,7 +40,7 @@ mod tests {
     }
 
     /// same as [`FixedName`]
-    #[derive(PartialEq, Hash, Eq, Clone)]
+    #[derive(PartialEq, Hash, Eq, Clone, Debug)]
     pub struct FixedNameWrapper(pub AnyType);
 
     impl From<AnyType> for FixedNameWrapper {

@@ -39,16 +39,27 @@ where
     }
 
     /// 渲染帧执行
+    /// 
+    /// 先进行帧处理，后进行状态更新，保证逻辑自洽（帧处理是基于帧开始的状态进行的） todo
     pub fn tick_frame(&mut self, p: &mut FrameParam<S>) -> Option<FrameEff> {
-        // update
-        let movement_changed = self.behaviour_machine.update_stat(p);
-        p.movement_changed = movement_changed; // set exit_param immediately
-        // 内部维护动作持续时间
+        // 内部维护状态的参数
+        // 考虑到一致性 应仅对参数赋初始值 而不做修改，但实际上随着动作的改变修改了 action_duration
+
+        // action_duration 动作持续时间
         self.action_duration += p.delta;
         p.action_duration = self.action_duration;
+
+        // update behaviour_machine
+        let movement_changed = self.behaviour_machine.update_stat(p);
+        // set exit_param with movement_changed
+        p.movement_changed = movement_changed;
+
+        // update action_machine
         let action_updated = self.action_machine.update_action_by_tick(p);
+        // 动作更新 需要同步更新
         if action_updated {
             self.action_duration = 0.0;
+            p.action_duration = self.action_duration;
         }
 
         // tick

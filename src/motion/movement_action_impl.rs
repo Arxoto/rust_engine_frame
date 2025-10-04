@@ -43,28 +43,27 @@ impl MovementActionEvent {
 ///
 /// 一般用于每帧检查
 #[derive(Clone, Debug)]
-pub enum MovementActionExitLogic {
-    ExitLogic(ActionBaseExitLogic),
+pub enum MovementActionExitLogic<S: FixedString> {
+    ExitLogic(ActionBaseExitLogic<S>),
     MovementChange(MovementMode, MovementMode),
 }
 
-impl MovementActionExitLogic {
-    fn should_exit_by_logic<S: FixedString>(
-        exit_logic: &ActionBaseExitLogic,
-        param: &FrameParam<S>,
-    ) -> bool {
+impl<S: FixedString> MovementActionExitLogic<S> {
+    fn should_exit_by_logic(exit_logic: &ActionBaseExitLogic<S>, param: &FrameParam<S>) -> bool {
         match exit_logic {
-            ActionBaseExitLogic::AnimFinished => param.anim_finished,
+            ActionBaseExitLogic::AnimFinished(anim_name) => {
+                param.anim_finished && param.anim_name == *anim_name
+            }
             ActionBaseExitLogic::MoveAfter(the_time) => {
-                param.action_duration > *the_time && param.want_move
+                param.want_move && param.action_duration > *the_time
             }
             ActionBaseExitLogic::JumpAfter(the_time) => {
-                param.action_duration > *the_time && param.want_jump
+                param.want_jump && param.action_duration > *the_time
             }
         }
     }
 
-    fn should_exit_by_movement_change<S: FixedString>(
+    fn should_exit_by_movement_change(
         old_movement: &MovementMode,
         new_movement: &MovementMode,
         param: &FrameParam<S>,
@@ -76,7 +75,7 @@ impl MovementActionExitLogic {
     }
 }
 
-impl<S: FixedString> ActionExitLogic<FrameParam<S>> for MovementActionExitLogic {
+impl<S: FixedString> ActionExitLogic<FrameParam<S>> for MovementActionExitLogic<S> {
     fn should_exit(&self, exit_param: &FrameParam<S>) -> bool {
         match self {
             MovementActionExitLogic::ExitLogic(exit_logic) => {
@@ -86,5 +85,102 @@ impl<S: FixedString> ActionExitLogic<FrameParam<S>> for MovementActionExitLogic 
                 Self::should_exit_by_movement_change(old_movement, new_movement, exit_param)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+
+    #[test]
+    fn exit_logic_anim_finished() {
+        let exit_logic = MovementActionExitLogic::ExitLogic(ActionBaseExitLogic::AnimFinished(""));
+
+        let param: FrameParam<&'static str> = FrameParam {
+            anim_finished: true,
+            anim_name: "",
+            ..Default::default()
+        };
+        assert!(exit_logic.should_exit(&param));
+
+        let param: FrameParam<&'static str> = FrameParam {
+            anim_finished: false,
+            anim_name: "",
+            ..Default::default()
+        };
+        assert!(!exit_logic.should_exit(&param));
+
+        let param: FrameParam<&'static str> = FrameParam {
+            anim_finished: true,
+            anim_name: " ",
+            ..Default::default()
+        };
+        assert!(!exit_logic.should_exit(&param));
+    }
+
+    #[test]
+    fn exit_logic_move_after() {
+        let exit_logic = MovementActionExitLogic::ExitLogic(ActionBaseExitLogic::MoveAfter(1.2));
+
+        let param: FrameParam<String> = FrameParam {
+            action_duration: 1.0,
+            want_move: false,
+            ..Default::default()
+        };
+        assert!(!exit_logic.should_exit(&param));
+
+        let param: FrameParam<String> = FrameParam {
+            action_duration: 1.0,
+            want_move: true,
+            ..Default::default()
+        };
+        assert!(!exit_logic.should_exit(&param));
+
+        let param: FrameParam<String> = FrameParam {
+            action_duration: 1.2,
+            want_move: false,
+            ..Default::default()
+        };
+        assert!(!exit_logic.should_exit(&param));
+
+        let param: FrameParam<String> = FrameParam {
+            action_duration: 1.2,
+            want_move: true,
+            ..Default::default()
+        };
+        assert!(!exit_logic.should_exit(&param));
+
+        let param: FrameParam<String> = FrameParam {
+            action_duration: 1.3,
+            want_move: false,
+            ..Default::default()
+        };
+        assert!(!exit_logic.should_exit(&param));
+
+        let param: FrameParam<String> = FrameParam {
+            action_duration: 1.3,
+            want_move: true,
+            ..Default::default()
+        };
+        assert!(exit_logic.should_exit(&param));
+    }
+
+    #[test]
+    fn exit_logic_jump_after() {
+        let exit_logic = MovementActionExitLogic::ExitLogic(ActionBaseExitLogic::JumpAfter(1.2));
+
+        let param: FrameParam<String> = FrameParam {
+            action_duration: 1.3,
+            want_jump: false,
+            ..Default::default()
+        };
+        assert!(!exit_logic.should_exit(&param));
+
+        let param: FrameParam<String> = FrameParam {
+            action_duration: 1.3,
+            want_jump: true,
+            ..Default::default()
+        };
+        assert!(exit_logic.should_exit(&param));
     }
 }
