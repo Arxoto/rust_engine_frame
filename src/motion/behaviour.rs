@@ -13,6 +13,8 @@ pub trait Behaviour<EnterParam, FrameParam, FrameEff, PhyParam, PhyEff> {
     fn on_enter(&mut self);
     fn on_exit(&mut self);
 
-    fn tick_frame(&mut self, p: &FrameParam) -> FrameEff;
+    
+    fn process_frame(&mut self, p: &FrameParam);
+    fn get_frame_eff(&mut self) -> FrameEff;
     fn tick_physics(&mut self, p: &PhyParam) -> PhyEff;
 }

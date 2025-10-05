@@ -58,24 +58,35 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
         (old_movement_mode, new_movement_mode)
     }
 
-    /// 渲染帧执行
+    /// 渲染帧执行 使用 [`BehaviourMachine::get_frame_eff`] 获取结果
     ///
-    /// 行为侧重逻辑，返回值一般认为是临时生成的，所以返回所有权
-    pub(crate) fn tick_frame(&mut self, frame_param: &FrameParam<S>) -> Option<FrameEff> {
-        let Some(stat) = self.stats.get_mut(self.current_id) else {
-            return None;
-        };
-        Some(stat.tick_frame(frame_param))
+    /// 侧重处理 由于状态转换和帧处理通常一起调用 所以将帧处理的结果独立出来 支持两者的自定义顺序
+    pub(crate) fn process_frame(&mut self, frame_param: &FrameParam<S>) {
+        if let Some(stat) = self.stats.get_mut(self.current_id) {
+            stat.process_frame(frame_param);
+        }
     }
 
-    /// 物理帧执行
+    /// 返回当前帧的渲染效果
+    ///
+    /// 行为侧重逻辑，返回值一般认为是临时生成的，所以返回所有权
+    pub(crate) fn get_frame_eff(&mut self) -> Option<FrameEff> {
+        if let Some(stat) = self.stats.get_mut(self.current_id) {
+            Some(stat.get_frame_eff())
+        } else {
+            None
+        }
+    }
+
+    /// 物理帧执行 返回物理效果
     ///
     /// 行为侧重逻辑，返回值一般认为是临时生成的，所以返回所有权
     pub(crate) fn tick_physics(&mut self, phy_param: &PhyParam<S>) -> Option<PhyEff> {
-        let Some(stat) = self.stats.get_mut(self.current_id) else {
-            return None;
-        };
-        Some(stat.tick_physics(phy_param))
+        if let Some(stat) = self.stats.get_mut(self.current_id) {
+            Some(stat.tick_physics(phy_param))
+        } else {
+            None
+        }
     }
 
     /// 初始化时新增

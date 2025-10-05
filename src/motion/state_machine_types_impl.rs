@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct FrameParam<S: FixedString> {
     // 客观
     pub delta: f64,
@@ -20,8 +20,9 @@ pub struct FrameParam<S: FixedString> {
     pub want_move: bool,
     pub want_jump: bool,
     // 框架内部维护
-    pub(crate) movement_changed: (Option<MovementMode>, Option<MovementMode>),
-    pub(crate) action_duration: f64, // todo 这里需要思考这里是否修改为 Option 类型，考虑到：1、内部维护，不从外界传入，明确状态；2、单次消费掉后就不可用（涉及一帧内的状态修改）
+    // Option 类型，因为：内部维护，不从外界传入，明确状态；
+    pub(crate) movement_changed: Option<(MovementMode, MovementMode)>,
+    pub(crate) action_duration: Option<f64>,
 }
 
 pub struct PhyParam<S: FixedString> {

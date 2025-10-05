@@ -55,10 +55,18 @@ impl<S: FixedString> MovementActionExitLogic<S> {
                 param.anim_finished && param.anim_name == *anim_name
             }
             ActionBaseExitLogic::MoveAfter(the_time) => {
-                param.want_move && param.action_duration > *the_time
+                param.want_move
+                    && param
+                        .action_duration
+                        .map(|duration_time| duration_time > *the_time)
+                        .unwrap_or(false)
             }
             ActionBaseExitLogic::JumpAfter(the_time) => {
-                param.want_jump && param.action_duration > *the_time
+                param.want_jump
+                    && param
+                        .action_duration
+                        .map(|duration_time| duration_time > *the_time)
+                        .unwrap_or(false)
             }
         }
     }
@@ -69,8 +77,8 @@ impl<S: FixedString> MovementActionExitLogic<S> {
         param: &FrameParam<S>,
     ) -> bool {
         match param.movement_changed {
-            (Some(the_old), Some(the_new)) => the_old == *old_movement && the_new == *new_movement,
-            _ => false,
+            Some((the_old, the_new)) => the_old == *old_movement && the_new == *new_movement,
+            None => false,
         }
     }
 }
@@ -123,42 +131,42 @@ mod unit_tests {
         let exit_logic = MovementActionExitLogic::ExitLogic(ActionBaseExitLogic::MoveAfter(1.2));
 
         let param: FrameParam<String> = FrameParam {
-            action_duration: 1.0,
+            action_duration: Some(1.0),
             want_move: false,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
-            action_duration: 1.0,
+            action_duration: Some(1.0),
             want_move: true,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
-            action_duration: 1.2,
+            action_duration: Some(1.2),
             want_move: false,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
-            action_duration: 1.2,
+            action_duration: Some(1.2),
             want_move: true,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
-            action_duration: 1.3,
+            action_duration: Some(1.3),
             want_move: false,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
-            action_duration: 1.3,
+            action_duration: Some(1.3),
             want_move: true,
             ..Default::default()
         };
@@ -170,14 +178,14 @@ mod unit_tests {
         let exit_logic = MovementActionExitLogic::ExitLogic(ActionBaseExitLogic::JumpAfter(1.2));
 
         let param: FrameParam<String> = FrameParam {
-            action_duration: 1.3,
+            action_duration: Some(1.3),
             want_jump: false,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
-            action_duration: 1.3,
+            action_duration: Some(1.3),
             want_jump: true,
             ..Default::default()
         };
