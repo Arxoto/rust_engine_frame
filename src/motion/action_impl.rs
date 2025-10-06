@@ -17,8 +17,12 @@ pub enum ActionBaseEvent {
     DefenceInstruction,
 
     /// 命中对方
+    ///
+    /// - 若想实现【命中后自动连击】或者【命中后才能衔接】，则在接收该信号后转换状态，状态的第一个动画为同名动画，因此不会导致动画提前取消
     HitSignal,
     /// 被命中
+    ///
+    /// - 若想实现【受击后自动格挡】，则立刻切换状态
     BeHitSignal,
 }
 

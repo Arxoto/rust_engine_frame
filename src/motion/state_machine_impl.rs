@@ -4,6 +4,7 @@ use crate::{
     cores::unify_type::FixedString,
     motion::{
         movement_action_impl::MovementActionEvent,
+        movement_impl::MovementMode,
         state_machine_action_impl::ActionMachine,
         state_machine_behaviour_impl::BehaviourMachine,
         state_machine_types_impl::{EffGenerator, FrameEff, FrameParam, PhyEff, PhyParam},
@@ -30,14 +31,6 @@ impl<S> PlayerMachine<S>
 where
     S: FixedString,
 {
-    /// 事件触发
-    pub fn trigger_by_event(&mut self, e: &MovementActionEvent) {
-        let action_updated = self.action_machine.update_action_by_event(e);
-        if action_updated {
-            self.action_duration = 0.0;
-        }
-    }
-
     /// 渲染帧执行
     ///
     /// 先进行帧处理，后进行状态更新，保证逻辑自洽（帧处理是基于帧开始的状态进行的）
@@ -71,7 +64,7 @@ where
         }
 
         // update action_machine
-        let action_updated = self.action_machine.update_action_by_tick(frame_param);
+        let action_updated = self.try_update_action(frame_param, movement_changed.0);
         // 动作更新 需要同步更新
         if action_updated {
             self.action_duration = 0.0;
@@ -82,6 +75,36 @@ where
         let anim_name = self.action_machine.get_frame_eff();
 
         EG::gen_frame_eff(anim_name, frame_eff)
+    }
+
+    fn try_update_action(
+        &mut self,
+        frame_param: &FrameParam<S>,
+        current_movement: Option<MovementMode>,
+    ) -> bool {
+        // 将事件更新与帧更新放在一处容易维护
+        let updated = match current_movement {
+            Some(movement) => self.try_update_action_event(frame_param, movement),
+            _ => false,
+        };
+        // 不允许状态连续更新
+        updated || self.action_machine.update_action_by_tick(frame_param)
+    }
+
+    fn try_update_action_event(
+        &mut self,
+        frame_param: &FrameParam<S>,
+        movement: MovementMode,
+    ) -> bool {
+        for event in frame_param.to_instructions() {
+            let updated = self
+                .action_machine
+                .update_action_by_event(&MovementActionEvent::new(event, movement));
+            if updated {
+                return true;
+            }
+        }
+        false
     }
 
     /// 物理帧执行

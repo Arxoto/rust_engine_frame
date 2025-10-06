@@ -38,8 +38,16 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
         enter_param: &FrameParam<S>,
     ) -> (Option<MovementMode>, Option<MovementMode>) {
         let Some(next_stat_id) = self.fetch_next_stat_id(enter_param) else {
-            return (None, None);
+            // do not update_stat
+            let current_movement_mode = self
+                .stats
+                .get_mut(self.current_id)
+                .map(|s| s.get_movement_mode());
+            // return new_stat = None
+            return (current_movement_mode, None);
         };
+
+        // do update
 
         let mut old_movement_mode = None;
         if let Some(stat) = self.stats.get_mut(self.current_id) {
@@ -49,7 +57,7 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
 
         self.current_id = next_stat_id;
 
-        let mut new_movement_mode = None;
+        let mut new_movement_mode = None; // never
         if let Some(stat) = self.stats.get_mut(self.current_id) {
             stat.on_enter();
             new_movement_mode = Some(stat.get_movement_mode());

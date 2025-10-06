@@ -8,6 +8,7 @@ use crate::{
     cores::unify_type::FixedString,
     motion::{
         action::Action,
+        action_impl::ActionBaseEvent,
         behaviour::Behaviour,
         movement_action_impl::{MovementActionEvent, MovementActionExitLogic},
         movement_impl::MovementMode,
@@ -18,17 +19,22 @@ const DEAD_ZONE: f64 = 0.01;
 
 #[derive(Clone, Default)]
 pub struct FrameParam<S: FixedString> {
-    // 客观
+    // 客观条件
     pub delta: f64,
     pub anim_finished: bool,
     pub anim_name: S, // 外部传入 因为考虑到动画不一定完全由动作系统控制
-    // 意图
+    // 事件信号标志
+    pub hit: bool,
+    pub behit: bool,
+    // 主观意图
     /// move direction
     pub want_x: f64,
     /// look direction
     pub want_y: f64,
     pub want_jump: bool,
+    pub want_dodge: bool,
     pub want_attack: bool,
+    pub want_defence: bool,
     // 框架内部维护
     // Option 类型，因为：内部维护，不从外界传入，明确状态；
     pub(crate) movement_changed: Option<(MovementMode, MovementMode)>,
@@ -38,6 +44,31 @@ pub struct FrameParam<S: FixedString> {
 impl<S: FixedString> FrameParam<S> {
     pub fn want_move(&self) -> bool {
         self.want_x < -DEAD_ZONE || self.want_x > DEAD_ZONE
+    }
+
+    pub fn to_instructions(&self) -> Vec<ActionBaseEvent> {
+        // 为性能考虑给予必要的空间防止后续扩容
+        let mut list = Vec::with_capacity(10);
+        // todo more and more
+        if self.hit {
+            list.push(ActionBaseEvent::HitSignal);
+        }
+        if self.behit {
+            list.push(ActionBaseEvent::BeHitSignal);
+        }
+        if self.want_jump {
+            list.push(ActionBaseEvent::JumpInstruction);
+        }
+        if self.want_dodge {
+            list.push(ActionBaseEvent::DodgeInstruction);
+        }
+        if self.want_attack {
+            list.push(ActionBaseEvent::AttackInstruction);
+        }
+        if self.want_defence {
+            list.push(ActionBaseEvent::DefenceInstruction);
+        }
+        list
     }
 }
 
@@ -57,6 +88,7 @@ pub trait MovementBehaviour<S: FixedString, FrameEff, PhyEff>:
     fn get_movement_mode(&self) -> MovementMode;
 }
 
+/// 若有必要可将角色动画分层（如上半身下半身组合动画），动作系统的逻辑保持单一仍然只返回一个动画
 #[derive(Debug, Default)]
 pub struct FrameEff<S: FixedString> {
     pub anim_name: S,
