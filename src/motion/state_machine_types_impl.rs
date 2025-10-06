@@ -15,8 +15,6 @@ use crate::{
     },
 };
 
-const DEAD_ZONE: f64 = 0.01;
-
 #[derive(Clone, Default)]
 pub struct FrameParam<S: FixedString> {
     // 客观条件
@@ -28,9 +26,9 @@ pub struct FrameParam<S: FixedString> {
     pub behit: bool,
     // 主观意图
     /// move direction
-    pub want_x: f64,
-    /// look direction
-    pub want_y: f64,
+    pub want_move: f64,
+    /// look angle
+    pub want_look: f64,
     pub want_jump: bool,
     pub want_dodge: bool,
     pub want_attack: bool,
@@ -42,10 +40,6 @@ pub struct FrameParam<S: FixedString> {
 }
 
 impl<S: FixedString> FrameParam<S> {
-    pub fn want_move(&self) -> bool {
-        self.want_x < -DEAD_ZONE || self.want_x > DEAD_ZONE
-    }
-
     pub fn to_instructions(&self) -> Vec<ActionBaseEvent> {
         // 为性能考虑给予必要的空间防止后续扩容
         let mut list = Vec::with_capacity(10);

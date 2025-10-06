@@ -20,7 +20,7 @@ impl TinyTimer {
         self.time = 0.0;
     }
 
-    /// 强制结束 todo pause/freeze
+    /// 强制结束 pause/freeze
     pub fn final_time(&mut self) {
         self.flow = false;
     }

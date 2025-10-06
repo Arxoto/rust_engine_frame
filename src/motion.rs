@@ -15,4 +15,7 @@ pub mod state_machine_types_impl;
 pub mod state_machine_action_impl;
 pub mod state_machine_behaviour_impl;
 
+pub mod player_operation;
+pub mod player_controller;
+
 pub mod state_machine_impl;

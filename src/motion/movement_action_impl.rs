@@ -6,6 +6,7 @@ use crate::{
         action_impl::{ActionBaseEvent, ActionBaseExitLogic},
         action_types::{ActionEvent, ActionExitLogic},
         movement_impl::MovementMode,
+        player_operation::PlayerOperation,
         state_machine_types_impl::FrameParam,
     },
 };
@@ -55,7 +56,7 @@ impl<S: FixedString> MovementActionExitLogic<S> {
                 param.anim_finished && param.anim_name == *anim_name
             }
             ActionBaseExitLogic::MoveAfter(the_time) => {
-                param.want_move()
+                param.want_move.operation_active()
                     && param
                         .action_duration
                         .map(|duration_time| duration_time > *the_time)
@@ -135,42 +136,42 @@ mod unit_tests {
 
         let param: FrameParam<String> = FrameParam {
             action_duration: Some(1.0),
-            want_x: 0.0,
+            want_move: 0.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
             action_duration: Some(1.0),
-            want_x: 1.0,
+            want_move: 1.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
             action_duration: Some(1.2),
-            want_x: 0.0,
+            want_move: 0.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
             action_duration: Some(1.2),
-            want_x: 1.0,
+            want_move: 1.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
             action_duration: Some(1.3),
-            want_x: 0.0,
+            want_move: 0.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
             action_duration: Some(1.3),
-            want_x: 1.0,
+            want_move: 1.0,
             ..Default::default()
         };
         assert!(exit_logic.should_exit(&param));
