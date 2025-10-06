@@ -2,7 +2,9 @@
 
 use crate::{cores::unify_type::FixedString, motion::action_types::ActionEvent};
 
-/// 动作的触发（指令 Instruction or 信号 Signal）
+/// 动作的触发
+/// - 指令 Instruction
+/// - 信号 Signal
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ActionBaseEvent {
     /// 跳跃指令
@@ -31,4 +33,6 @@ pub enum ActionBaseExitLogic<S: FixedString> {
     MoveAfter(f64),
     /// 多长时间后，跳跃可打断
     JumpAfter(f64),
+    /// 当播放动画为S时，攻击可打断
+    AttackWhen(S),
 }

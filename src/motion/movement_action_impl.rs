@@ -55,7 +55,7 @@ impl<S: FixedString> MovementActionExitLogic<S> {
                 param.anim_finished && param.anim_name == *anim_name
             }
             ActionBaseExitLogic::MoveAfter(the_time) => {
-                param.want_move
+                param.want_move()
                     && param
                         .action_duration
                         .map(|duration_time| duration_time > *the_time)
@@ -67,6 +67,9 @@ impl<S: FixedString> MovementActionExitLogic<S> {
                         .action_duration
                         .map(|duration_time| duration_time > *the_time)
                         .unwrap_or(false)
+            }
+            ActionBaseExitLogic::AttackWhen(anim_name) => {
+                param.want_attack && param.anim_name == *anim_name
             }
         }
     }
@@ -132,42 +135,42 @@ mod unit_tests {
 
         let param: FrameParam<String> = FrameParam {
             action_duration: Some(1.0),
-            want_move: false,
+            want_x: 0.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
             action_duration: Some(1.0),
-            want_move: true,
+            want_x: 1.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
             action_duration: Some(1.2),
-            want_move: false,
+            want_x: 0.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
             action_duration: Some(1.2),
-            want_move: true,
+            want_x: 1.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
             action_duration: Some(1.3),
-            want_move: false,
+            want_x: 0.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: FrameParam<String> = FrameParam {
             action_duration: Some(1.3),
-            want_move: true,
+            want_x: 1.0,
             ..Default::default()
         };
         assert!(exit_logic.should_exit(&param));

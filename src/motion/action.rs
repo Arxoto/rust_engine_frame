@@ -18,13 +18,13 @@ where
     /// 动作名称
     pub action_name: S,
 
-    /// 本动作的触发事件（指令与信号）
-    pub trigger: Vec<Event>,
+    /// 本动作的触发事件
+    pub trigger_enter: Vec<Event>,
+    /// 事件触发的下一个动作
+    pub trigger_exit: HashMap<Event, S>,
 
-    /// 每帧执行退出逻辑判断是否进行下一个动作（指令输入也可在这里定义）
-    pub tick_to_next_action: Vec<(ExitLogic, S)>,
-    /// 事件触发的下一个动作（一般不包括指令）
-    pub trigger_to_next_action: HashMap<Event, S>,
+    /// 每帧执行退出逻辑判断是否进行下一个动作
+    pub tick_exit: Vec<(ExitLogic, S)>,
 
     /// 动作优先级
     pub action_priority: i64,
@@ -55,9 +55,9 @@ where
     pub fn new_empty(action_name: S, anim_first: S) -> Self {
         Self {
             action_name,
-            trigger: Vec::new(),
-            tick_to_next_action: Vec::new(),
-            trigger_to_next_action: HashMap::new(),
+            trigger_enter: Vec::new(),
+            trigger_exit: HashMap::new(),
+            tick_exit: Vec::new(),
             action_priority: 0,
             action_switch_relation: HashMap::new(),
             anim_first,
@@ -69,7 +69,7 @@ where
 
     /// return None if should not trigger other action
     pub fn fetch_next_action_by_trigger(&self, trigger: &Event) -> Option<&S> {
-        self.trigger_to_next_action.get(trigger)
+        self.trigger_exit.get(trigger)
     }
 
     /// 本动作可以切换到另一个动作
@@ -99,28 +99,45 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::super::action_impl::{ActionBaseEvent, ActionBaseExitLogic};
 
     use super::*;
 
-    impl<S: FixedString> ActionExitLogic<bool> for ActionBaseExitLogic<S> {
+    #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+    pub enum TmpActionEvent {
+        JumpInstruction,
+        DodgeInstruction,
+        AttackInstruction,
+    }
+
+    impl ActionEvent for TmpActionEvent {}
+
+    /// 动作的退出逻辑
+    #[derive(Clone, Copy, Debug)]
+    pub enum TmpActionExitLogic<S: FixedString> {
+        /// 动画结束播放
+        AnimFinished(S),
+        OtherExitLogic,
+    }
+
+    impl<S: FixedString> ActionExitLogic<bool> for TmpActionExitLogic<S> {
         fn should_exit(&self, p: &bool) -> bool {
             *p
         }
     }
 
-    fn gen_for_test() -> Action<&'static str, ActionBaseEvent, bool, ActionBaseExitLogic<&'static str>, (f64, f64)>
+    fn gen_for_test()
+    -> Action<&'static str, TmpActionEvent, bool, TmpActionExitLogic<&'static str>, (f64, f64)>
     {
         Action {
             action_name: "attack",
-            trigger: Vec::from([ActionBaseEvent::AttackInstruction]),
-            tick_to_next_action: Vec::from([
-                (ActionBaseExitLogic::AnimFinished("attack_end"), "idle"),
-                (ActionBaseExitLogic::MoveAfter(0.6), "move"),
+            trigger_enter: Vec::from([TmpActionEvent::AttackInstruction]),
+            trigger_exit: HashMap::from([
+                (TmpActionEvent::AttackInstruction, "twice_atk"),
+                (TmpActionEvent::JumpInstruction, "jump_atk"),
             ]),
-            trigger_to_next_action: HashMap::from([
-                (ActionBaseEvent::AttackInstruction, "twice_atk"),
-                (ActionBaseEvent::JumpInstruction, "jump_atk"),
+            tick_exit: Vec::from([
+                (TmpActionExitLogic::AnimFinished("attack_end"), "idle"),
+                (TmpActionExitLogic::OtherExitLogic, "other"),
             ]),
             action_priority: 1,
             action_switch_relation: HashMap::from([
@@ -145,9 +162,9 @@ mod tests {
     fn test_event_trigger_and_action_priority() {
         let test_action = gen_for_test();
         assert_eq!(test_action.action_name, "attack");
-        let res = test_action.fetch_next_action_by_trigger(&ActionBaseEvent::AttackInstruction);
+        let res = test_action.fetch_next_action_by_trigger(&TmpActionEvent::AttackInstruction);
         assert_eq!(res, Some(&"twice_atk"));
-        let res = test_action.fetch_next_action_by_trigger(&ActionBaseEvent::DodgeInstruction);
+        let res = test_action.fetch_next_action_by_trigger(&TmpActionEvent::DodgeInstruction);
         assert_eq!(res, None);
 
         // by action_priority

@@ -1,7 +1,11 @@
 // Trait Alias 简化复杂的 trait 约束，提高代码可读性和一致性
 pub trait FixedName: Eq + std::hash::Hash + Clone + std::fmt::Debug {}
 
-pub trait FixedString: Eq + std::hash::Hash + Clone + std::fmt::Debug {}
+pub trait FixedString: Eq + std::hash::Hash + Clone + std::fmt::Debug + Default {
+    fn is_legal(&self) -> bool {
+        *self != Self::default()
+    }
+}
 
 impl FixedName for String {}
 impl FixedName for &str {}

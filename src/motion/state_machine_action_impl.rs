@@ -91,7 +91,7 @@ where
         let Some(the_action) = self.get_current_action() else {
             return None;
         };
-        for (exit_logic, next_action_name) in the_action.tick_to_next_action.iter() {
+        for (exit_logic, next_action_name) in the_action.tick_exit.iter() {
             if exit_logic.should_exit(exit_param) {
                 return Some(next_action_name.clone());
             }
@@ -167,7 +167,7 @@ where
     /// 初始化时新增
     pub fn add_action(&mut self, a: MovementAction<S, PhyEff>) {
         // set trigger
-        for event in a.trigger.iter() {
+        for event in a.trigger_enter.iter() {
             if let Some(actions) = self.event_trigger_actions.get_mut(event) {
                 actions.push(a.action_name.clone());
             } else {
@@ -204,7 +204,7 @@ mod unit_tests {
             Action::new_empty("defence_action", "defence_anim");
         // 对所有运动模式进行匹配【防御指令】
         action
-            .trigger
+            .trigger_enter
             .append(&mut MovementActionEvent::new_each_movement(
                 ActionBaseEvent::DefenceInstruction,
             ));
@@ -227,8 +227,8 @@ mod unit_tests {
 
         let mut action: MovementAction<&'static str, ()> =
             Action::new_empty("defence_action_2", "defence_anim_2");
-        // 仅地面状态下的【受击信号】
-        action.trigger.push(MovementActionEvent::new(
+        // 仅地面状态下的【防御指令】
+        action.trigger_enter.push(MovementActionEvent::new(
             ActionBaseEvent::DefenceInstruction,
             MovementMode::OnFloor,
         ));
@@ -271,14 +271,14 @@ mod unit_tests {
         let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
 
         action_machine.add_action(Action {
-            trigger: vec![MovementActionEvent::new(
+            trigger_enter: vec![MovementActionEvent::new(
                 ActionBaseEvent::AttackInstruction,
                 MovementMode::OnFloor,
             )],
             ..Action::new_empty("1", "anim_first")
         });
         action_machine.add_action(Action {
-            trigger: vec![MovementActionEvent::new(
+            trigger_enter: vec![MovementActionEvent::new(
                 ActionBaseEvent::AttackInstruction,
                 MovementMode::OnFloor,
             )],
@@ -303,7 +303,7 @@ mod unit_tests {
             ..Action::new_empty("0", "anim_first")
         });
         action_machine.add_action(Action {
-            trigger: vec![MovementActionEvent::new(
+            trigger_enter: vec![MovementActionEvent::new(
                 ActionBaseEvent::AttackInstruction,
                 MovementMode::OnFloor,
             )],
@@ -311,7 +311,7 @@ mod unit_tests {
             ..Action::new_empty("1", "anim_first")
         });
         action_machine.add_action(Action {
-            trigger: vec![MovementActionEvent::new(
+            trigger_enter: vec![MovementActionEvent::new(
                 ActionBaseEvent::AttackInstruction,
                 MovementMode::OnFloor,
             )],
@@ -343,14 +343,14 @@ mod unit_tests {
 
         action_machine.add_action(Action {
             action_priority: 1,
-            trigger_to_next_action: HashMap::from([(
+            trigger_exit: HashMap::from([(
                 MovementActionEvent::new(ActionBaseEvent::AttackInstruction, MovementMode::OnFloor),
                 "1",
             )]),
             ..Action::new_empty("0", "anim_first")
         });
         action_machine.add_action(Action {
-            trigger: vec![MovementActionEvent::new(
+            trigger_enter: vec![MovementActionEvent::new(
                 ActionBaseEvent::AttackInstruction,
                 MovementMode::OnFloor,
             )],
@@ -358,7 +358,7 @@ mod unit_tests {
             ..Action::new_empty("1", "anim_first")
         });
         action_machine.add_action(Action {
-            trigger: vec![MovementActionEvent::new(
+            trigger_enter: vec![MovementActionEvent::new(
                 ActionBaseEvent::AttackInstruction,
                 MovementMode::OnFloor,
             )],
@@ -382,7 +382,7 @@ mod unit_tests {
         let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
 
         action_machine.add_action(Action {
-            tick_to_next_action: vec![(
+            tick_exit: vec![(
                 MovementActionExitLogic::ExitLogic(ActionBaseExitLogic::AnimFinished("anim_first")),
                 "1",
             )],

@@ -6,7 +6,7 @@ use crate::{
         movement_action_impl::MovementActionEvent,
         state_machine_action_impl::ActionMachine,
         state_machine_behaviour_impl::BehaviourMachine,
-        state_machine_types_impl::{FrameParam, PhyParam},
+        state_machine_types_impl::{EffGenerator, FrameEff, FrameParam, PhyEff, PhyParam},
     },
 };
 
@@ -14,24 +14,21 @@ use crate::{
 ///
 /// 组合了行为与动作系统
 #[derive(Default)]
-pub struct PlayerMachine<S, FrameEff, PhyEff>
+pub struct PlayerMachine<S>
 where
     S: FixedString,
-    FrameEff: TryFrom<S>,
 {
     pub(crate) action_machine: ActionMachine<S, PhyEff>,
-    pub(crate) behaviour_machine: BehaviourMachine<S, FrameEff, PhyEff>,
+    pub(crate) behaviour_machine: BehaviourMachine<S, FrameEff<S>, PhyEff>,
 
     // inner field
     /// 动作持续时间
     action_duration: f64,
 }
 
-impl<S, FrameEff, PhyEff> PlayerMachine<S, FrameEff, PhyEff>
+impl<S> PlayerMachine<S>
 where
     S: FixedString,
-    FrameEff: TryFrom<S>,
-    PhyEff: Clone,
 {
     /// 事件触发
     pub fn trigger_by_event(&mut self, e: &MovementActionEvent) {
@@ -44,7 +41,7 @@ where
     /// 渲染帧执行
     ///
     /// 先进行帧处理，后进行状态更新，保证逻辑自洽（帧处理是基于帧开始的状态进行的）
-    pub fn tick_frame(&mut self, p: &FrameParam<S>) -> Option<FrameEff> {
+    pub fn tick_frame<FE, PE, EG: EffGenerator<S, FE, PE>>(&mut self, p: &FrameParam<S>) -> FE {
         // 内部维护状态的参数
         // 考虑到一致性 应仅对参数赋初始值 而不做修改，但实际上随着动作的改变修改了 action_duration
 
@@ -84,18 +81,14 @@ where
         let frame_eff = self.behaviour_machine.get_frame_eff();
         let anim_name = self.action_machine.get_frame_eff();
 
-        // anim_name first, and then frame_eff
-        match FrameEff::try_from(anim_name.clone()) {
-            Ok(frame_eff) => Some(frame_eff),
-            Err(_) => frame_eff,
-        }
+        EG::gen_frame_eff(anim_name, frame_eff)
     }
 
     /// 物理帧执行
-    pub fn tick_physics(&mut self, p: &PhyParam<S>) -> Option<PhyEff> {
+    pub fn tick_physics<FE, PE, EG: EffGenerator<S, FE, PE>>(&mut self, p: &PhyParam<S>) -> PE {
         let phy_eff_b = self.behaviour_machine.tick_physics(p);
         let phy_eff_a = self.action_machine.tick_physics(p);
 
-        phy_eff_a.map(|p| p.clone()).or(phy_eff_b)
+        EG::gen_phy_eff(phy_eff_a, phy_eff_b)
     }
 }
