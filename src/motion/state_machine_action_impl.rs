@@ -87,7 +87,7 @@ where
             .or_else(|| self.fetch_next_action_name_by_event_global(e))
     }
 
-    fn fetch_next_action_name_by_tick(&self, exit_param: &FrameParam<S>) -> Option<S> {
+    fn fetch_next_action_name_by_tick(&self, exit_param: &PhyParam<S>) -> Option<S> {
         let Some(the_action) = self.get_current_action() else {
             return None;
         };
@@ -109,7 +109,7 @@ where
     }
 
     /// 每帧进行状态更新
-    pub(crate) fn update_action_by_tick(&mut self, exit_param: &FrameParam<S>) -> bool {
+    pub(crate) fn update_action_by_tick(&mut self, exit_param: &PhyParam<S>) -> bool {
         if let Some(next_action_name) = self.fetch_next_action_name_by_tick(exit_param) {
             self.do_update_action(next_action_name);
             return true;
@@ -117,10 +117,10 @@ where
         return false;
     }
 
-    /// 渲染帧执行 使用 [`ActionMachine::get_frame_eff`] 获取结果
+    /// 渲染帧执行 返回渲染效果
     ///
-    /// 侧重处理 由于状态转换和帧处理通常一起调用 所以将帧处理的结果独立出来 支持两者的自定义顺序
-    pub(crate) fn process_frame(&mut self, frame_param: &FrameParam<S>) {
+    /// 动作侧重数据，返回值一般认为是固定的，所以仅返回引用
+    pub(crate) fn tick_frame(&mut self, frame_param: &FrameParam<S>) -> &S {
         // 若出现动画名称不对应的情况 说明外部没有遵从动作框架的逻辑 （如动作框架处于缺省状态时，使用行为框架进行覆盖）
         if frame_param.anim_finished && frame_param.anim_name == self.current_anim_name {
             // update anim
@@ -137,21 +137,15 @@ where
                 }
             }
         }
-    }
-
-    /// 返回当前帧的动画名称
-    ///
-    /// 动作侧重数据，返回值一般认为是固定的，所以仅返回引用
-    pub(crate) fn get_frame_eff(&self) -> &S {
         &self.current_anim_name
     }
 
     /// 物理帧执行 返回物理效果
     ///
-    /// 动作侧重数据，返回值一般认为是固定的，所以仅返回引用
-    pub(crate) fn tick_physics(&mut self, p: &PhyParam<S>) -> Option<&PhyEff> {
+    /// 没有内部处理逻辑 无需在意状态转换与帧处理的顺序
+    pub(crate) fn tick_physics(&mut self, phy_param: &PhyParam<S>) -> Option<&PhyEff> {
         if let Some(action) = self.get_current_action() {
-            action.get_phy_eff_by_anim(&p.anim_name)
+            action.get_phy_eff_by_anim(&phy_param.anim_name)
         } else {
             None
         }
@@ -396,7 +390,7 @@ mod unit_tests {
         assert_eq!(action_machine.current_action_name, "0");
         assert_eq!(action_machine.current_anim_name, "anim_first");
 
-        action_machine.update_action_by_tick(&FrameParam {
+        action_machine.update_action_by_tick(&PhyParam {
             anim_finished: true,
             anim_name: "anim_first",
             ..Default::default()
@@ -417,52 +411,52 @@ mod unit_tests {
         action_machine.init_action(&"action_name");
 
         // 模拟异常情况（动作系统处于缺省状态时用行为系统覆盖，这种情况对于动作系统自己来说是异常情况）
-        action_machine.process_frame(&FrameParam {
+        let the_anim_name = action_machine.tick_frame(&FrameParam {
             anim_finished: true,
             anim_name: "none",
             ..Default::default()
         });
         // 异常情况不做改变
-        assert_eq!(action_machine.get_frame_eff(), &"0");
+        assert_eq!(the_anim_name, &"0");
 
         // 动作未完成
-        action_machine.process_frame(&FrameParam {
+        let the_anim_name = action_machine.tick_frame(&FrameParam {
             anim_finished: false,
             anim_name: "0",
             ..Default::default()
         });
-        assert_eq!(action_machine.get_frame_eff(), &"0");
+        assert_eq!(the_anim_name, &"0");
 
         // 动作 0 -> 1
-        action_machine.process_frame(&FrameParam {
+        let the_anim_name = action_machine.tick_frame(&FrameParam {
             anim_finished: true,
             anim_name: "0",
             ..Default::default()
         });
-        assert_eq!(action_machine.get_frame_eff(), &"1");
+        assert_eq!(the_anim_name, &"1");
 
         // 动作 1 -> 2
-        action_machine.process_frame(&FrameParam {
+        let the_anim_name = action_machine.tick_frame(&FrameParam {
             anim_finished: true,
             anim_name: "1",
             ..Default::default()
         });
-        assert_eq!(action_machine.get_frame_eff(), &"2");
+        assert_eq!(the_anim_name, &"2");
 
         // 动作 2 -> 1
-        action_machine.process_frame(&FrameParam {
+        let the_anim_name = action_machine.tick_frame(&FrameParam {
             anim_finished: true,
             anim_name: "2",
             ..Default::default()
         });
-        assert_eq!(action_machine.get_frame_eff(), &"1");
+        assert_eq!(the_anim_name, &"1");
 
         // 动作 1 -> 2 循环
-        action_machine.process_frame(&FrameParam {
+        let the_anim_name = action_machine.tick_frame(&FrameParam {
             anim_finished: true,
             anim_name: "1",
             ..Default::default()
         });
-        assert_eq!(action_machine.get_frame_eff(), &"2");
+        assert_eq!(the_anim_name, &"2");
     }
 }

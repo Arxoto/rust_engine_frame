@@ -18,6 +18,13 @@ use crate::{
 #[derive(Clone, Default)]
 pub struct FrameParam<S: FixedString> {
     // 客观条件
+    pub anim_finished: bool,
+    pub anim_name: S, // 外部传入 因为考虑到动画不一定完全由动作系统控制
+}
+
+#[derive(Clone, Default)]
+pub struct PhyParam<S: FixedString> {
+    // 客观条件
     pub delta: f64,
     pub anim_finished: bool,
     pub anim_name: S, // 外部传入 因为考虑到动画不一定完全由动作系统控制
@@ -39,7 +46,7 @@ pub struct FrameParam<S: FixedString> {
     pub(crate) action_duration: Option<f64>,
 }
 
-impl<S: FixedString> FrameParam<S> {
+impl<S: FixedString> PhyParam<S> {
     pub fn to_instructions(&self) -> Vec<ActionBaseEvent> {
         // 为性能考虑给予必要的空间防止后续扩容
         let mut list = Vec::with_capacity(10);
@@ -66,18 +73,13 @@ impl<S: FixedString> FrameParam<S> {
     }
 }
 
-pub struct PhyParam<S: FixedString> {
-    pub delta: f64,
-    pub anim_name: S,
-}
-
 /// ExitParam 为 FrameParam ，角色状态机将输入参数聚合成一个
 pub type MovementAction<S, PhyEff> =
-    Action<S, MovementActionEvent, FrameParam<S>, MovementActionExitLogic<S>, PhyEff>;
+    Action<S, MovementActionEvent, PhyParam<S>, MovementActionExitLogic<S>, PhyEff>;
 
 /// EnterParam 为 FrameParam ，角色状态机将输入参数聚合成一个
 pub trait MovementBehaviour<S: FixedString, FrameEff, PhyEff>:
-    Behaviour<FrameParam<S>, FrameParam<S>, FrameEff, PhyParam<S>, PhyEff>
+    Behaviour<PhyParam<S>, FrameParam<S>, FrameEff, PhyParam<S>, PhyEff>
 {
     fn get_movement_mode(&self) -> MovementMode;
 }
@@ -110,15 +112,43 @@ impl<S: FixedString> FrameEff<S> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
+pub enum PhyDirection {
+    Left,
+    Right,
+    None,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum PhyMode {
+    Idle,
+    Run,
+    Dodging,
+    Jumping,
+    Falling,
+    Flying,
+    Climbing,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct PhyEff {
-    pub x: f64,
-    pub y: f64,
+    pub mode: PhyMode,
+    pub direction: PhyDirection,
+}
+
+// 没有这个实现就无法对 [`PlayerMachine`] 使用宏实现 Default （不知道为什么）
+impl Default for PhyEff {
+    fn default() -> Self {
+        Self {
+            mode: PhyMode::Idle,
+            direction: PhyDirection::None,
+        }
+    }
 }
 
 pub trait EffGenerator<S: FixedString, FE, PE> {
     fn gen_frame_eff(by_action: &S, by_behaviour: Option<FrameEff<S>>) -> FE;
-    fn gen_phy_eff(by_action: Option<&PhyEff>, by_behaviour: Option<PhyEff>) -> PE;
+    fn gen_phy_eff(by_action: Option<PhyEff>, by_behaviour: Option<PhyEff>) -> PE;
 }
 
 pub struct CommonEffGenerator;
@@ -134,10 +164,10 @@ impl<S: FixedString>
     }
 
     fn gen_phy_eff(
-        by_action: Option<&PhyEff>,
+        by_action: Option<PhyEff>,
         by_behaviour: Option<PhyEff>,
     ) -> (Option<PhyEff>, Option<PhyEff>) {
-        (by_action.map(|p| p.clone()), by_behaviour)
+        (by_action, by_behaviour)
     }
 }
 
@@ -148,7 +178,7 @@ impl<S: FixedString> EffGenerator<S, Option<FrameEff<S>>, Option<PhyEff>> for Co
         FrameEff::try_new(by_action.clone()).or(by_behaviour)
     }
 
-    fn gen_phy_eff(by_action: Option<&PhyEff>, by_behaviour: Option<PhyEff>) -> Option<PhyEff> {
-        by_action.map(|p| p.clone()).or(by_behaviour)
+    fn gen_phy_eff(by_action: Option<PhyEff>, by_behaviour: Option<PhyEff>) -> Option<PhyEff> {
+        by_action.or(by_behaviour)
     }
 }

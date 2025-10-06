@@ -7,7 +7,7 @@ use crate::{
         action_types::{ActionEvent, ActionExitLogic},
         movement_impl::MovementMode,
         player_operation::PlayerOperation,
-        state_machine_types_impl::FrameParam,
+        state_machine_types_impl::PhyParam,
     },
 };
 
@@ -50,7 +50,7 @@ pub enum MovementActionExitLogic<S: FixedString> {
 }
 
 impl<S: FixedString> MovementActionExitLogic<S> {
-    fn should_exit_by_logic(exit_logic: &ActionBaseExitLogic<S>, param: &FrameParam<S>) -> bool {
+    fn should_exit_by_logic(exit_logic: &ActionBaseExitLogic<S>, param: &PhyParam<S>) -> bool {
         match exit_logic {
             ActionBaseExitLogic::AnimFinished(anim_name) => {
                 param.anim_finished && param.anim_name == *anim_name
@@ -78,7 +78,7 @@ impl<S: FixedString> MovementActionExitLogic<S> {
     fn should_exit_by_movement_change(
         old_movement: &MovementMode,
         new_movement: &MovementMode,
-        param: &FrameParam<S>,
+        param: &PhyParam<S>,
     ) -> bool {
         match param.movement_changed {
             Some((the_old, the_new)) => the_old == *old_movement && the_new == *new_movement,
@@ -87,8 +87,8 @@ impl<S: FixedString> MovementActionExitLogic<S> {
     }
 }
 
-impl<S: FixedString> ActionExitLogic<FrameParam<S>> for MovementActionExitLogic<S> {
-    fn should_exit(&self, exit_param: &FrameParam<S>) -> bool {
+impl<S: FixedString> ActionExitLogic<PhyParam<S>> for MovementActionExitLogic<S> {
+    fn should_exit(&self, exit_param: &PhyParam<S>) -> bool {
         match self {
             MovementActionExitLogic::ExitLogic(exit_logic) => {
                 Self::should_exit_by_logic(exit_logic, exit_param)
@@ -108,21 +108,21 @@ mod unit_tests {
     fn exit_logic_anim_finished() {
         let exit_logic = MovementActionExitLogic::ExitLogic(ActionBaseExitLogic::AnimFinished(""));
 
-        let param: FrameParam<&'static str> = FrameParam {
+        let param: PhyParam<&'static str> = PhyParam {
             anim_finished: true,
             anim_name: "",
             ..Default::default()
         };
         assert!(exit_logic.should_exit(&param));
 
-        let param: FrameParam<&'static str> = FrameParam {
+        let param: PhyParam<&'static str> = PhyParam {
             anim_finished: false,
             anim_name: "",
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
-        let param: FrameParam<&'static str> = FrameParam {
+        let param: PhyParam<&'static str> = PhyParam {
             anim_finished: true,
             anim_name: " ",
             ..Default::default()
@@ -134,42 +134,42 @@ mod unit_tests {
     fn exit_logic_move_after() {
         let exit_logic = MovementActionExitLogic::ExitLogic(ActionBaseExitLogic::MoveAfter(1.2));
 
-        let param: FrameParam<String> = FrameParam {
+        let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.0),
             want_move: 0.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
-        let param: FrameParam<String> = FrameParam {
+        let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.0),
             want_move: 1.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
-        let param: FrameParam<String> = FrameParam {
+        let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.2),
             want_move: 0.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
-        let param: FrameParam<String> = FrameParam {
+        let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.2),
             want_move: 1.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
-        let param: FrameParam<String> = FrameParam {
+        let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.3),
             want_move: 0.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
-        let param: FrameParam<String> = FrameParam {
+        let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.3),
             want_move: 1.0,
             ..Default::default()
@@ -181,14 +181,14 @@ mod unit_tests {
     fn exit_logic_jump_after() {
         let exit_logic = MovementActionExitLogic::ExitLogic(ActionBaseExitLogic::JumpAfter(1.2));
 
-        let param: FrameParam<String> = FrameParam {
+        let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.3),
             want_jump: false,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
-        let param: FrameParam<String> = FrameParam {
+        let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.3),
             want_jump: true,
             ..Default::default()

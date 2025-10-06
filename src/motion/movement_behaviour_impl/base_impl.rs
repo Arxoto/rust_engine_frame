@@ -20,9 +20,7 @@ impl<S: FixedString> Behaviour<FrameParam<S>, FrameParam<S>, FrameEff<S>, PhyPar
 
     fn on_exit(&mut self) {}
 
-    fn process_frame(&mut self, _p: &FrameParam<S>) {}
-
-    fn get_frame_eff(&mut self) -> FrameEff<S> {
+    fn tick_frame(&mut self, _p: &FrameParam<S>) -> FrameEff<S> {
         // 不对视觉效果做修改
         FrameEff::default()
     }
