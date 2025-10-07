@@ -6,7 +6,7 @@ use crate::{
         action_impl::{ActionBaseEvent, ActionBaseExitLogic},
         action_types::{ActionEvent, ActionExitLogic},
         movement_impl::MovementMode,
-        player_operation::PlayerOperation,
+        player_input::PlayerOperation,
         state_machine_types_impl::PhyParam,
     },
 };
@@ -56,21 +56,21 @@ impl<S: FixedString> MovementActionExitLogic<S> {
                 param.anim_finished && param.anim_name == *anim_name
             }
             ActionBaseExitLogic::MoveAfter(the_time) => {
-                param.want_move_direction.op_active()
+                param.move_direction.op_active()
                     && param
                         .action_duration
                         .map(|duration_time| duration_time > *the_time)
                         .unwrap_or(false)
             }
             ActionBaseExitLogic::JumpAfter(the_time) => {
-                param.want_jump_once
+                param.jump_once.op_active()
                     && param
                         .action_duration
                         .map(|duration_time| duration_time > *the_time)
                         .unwrap_or(false)
             }
             ActionBaseExitLogic::AttackWhen(anim_name) => {
-                param.want_attack_once && param.anim_name == *anim_name
+                param.attack_once.op_active() && param.anim_name == *anim_name
             }
         }
     }
@@ -104,6 +104,8 @@ impl<S: FixedString> ActionExitLogic<PhyParam<S>> for MovementActionExitLogic<S>
 
 #[cfg(test)]
 mod unit_tests {
+    use crate::motion::player_pre_input::PreInputInstruction;
+
     use super::*;
 
     #[test]
@@ -138,42 +140,42 @@ mod unit_tests {
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.0),
-            want_move_direction: 0.0,
+            move_direction: 0.0.into(),
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.0),
-            want_move_direction: 1.0,
+            move_direction: 1.0.into(),
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.2),
-            want_move_direction: 0.0,
+            move_direction: 0.0.into(),
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.2),
-            want_move_direction: 1.0,
+            move_direction: 1.0.into(),
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.3),
-            want_move_direction: 0.0,
+            move_direction: 0.0.into(),
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.3),
-            want_move_direction: 1.0,
+            move_direction: 1.0.into(),
             ..Default::default()
         };
         assert!(exit_logic.should_exit(&param));
@@ -185,14 +187,14 @@ mod unit_tests {
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.3),
-            want_jump_once: false,
+            jump_once: PreInputInstruction(false, Default::default()),
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.3),
-            want_jump_once: true,
+            jump_once: PreInputInstruction(true, Default::default()),
             ..Default::default()
         };
         assert!(exit_logic.should_exit(&param));

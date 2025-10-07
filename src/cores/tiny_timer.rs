@@ -1,4 +1,5 @@
-#[derive(Debug, Default)]
+// 其实不需要 Clone 也不应该去用 但是在实现 [`PhyParam`] 的 Clone 时要求一起实现
+#[derive(Clone, Debug, Default)]
 pub struct TinyTimer {
     time_limit: f64,
     time: f64,

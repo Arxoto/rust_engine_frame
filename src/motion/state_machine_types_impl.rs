@@ -5,13 +5,15 @@
 //! （仅行为系统的实现与2D3D有关，但是暂时先不独立抽象一层，因为输入参数需要抽象一层特征）
 
 use crate::{
-    cores::unify_type::FixedString,
+    cores::{tiny_timer::TinyTimer, unify_type::FixedString},
     motion::{
         action::Action,
         action_impl::ActionBaseEvent,
         behaviour::Behaviour,
         movement_action_impl::{MovementActionEvent, MovementActionExitLogic},
         movement_impl::MovementMode,
+        player_input::{PlayerInstruction, PlayerOperation},
+        player_pre_input::PreInputInstruction,
     },
 };
 
@@ -32,14 +34,14 @@ pub struct PhyParam<S: FixedString> {
     pub hit_signal: bool,
     pub behit_signal: bool,
     // 主观意图
-    pub want_look_angle: f64,
-    pub want_move_direction: f64,
-    pub want_jump_once: bool,
-    pub want_jump_keep: bool,
-    pub want_dodge_once: bool,
-    pub want_block_keep: bool,
-    pub want_attack_once: bool,
-    pub want_attack_keep: bool,
+    pub look_angle: PlayerInstruction<f64>,
+    pub move_direction: PlayerInstruction<f64>,
+    pub jump_once: PreInputInstruction<TinyTimer>,
+    pub jump_keep: PlayerInstruction<bool>,
+    pub dodge_once: PreInputInstruction<TinyTimer>,
+    pub block_keep: PlayerInstruction<bool>,
+    pub attack_once: PlayerInstruction<bool>,
+    pub attack_keep: PlayerInstruction<bool>,
     // Option 框架内部维护 不从外界传入、明确状态
     /// None 时表示没有发生模式的切换
     pub(crate) movement_changed: Option<(Option<MovementMode>, Option<MovementMode>)>,
@@ -57,22 +59,22 @@ impl<S: FixedString> PhyParam<S> {
         if self.behit_signal {
             list.push(ActionBaseEvent::BeHitSignal);
         }
-        if self.want_jump_once {
+        if self.jump_once.op_active() {
             list.push(ActionBaseEvent::JumpInstruction);
         }
-        if self.want_jump_keep {
+        if self.jump_keep.op_active() {
             list.push(ActionBaseEvent::JumpHigherInstruction);
         }
-        if self.want_dodge_once {
+        if self.dodge_once.op_active() {
             list.push(ActionBaseEvent::DodgeInstruction);
         }
-        if self.want_block_keep {
+        if self.block_keep.op_active() {
             list.push(ActionBaseEvent::BlockInstruction);
         }
-        if self.want_attack_once {
+        if self.attack_once.op_active() {
             list.push(ActionBaseEvent::AttackInstruction);
         }
-        if self.want_attack_keep {
+        if self.attack_keep.op_active() {
             list.push(ActionBaseEvent::AttackHeavierInstruction);
         }
         list

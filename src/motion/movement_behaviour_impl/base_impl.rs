@@ -2,7 +2,7 @@ use crate::{
     cores::unify_type::FixedString,
     motion::{
         behaviour::Behaviour,
-        player_operation::PlayerOperation,
+        player_input::PlayerOperation,
         state_machine_types_impl::{FrameEff, FrameParam, PhyDirection, PhyEff, PhyMode, PhyParam},
     },
 };
@@ -14,14 +14,14 @@ impl BaseBehaviour {
     fn tick_physics<S: FixedString>(&mut self, p: &PhyParam<S>) -> PhyEff {
         // 对任意移动输入均做出反应
 
-        let mode = if p.want_jump_keep {
+        let mode = if p.jump_keep.op_active() {
             PhyMode::Jumping
         } else {
             PhyMode::Falling
         };
 
-        let direction = if p.want_move_direction.op_active() {
-            if p.want_move_direction > 0.0 {
+        let direction = if p.move_direction.op_active() {
+            if p.move_direction.0 > 0.0 {
                 PhyDirection::Right
             } else {
                 PhyDirection::Left
