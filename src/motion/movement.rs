@@ -8,6 +8,7 @@
 /// - 动作用于复杂操作、简单逻辑，如 combo 的依赖路径
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MovementMode {
+    FreeStat,
     OnFloor,
     InAir,
     UnderWater,
@@ -17,6 +18,7 @@ pub enum MovementMode {
 impl MovementMode {
     pub fn each_mode() -> &'static [MovementMode] {
         &[
+            MovementMode::FreeStat,
             MovementMode::OnFloor,
             MovementMode::InAir,
             MovementMode::UnderWater,
@@ -41,6 +43,7 @@ mod unit_tests {
         let line_start = line!();
         for ele in movements.iter() {
             match ele {
+                MovementMode::FreeStat => {}
                 MovementMode::OnFloor => {}
                 MovementMode::InAir => {}
                 MovementMode::UnderWater => {}

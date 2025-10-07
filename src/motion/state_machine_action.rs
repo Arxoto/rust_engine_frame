@@ -5,11 +5,11 @@ use std::collections::HashMap;
 use crate::{
     cores::unify_type::FixedString,
     motion::{
-        action_types::ActionExitLogic,
-        movement_action_impl::MovementActionEvent,
-        movement_impl::MovementMode,
-        state_machine_param_impl::{FrameParam, PhyParam},
-        state_machine_types_impl::MovementAction,
+        abstracts::action_types::ActionExitLogic,
+        movement::MovementMode,
+        movement_action::MovementActionEvent,
+        state_machine_param::{FrameParam, PhyParam},
+        state_machine_types::MovementAction,
     },
 };
 
@@ -214,10 +214,10 @@ where
 #[cfg(test)]
 mod unit_tests {
     use crate::motion::{
-        action::Action,
+        abstracts::action::Action,
         action_impl::{ActionBaseEvent, ActionBaseExitLogic},
-        movement_action_impl::MovementActionExitLogic,
-        movement_impl::MovementMode,
+        movement::MovementMode,
+        movement_action::MovementActionExitLogic,
     };
 
     use super::*;

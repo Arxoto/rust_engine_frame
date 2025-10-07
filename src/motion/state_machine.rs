@@ -3,12 +3,12 @@
 use crate::{
     cores::unify_type::FixedString,
     motion::{
-        state_machine_action_impl::ActionMachine,
-        state_machine_behaviour_impl::BehaviourMachine,
-        state_machine_frame_eff_impl::FrameEff,
-        state_machine_param_impl::{FrameParam, PhyParam},
-        state_machine_phy_eff_impl::PhyEff,
-        state_machine_types_impl::EffGenerator,
+        state_machine_action::ActionMachine,
+        state_machine_behaviour::BehaviourMachine,
+        state_machine_frame_eff::FrameEff,
+        state_machine_param::{FrameParam, PhyParam},
+        state_machine_phy_eff::PhyEff,
+        state_machine_types::EffGenerator,
     },
 };
 

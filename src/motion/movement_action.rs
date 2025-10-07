@@ -3,11 +3,11 @@
 use crate::{
     cores::unify_type::FixedString,
     motion::{
+        abstracts::action_types::{ActionEvent, ActionExitLogic},
+        abstracts::player_input::PlayerOperation,
         action_impl::{ActionBaseEvent, ActionBaseExitLogic},
-        action_types::{ActionEvent, ActionExitLogic},
-        movement_impl::MovementMode,
-        player_input::PlayerOperation,
-        state_machine_param_impl::PhyParam,
+        movement::MovementMode,
+        state_machine_param::PhyParam,
     },
 };
 
@@ -104,7 +104,7 @@ impl<S: FixedString> ActionExitLogic<PhyParam<S>> for MovementActionExitLogic<S>
 
 #[cfg(test)]
 mod unit_tests {
-    use crate::motion::player_pre_input::PreInputInstruction;
+    use crate::motion::abstracts::player_pre_input::PreInputInstruction;
 
     use super::*;
 

@@ -1,6 +1,6 @@
 use std::f64;
 
-use crate::motion::player_input::PlayerOperation;
+use crate::motion::abstracts::player_input::PlayerOperation;
 
 /// 将当前值 `current` 向目标值 `target` 移动最多 `step` 的距离，返回移动后的新值。
 /// 如果 `current` 已经达到或超过 `target` ，则返回 `target`

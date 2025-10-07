@@ -3,10 +3,10 @@
 use crate::{
     cores::unify_type::FixedString,
     motion::{
-        movement_impl::MovementMode,
-        state_machine_param_impl::{FrameParam, PhyParam},
-        state_machine_phy_eff_impl::MovementData,
-        state_machine_types_impl::MovementBehaviour,
+        movement::MovementMode,
+        state_machine_param::{FrameParam, PhyParam},
+        state_machine_phy_eff::MovementData,
+        state_machine_types::MovementBehaviour,
     },
 };
 
@@ -23,6 +23,7 @@ where
     pub(crate) stats: Vec<Box<dyn MovementBehaviour<S, FrameEff, PhyEff>>>,
     pub(crate) current_id: usize,
     movement_data: MovementData,
+    // movement_mode: MovementMode,
 }
 
 impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
@@ -31,6 +32,7 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
             stats: Vec::new(),
             current_id: 0,
             movement_data: data,
+            // movement_mode: MovementMode::FreeStat,
         }
     }
 
@@ -76,7 +78,9 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
         let mut new_movement_mode = None; // never
         if let Some(stat) = self.stats.get_mut(self.current_id) {
             stat.on_enter();
-            new_movement_mode = Some(stat.get_movement_mode());
+            let movement_mode = stat.get_movement_mode();
+            // self.movement_mode = movement_mode;
+            new_movement_mode = Some(movement_mode);
         }
 
         (old_movement_mode, new_movement_mode)
@@ -96,7 +100,7 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
     /// 行为侧重逻辑处理，因此命名有所区别
     pub(crate) fn process_physics(&mut self, phy_param: &mut PhyParam<S>) -> Option<PhyEff> {
         if let Some(stat) = self.stats.get_mut(self.current_id) {
-            Some(stat.process_physics(phy_param, &self.movement_data))
+            Some(stat.process_physics(&mut (phy_param, &self.movement_data)))
         } else {
             None
         }

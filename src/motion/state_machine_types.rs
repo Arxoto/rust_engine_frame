@@ -7,13 +7,13 @@
 use crate::{
     cores::unify_type::FixedString,
     motion::{
-        action::Action,
-        behaviour::Behaviour,
-        movement_action_impl::{MovementActionEvent, MovementActionExitLogic},
-        movement_impl::MovementMode,
-        state_machine_frame_eff_impl::FrameEff,
-        state_machine_param_impl::{FrameParam, PhyParam},
-        state_machine_phy_eff_impl::PhyEff,
+        abstracts::action::Action,
+        abstracts::behaviour::Behaviour,
+        movement::MovementMode,
+        movement_action::{MovementActionEvent, MovementActionExitLogic},
+        state_machine_frame_eff::FrameEff,
+        state_machine_param::{FrameParam, PhyParam},
+        state_machine_phy_eff::{MovementData, PhyEff},
     },
 };
 
@@ -23,7 +23,7 @@ pub type MovementAction<S, PhyEff> =
 
 /// EnterParam 为 FrameParam ，角色状态机将输入参数聚合成一个
 pub trait MovementBehaviour<S: FixedString, FrameEff, PhyEff>:
-    Behaviour<PhyParam<S>, FrameParam<S>, FrameEff, PhyParam<S>, PhyEff>
+    for<'a> Behaviour<PhyParam<S>, FrameParam<S>, FrameEff, (&'a PhyParam<S>, &'a MovementData), PhyEff>
 {
     fn get_movement_mode(&self) -> MovementMode;
 }

@@ -1,6 +1,6 @@
 //! 动作系统的【事件】和【退出逻辑】实现案例
 
-use crate::{cores::unify_type::FixedString, motion::action_types::ActionEvent};
+use crate::{cores::unify_type::FixedString, motion::abstracts::action_types::ActionEvent};
 
 /// 动作的触发
 /// - 指令 Instruction

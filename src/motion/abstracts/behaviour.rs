@@ -1,7 +1,5 @@
 //! 行为系统的抽象定义
 
-use crate::motion::state_machine_phy_eff_impl::MovementData;
-
 /// 行为 纯逻辑 实现自定义复杂效果
 ///
 /// 应该优先应用动作的物理和视觉效果
@@ -16,5 +14,5 @@ pub trait Behaviour<EnterParam, FrameParam, FrameEff, PhyParam, PhyEff> {
     fn on_exit(&mut self);
 
     fn tick_frame(&mut self, p: &FrameParam) -> FrameEff;
-    fn process_physics(&mut self, p: &mut PhyParam, data: &MovementData) -> PhyEff;
+    fn process_physics(&mut self, p: &mut PhyParam) -> PhyEff;
 }
