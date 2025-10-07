@@ -29,20 +29,20 @@ pub struct PhyParam<S: FixedString> {
     pub anim_finished: bool,
     pub anim_name: S, // 外部传入 因为考虑到动画不一定完全由动作系统控制
     // 事件信号标志
-    pub hit: bool,
-    pub behit: bool,
+    pub hit_signal: bool,
+    pub behit_signal: bool,
     // 主观意图
-    /// move direction
-    pub want_move: f64,
-    /// look angle
-    pub want_look: f64,
-    pub want_jump: bool,
-    pub want_dodge: bool,
-    pub want_attack: bool,
-    pub want_defence: bool,
-    // 框架内部维护
-    // Option 类型，因为：内部维护，不从外界传入，明确状态；
-    pub(crate) movement_changed: Option<(MovementMode, MovementMode)>,
+    pub want_look_angle: f64,
+    pub want_move_direction: f64,
+    pub want_jump_once: bool,
+    pub want_jump_keep: bool,
+    pub want_dodge_once: bool,
+    pub want_block_keep: bool,
+    pub want_attack_once: bool,
+    pub want_attack_keep: bool,
+    // Option 框架内部维护 不从外界传入、明确状态
+    /// None 时表示没有发生模式的切换
+    pub(crate) movement_changed: Option<(Option<MovementMode>, Option<MovementMode>)>,
     pub(crate) action_duration: Option<f64>,
 }
 
@@ -51,23 +51,29 @@ impl<S: FixedString> PhyParam<S> {
         // 为性能考虑给予必要的空间防止后续扩容
         let mut list = Vec::with_capacity(10);
         // todo more and more
-        if self.hit {
+        if self.hit_signal {
             list.push(ActionBaseEvent::HitSignal);
         }
-        if self.behit {
+        if self.behit_signal {
             list.push(ActionBaseEvent::BeHitSignal);
         }
-        if self.want_jump {
+        if self.want_jump_once {
             list.push(ActionBaseEvent::JumpInstruction);
         }
-        if self.want_dodge {
+        if self.want_jump_keep {
+            list.push(ActionBaseEvent::JumpHigherInstruction);
+        }
+        if self.want_dodge_once {
             list.push(ActionBaseEvent::DodgeInstruction);
         }
-        if self.want_attack {
+        if self.want_block_keep {
+            list.push(ActionBaseEvent::BlockInstruction);
+        }
+        if self.want_attack_once {
             list.push(ActionBaseEvent::AttackInstruction);
         }
-        if self.want_defence {
-            list.push(ActionBaseEvent::DefenceInstruction);
+        if self.want_attack_keep {
+            list.push(ActionBaseEvent::AttackHeavierInstruction);
         }
         list
     }
@@ -121,7 +127,7 @@ pub enum PhyDirection {
 
 #[derive(Clone, Copy, Debug)]
 pub enum PhyMode {
-    Idle,
+    // Idle,
     Run,
     Dodging,
     Jumping,
@@ -140,7 +146,7 @@ pub struct PhyEff {
 impl Default for PhyEff {
     fn default() -> Self {
         Self {
-            mode: PhyMode::Idle,
+            mode: PhyMode::Run,
             direction: PhyDirection::None,
         }
     }

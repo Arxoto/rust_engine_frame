@@ -9,12 +9,16 @@ use crate::{cores::unify_type::FixedString, motion::action_types::ActionEvent};
 pub enum ActionBaseEvent {
     /// 跳跃指令
     JumpInstruction,
+    /// 跳跃指令（长摁跳更高）
+    JumpHigherInstruction,
     /// 闪避指令
     DodgeInstruction,
+    /// 防御指令
+    BlockInstruction,
     /// 攻击指令
     AttackInstruction,
-    /// 防御指令
-    DefenceInstruction,
+    /// 攻击指令（长摁重击）
+    AttackHeavierInstruction,
 
     /// 命中对方
     ///

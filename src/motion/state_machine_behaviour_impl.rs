@@ -67,9 +67,7 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
     }
 
     /// 渲染帧执行 返回渲染效果
-    ///
-    /// 行为侧重逻辑，返回值一般认为是临时生成的，所以返回所有权
-    pub(crate) fn process_frame(&mut self, frame_param: &FrameParam<S>) -> Option<FrameEff> {
+    pub(crate) fn tick_frame(&mut self, frame_param: &FrameParam<S>) -> Option<FrameEff> {
         if let Some(stat) = self.stats.get_mut(self.current_id) {
             Some(stat.tick_frame(frame_param))
         } else {
@@ -79,16 +77,20 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
 
     /// 物理帧执行 返回物理效果
     ///
-    /// 行为侧重逻辑，返回值一般认为是临时生成的，所以返回所有权
-    ///
-    /// P.S. 若想要叠加状态转换后的效果 可将帧处理和效果获取拆开 支持两者的自定义顺序
-    /// process 方法侧重处理 get 方法侧重获取效果
-    pub(crate) fn tick_physics(&mut self, phy_param: &PhyParam<S>) -> Option<PhyEff> {
+    /// 行为侧重逻辑处理，因此命名有所区别
+    pub(crate) fn process_physics(&mut self, phy_param: &mut PhyParam<S>) -> Option<PhyEff> {
         if let Some(stat) = self.stats.get_mut(self.current_id) {
-            Some(stat.tick_physics(phy_param))
+            Some(stat.process_physics(phy_param))
         } else {
             None
         }
+    }
+
+    /// 合并帧处理和状态更新
+    pub(crate) fn process_and_update(&mut self, phy_param: &mut PhyParam<S>) -> (Option<PhyEff>, (Option<MovementMode>, Option<MovementMode>)) {
+        let phy_eff = self.process_physics(phy_param);
+        let movement_changed= self.update_stat(phy_param);
+        (phy_eff, movement_changed)
     }
 
     /// 初始化时新增

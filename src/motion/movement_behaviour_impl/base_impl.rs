@@ -2,12 +2,37 @@ use crate::{
     cores::unify_type::FixedString,
     motion::{
         behaviour::Behaviour,
-        state_machine_types_impl::{FrameEff, FrameParam, PhyEff, PhyParam},
+        player_operation::PlayerOperation,
+        state_machine_types_impl::{FrameEff, FrameParam, PhyDirection, PhyEff, PhyMode, PhyParam},
     },
 };
 
 /// 行为系统的基础实现 无论如何都保证可以自由移动
 pub struct BaseBehaviour;
+
+impl BaseBehaviour {
+    fn tick_physics<S: FixedString>(&mut self, p: &PhyParam<S>) -> PhyEff {
+        // 对任意移动输入均做出反应
+
+        let mode = if p.want_jump_keep {
+            PhyMode::Jumping
+        } else {
+            PhyMode::Falling
+        };
+
+        let direction = if p.want_move_direction.op_active() {
+            if p.want_move_direction > 0.0 {
+                PhyDirection::Right
+            } else {
+                PhyDirection::Left
+            }
+        } else {
+            PhyDirection::None
+        };
+
+        PhyEff { mode, direction }
+    }
+}
 
 impl<S: FixedString> Behaviour<FrameParam<S>, FrameParam<S>, FrameEff<S>, PhyParam<S>, PhyEff>
     for BaseBehaviour
@@ -25,9 +50,7 @@ impl<S: FixedString> Behaviour<FrameParam<S>, FrameParam<S>, FrameEff<S>, PhyPar
         FrameEff::default()
     }
 
-    fn tick_physics(&mut self, _p: &PhyParam<S>) -> PhyEff {
-        // 对任意移动输入均做出反应
-        // todo
-        PhyEff::default()
+    fn process_physics(&mut self, p: &mut PhyParam<S>) -> PhyEff {
+        self.tick_physics(p)
     }
 }

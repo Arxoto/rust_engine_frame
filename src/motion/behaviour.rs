@@ -14,5 +14,5 @@ pub trait Behaviour<EnterParam, FrameParam, FrameEff, PhyParam, PhyEff> {
     fn on_exit(&mut self);
 
     fn tick_frame(&mut self, p: &FrameParam) -> FrameEff;
-    fn tick_physics(&mut self, p: &PhyParam) -> PhyEff;
+    fn process_physics(&mut self, p: &mut PhyParam) -> PhyEff;
 }

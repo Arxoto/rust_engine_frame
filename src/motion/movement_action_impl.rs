@@ -56,21 +56,21 @@ impl<S: FixedString> MovementActionExitLogic<S> {
                 param.anim_finished && param.anim_name == *anim_name
             }
             ActionBaseExitLogic::MoveAfter(the_time) => {
-                param.want_move.operation_active()
+                param.want_move_direction.op_active()
                     && param
                         .action_duration
                         .map(|duration_time| duration_time > *the_time)
                         .unwrap_or(false)
             }
             ActionBaseExitLogic::JumpAfter(the_time) => {
-                param.want_jump
+                param.want_jump_once
                     && param
                         .action_duration
                         .map(|duration_time| duration_time > *the_time)
                         .unwrap_or(false)
             }
             ActionBaseExitLogic::AttackWhen(anim_name) => {
-                param.want_attack && param.anim_name == *anim_name
+                param.want_attack_once && param.anim_name == *anim_name
             }
         }
     }
@@ -81,8 +81,10 @@ impl<S: FixedString> MovementActionExitLogic<S> {
         param: &PhyParam<S>,
     ) -> bool {
         match param.movement_changed {
-            Some((the_old, the_new)) => the_old == *old_movement && the_new == *new_movement,
-            None => false,
+            Some((Some(the_old), Some(the_new))) => {
+                the_old == *old_movement && the_new == *new_movement
+            }
+            _ => false,
         }
     }
 }
@@ -136,42 +138,42 @@ mod unit_tests {
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.0),
-            want_move: 0.0,
+            want_move_direction: 0.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.0),
-            want_move: 1.0,
+            want_move_direction: 1.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.2),
-            want_move: 0.0,
+            want_move_direction: 0.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.2),
-            want_move: 1.0,
+            want_move_direction: 1.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.3),
-            want_move: 0.0,
+            want_move_direction: 0.0,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.3),
-            want_move: 1.0,
+            want_move_direction: 1.0,
             ..Default::default()
         };
         assert!(exit_logic.should_exit(&param));
@@ -183,14 +185,14 @@ mod unit_tests {
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.3),
-            want_jump: false,
+            want_jump_once: false,
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.3),
-            want_jump: true,
+            want_jump_once: true,
             ..Default::default()
         };
         assert!(exit_logic.should_exit(&param));

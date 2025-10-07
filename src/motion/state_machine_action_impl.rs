@@ -7,6 +7,7 @@ use crate::{
     motion::{
         action_types::ActionExitLogic,
         movement_action_impl::MovementActionEvent,
+        movement_impl::MovementMode,
         state_machine_types_impl::{FrameParam, MovementAction, PhyParam},
     },
 };
@@ -28,6 +29,7 @@ where
 impl<S, PhyEff> ActionMachine<S, PhyEff>
 where
     S: FixedString,
+    PhyEff: Clone,
 {
     fn get_action(&self, action_name: &S) -> Option<&MovementAction<S, PhyEff>> {
         self.actions.get(action_name)
@@ -143,12 +145,45 @@ where
     /// 物理帧执行 返回物理效果
     ///
     /// 没有内部处理逻辑 无需在意状态转换与帧处理的顺序
-    pub(crate) fn tick_physics(&mut self, phy_param: &PhyParam<S>) -> Option<&PhyEff> {
+    pub(crate) fn tick_physics(&mut self, phy_param: &PhyParam<S>) -> Option<PhyEff> {
         if let Some(action) = self.get_current_action() {
-            action.get_phy_eff_by_anim(&phy_param.anim_name)
+            action.get_phy_eff_by_anim(&phy_param.anim_name).cloned()
         } else {
             None
         }
+    }
+
+    /// 在帧处理中根据参数自动生成事件并尝试触发
+    fn try_update_action_event(&mut self, phy_param: &PhyParam<S>, movement: MovementMode) -> bool {
+        for event in phy_param.to_instructions() {
+            let updated = self.update_action_by_event(&MovementActionEvent::new(event, movement));
+            if updated {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// 合并帧处理和状态更新
+    ///
+    /// 注意动作系统不会消费任何一个指令（不好实现且经评估影响不大，只有跳跃闪避有预输入） 因此入参为只读
+    pub(crate) fn tick_and_update(&mut self, phy_param: &PhyParam<S>) -> (Option<PhyEff>, bool) {
+        // 帧处理
+        let phy_eff = self.tick_physics(phy_param);
+        // 事件更新 放一起统一维护
+        let updated_by_event = match phy_param.movement_changed {
+            Some((Some(current_movement), _)) => {
+                self.try_update_action_event(phy_param, current_movement)
+            }
+            _ => false,
+        };
+        // 帧更新
+        let updated_by_tick = if !updated_by_event {
+            self.update_action_by_tick(phy_param)
+        } else {
+            false
+        };
+        (phy_eff, updated_by_event || updated_by_tick)
     }
 
     /// 初始化默认动作
@@ -200,14 +235,14 @@ mod unit_tests {
         action
             .trigger_enter
             .append(&mut MovementActionEvent::new_each_movement(
-                ActionBaseEvent::DefenceInstruction,
+                ActionBaseEvent::BlockInstruction,
             ));
 
         action_machine.add_action(action);
 
         // test event trigger
         for ele in MovementMode::each_mode() {
-            let event = MovementActionEvent::new(ActionBaseEvent::DefenceInstruction, *ele);
+            let event = MovementActionEvent::new(ActionBaseEvent::BlockInstruction, *ele);
             let action_names = action_machine.event_trigger_actions.get(&event).unwrap();
             assert_eq!(action_names, &vec!["defence_action"]);
         }
@@ -223,7 +258,7 @@ mod unit_tests {
             Action::new_empty("defence_action_2", "defence_anim_2");
         // 仅地面状态下的【防御指令】
         action.trigger_enter.push(MovementActionEvent::new(
-            ActionBaseEvent::DefenceInstruction,
+            ActionBaseEvent::BlockInstruction,
             MovementMode::OnFloor,
         ));
 
@@ -231,7 +266,7 @@ mod unit_tests {
 
         // test event trigger
         let event =
-            MovementActionEvent::new(ActionBaseEvent::DefenceInstruction, MovementMode::OnFloor);
+            MovementActionEvent::new(ActionBaseEvent::BlockInstruction, MovementMode::OnFloor);
         let action_names = action_machine.event_trigger_actions.get(&event).unwrap();
         assert_eq!(action_names, &vec!["defence_action", "defence_action_2"]);
 
@@ -400,7 +435,7 @@ mod unit_tests {
     }
 
     #[test]
-    fn process_frame() {
+    fn tick_frame() {
         let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
 
         // 一系列动作 环状结构
