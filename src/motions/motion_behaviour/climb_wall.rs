@@ -1,12 +1,12 @@
 use crate::{
     cores::{tiny_timer::TinyTimer, unify_type::FixedString},
-    motion::{
+    motions::{
         abstracts::behaviour::Behaviour,
-        movement::MovementMode,
+        motion_mode::MotionMode,
         state_machine_frame_eff::FrameEff,
         state_machine_param::{FrameParam, PhyParam},
-        state_machine_phy_eff::{MovementData, PhyEff},
-        state_machine_types::MovementBehaviour,
+        state_machine_phy_eff::{MotionData, PhyEff},
+        state_machine_types::MotionBehaviour,
     },
 };
 
@@ -31,7 +31,7 @@ impl<S: FixedString> ClimbWallBehaviour<S> {
 }
 
 impl<S: FixedString>
-    Behaviour<PhyParam<S>, FrameParam<S>, FrameEff<S>, (&PhyParam<S>, &MovementData), PhyEff>
+    Behaviour<PhyParam<S>, FrameParam<S>, FrameEff<S>, (&PhyParam<S>, &MotionData), PhyEff>
     for ClimbWallBehaviour<S>
 {
     fn will_enter(&self, p: &PhyParam<S>) -> bool {
@@ -53,13 +53,13 @@ impl<S: FixedString>
         }
     }
 
-    fn process_physics(&mut self, (p, data): &mut (&PhyParam<S>, &MovementData)) -> PhyEff {
+    fn process_physics(&mut self, (p, data): &mut (&PhyParam<S>, &MotionData)) -> PhyEff {
         PhyEff::create_climb(data, p.move_direction.0)
     }
 }
 
-impl<S: FixedString> MovementBehaviour<S, FrameEff<S>, PhyEff> for ClimbWallBehaviour<S> {
-    fn get_movement_mode(&self) -> MovementMode {
-        MovementMode::ClimbWall
+impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for ClimbWallBehaviour<S> {
+    fn get_motion_mode(&self) -> MotionMode {
+        MotionMode::ClimbWall
     }
 }

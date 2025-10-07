@@ -8,4 +8,4 @@ pub mod effects;
 pub mod damage;
 
 // Motion System Component
-pub mod motion;
+pub mod motions;

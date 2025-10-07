@@ -6,26 +6,26 @@
 
 use crate::{
     cores::unify_type::FixedString,
-    motion::{
+    motions::{
         abstracts::action::Action,
         abstracts::behaviour::Behaviour,
-        movement::MovementMode,
-        movement_action::{MovementActionEvent, MovementActionExitLogic},
+        motion_mode::MotionMode,
+        motion_action::{MotionActionEvent, MotionActionExitLogic},
         state_machine_frame_eff::FrameEff,
         state_machine_param::{FrameParam, PhyParam},
-        state_machine_phy_eff::{MovementData, PhyEff},
+        state_machine_phy_eff::{MotionData, PhyEff},
     },
 };
 
 /// ExitParam 为 FrameParam ，角色状态机将输入参数聚合成一个
-pub type MovementAction<S, PhyEff> =
-    Action<S, MovementActionEvent, PhyParam<S>, MovementActionExitLogic<S>, PhyEff>;
+pub type MotionAction<S, PhyEff> =
+    Action<S, MotionActionEvent, PhyParam<S>, MotionActionExitLogic<S>, PhyEff>;
 
 /// EnterParam 为 FrameParam ，角色状态机将输入参数聚合成一个
-pub trait MovementBehaviour<S: FixedString, FrameEff, PhyEff>:
-    for<'a> Behaviour<PhyParam<S>, FrameParam<S>, FrameEff, (&'a PhyParam<S>, &'a MovementData), PhyEff>
+pub trait MotionBehaviour<S: FixedString, FrameEff, PhyEff>:
+    for<'a> Behaviour<PhyParam<S>, FrameParam<S>, FrameEff, (&'a PhyParam<S>, &'a MotionData), PhyEff>
 {
-    fn get_movement_mode(&self) -> MovementMode;
+    fn get_motion_mode(&self) -> MotionMode;
 }
 
 /// 最终效果聚合器 将两个状态机的结果聚合

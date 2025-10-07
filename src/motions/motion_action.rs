@@ -2,54 +2,54 @@
 
 use crate::{
     cores::unify_type::FixedString,
-    motion::{
+    motions::{
         abstracts::action_types::{ActionEvent, ActionExitLogic},
         abstracts::player_input::PlayerOperation,
         action_impl::{ActionBaseEvent, ActionBaseExitLogic},
-        movement::MovementMode,
+        motion_mode::MotionMode,
         state_machine_param::PhyParam,
     },
 };
 
-/// 和 [`MovementMode`] 组合来实现 [`ActionEvent`]
+/// 和 [`MotionMode`] 组合来实现 [`ActionEvent`]
 ///
 /// 支持复杂的触发条件判断
 ///
 /// 一般基于事件或信号机制去响应
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct MovementActionEvent {
+pub struct MotionActionEvent {
     pub(crate) event: ActionBaseEvent,
-    pub(crate) movement: MovementMode,
+    pub(crate) motion: MotionMode,
 }
 
-impl ActionEvent for MovementActionEvent {}
+impl ActionEvent for MotionActionEvent {}
 
-impl MovementActionEvent {
-    pub fn new(event: ActionBaseEvent, movement: MovementMode) -> Self {
-        Self { event, movement }
+impl MotionActionEvent {
+    pub fn new(event: ActionBaseEvent, motion: MotionMode) -> Self {
+        Self { event, motion }
     }
 
     /// 当事件对运动模式没有要求时，全量生成
-    pub fn new_each_movement(event: ActionBaseEvent) -> Vec<Self> {
-        MovementMode::each_mode()
+    pub fn new_each_motion(event: ActionBaseEvent) -> Vec<Self> {
+        MotionMode::each_mode()
             .into_iter()
-            .map(|movement| Self::new(event, *movement))
+            .map(|motion| Self::new(event, *motion))
             .collect()
     }
 }
 
-/// 和 [`MovementMode`] 互斥来实现 [`ActionExitLogic`]
+/// 和 [`MotionMode`] 互斥来实现 [`ActionExitLogic`]
 ///
 /// 支持 运动状态切换 导致的 动作切换
 ///
 /// 一般用于每帧检查
 #[derive(Clone, Debug)]
-pub enum MovementActionExitLogic<S: FixedString> {
+pub enum MotionActionExitLogic<S: FixedString> {
     ExitLogic(ActionBaseExitLogic<S>),
-    MovementChange(MovementMode, MovementMode),
+    MotionChange(MotionMode, MotionMode),
 }
 
-impl<S: FixedString> MovementActionExitLogic<S> {
+impl<S: FixedString> MotionActionExitLogic<S> {
     fn should_exit_by_logic(exit_logic: &ActionBaseExitLogic<S>, param: &PhyParam<S>) -> bool {
         match exit_logic {
             ActionBaseExitLogic::AnimFinished(anim_name) => {
@@ -75,28 +75,28 @@ impl<S: FixedString> MovementActionExitLogic<S> {
         }
     }
 
-    fn should_exit_by_movement_change(
-        old_movement: &MovementMode,
-        new_movement: &MovementMode,
+    fn should_exit_by_motion_change(
+        old_motion: &MotionMode,
+        new_motion: &MotionMode,
         param: &PhyParam<S>,
     ) -> bool {
-        match param.movement_changed {
+        match param.motion_changed {
             Some((Some(the_old), Some(the_new))) => {
-                the_old == *old_movement && the_new == *new_movement
+                the_old == *old_motion && the_new == *new_motion
             }
             _ => false,
         }
     }
 }
 
-impl<S: FixedString> ActionExitLogic<PhyParam<S>> for MovementActionExitLogic<S> {
+impl<S: FixedString> ActionExitLogic<PhyParam<S>> for MotionActionExitLogic<S> {
     fn should_exit(&self, exit_param: &PhyParam<S>) -> bool {
         match self {
-            MovementActionExitLogic::ExitLogic(exit_logic) => {
+            MotionActionExitLogic::ExitLogic(exit_logic) => {
                 Self::should_exit_by_logic(exit_logic, exit_param)
             }
-            MovementActionExitLogic::MovementChange(old_movement, new_movement) => {
-                Self::should_exit_by_movement_change(old_movement, new_movement, exit_param)
+            MotionActionExitLogic::MotionChange(old_motion, new_motion) => {
+                Self::should_exit_by_motion_change(old_motion, new_motion, exit_param)
             }
         }
     }
@@ -104,13 +104,13 @@ impl<S: FixedString> ActionExitLogic<PhyParam<S>> for MovementActionExitLogic<S>
 
 #[cfg(test)]
 mod unit_tests {
-    use crate::motion::abstracts::player_pre_input::PreInputInstruction;
+    use crate::motions::abstracts::player_pre_input::PreInputInstruction;
 
     use super::*;
 
     #[test]
     fn exit_logic_anim_finished() {
-        let exit_logic = MovementActionExitLogic::ExitLogic(ActionBaseExitLogic::AnimFinished(""));
+        let exit_logic = MotionActionExitLogic::ExitLogic(ActionBaseExitLogic::AnimFinished(""));
 
         let param: PhyParam<&'static str> = PhyParam {
             anim_finished: true,
@@ -136,7 +136,7 @@ mod unit_tests {
 
     #[test]
     fn exit_logic_move_after() {
-        let exit_logic = MovementActionExitLogic::ExitLogic(ActionBaseExitLogic::MoveAfter(1.2));
+        let exit_logic = MotionActionExitLogic::ExitLogic(ActionBaseExitLogic::MoveAfter(1.2));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.0),
@@ -183,7 +183,7 @@ mod unit_tests {
 
     #[test]
     fn exit_logic_jump_after() {
-        let exit_logic = MovementActionExitLogic::ExitLogic(ActionBaseExitLogic::JumpAfter(1.2));
+        let exit_logic = MotionActionExitLogic::ExitLogic(ActionBaseExitLogic::JumpAfter(1.2));
 
         let param: PhyParam<String> = PhyParam {
             action_duration: Some(1.3),

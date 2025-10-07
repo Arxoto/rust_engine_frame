@@ -1,10 +1,10 @@
 use crate::{
     cores::{tiny_timer::TinyTimer, unify_type::FixedString},
-    motion::{
+    motions::{
         abstracts::player_input::{PlayerInstruction, PlayerOperation},
         abstracts::player_pre_input::PreInputInstruction,
         action_impl::ActionBaseEvent,
-        movement::MovementMode,
+        motion_mode::MotionMode,
     },
 };
 
@@ -39,7 +39,7 @@ pub struct PhyParam<S: FixedString> {
     pub attack_keep: PlayerInstruction<bool>,
     // Option 框架内部维护 不从外界传入、明确状态
     /// None 时表示没有发生模式的切换
-    pub(crate) movement_changed: Option<(Option<MovementMode>, Option<MovementMode>)>,
+    pub(crate) motion_changed: Option<(Option<MotionMode>, Option<MotionMode>)>,
     pub(crate) action_duration: Option<f64>,
 }
 

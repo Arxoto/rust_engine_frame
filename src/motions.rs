@@ -2,9 +2,9 @@ pub mod abstracts;
 
 pub mod action_impl;
 
-pub mod movement;
-pub mod movement_action;
-pub mod movement_behaviour;
+pub mod motion_mode;
+pub mod motion_action;
+pub mod motion_behaviour;
 
 pub mod state_machine_frame_eff;
 pub mod state_machine_param;

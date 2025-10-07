@@ -1,13 +1,13 @@
 use crate::{
     cores::unify_type::FixedString,
-    motion::{
+    motions::{
         abstracts::behaviour::Behaviour,
         abstracts::player_input::PlayerOperation,
-        movement::MovementMode,
+        motion_mode::MotionMode,
         state_machine_frame_eff::FrameEff,
         state_machine_param::{FrameParam, PhyParam},
-        state_machine_phy_eff::{MovementData, PhyEff},
-        state_machine_types::MovementBehaviour,
+        state_machine_phy_eff::{MotionData, PhyEff},
+        state_machine_types::MotionBehaviour,
     },
 };
 
@@ -22,7 +22,7 @@ impl BaseBehaviour {
         Self
     }
 
-    fn tick_physics<S: FixedString>(&mut self, p: &PhyParam<S>, data: &MovementData) -> PhyEff {
+    fn tick_physics<S: FixedString>(&mut self, p: &PhyParam<S>, data: &MotionData) -> PhyEff {
         // 摁住螺旋升天
         if p.jump_keep.op_active() {
             PhyEff::create_jump(data, p.move_direction.0)
@@ -33,7 +33,7 @@ impl BaseBehaviour {
 }
 
 impl<S: FixedString>
-    Behaviour<PhyParam<S>, FrameParam<S>, FrameEff<S>, (&PhyParam<S>, &MovementData), PhyEff>
+    Behaviour<PhyParam<S>, FrameParam<S>, FrameEff<S>, (&PhyParam<S>, &MotionData), PhyEff>
     for BaseBehaviour
 {
     fn will_enter(&self, _p: &PhyParam<S>) -> bool {
@@ -49,14 +49,14 @@ impl<S: FixedString>
         FrameEff::default()
     }
 
-    fn process_physics(&mut self, (p, data): &mut (&PhyParam<S>, &MovementData)) -> PhyEff {
+    fn process_physics(&mut self, (p, data): &mut (&PhyParam<S>, &MotionData)) -> PhyEff {
         // 对任意移动输入均做出反应
         self.tick_physics(p, data)
     }
 }
 
-impl<S: FixedString> MovementBehaviour<S, FrameEff<S>, PhyEff> for BaseBehaviour {
-    fn get_movement_mode(&self) -> MovementMode {
-        MovementMode::FreeStat
+impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for BaseBehaviour {
+    fn get_motion_mode(&self) -> MotionMode {
+        MotionMode::FreeStat
     }
 }

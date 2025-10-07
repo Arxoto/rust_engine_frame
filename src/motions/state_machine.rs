@@ -2,7 +2,7 @@
 
 use crate::{
     cores::unify_type::FixedString,
-    motion::{
+    motions::{
         state_machine_action::ActionMachine,
         state_machine_behaviour::BehaviourMachine,
         state_machine_frame_eff::FrameEff,
@@ -72,9 +72,9 @@ where
         // ===========================
         // for behaviour_machine
         let phy_param_b = &mut phy_param.clone();
-        let (phy_eff_b, movement_changed) = self.behaviour_machine.process_and_update(phy_param_b);
-        // updated movement_changed
-        phy_param.movement_changed = Some(movement_changed);
+        let (phy_eff_b, motion_changed) = self.behaviour_machine.process_and_update(phy_param_b);
+        // updated motion_changed
+        phy_param.motion_changed = Some(motion_changed);
 
         // for action_machine
         let (phy_eff_a, action_updated) = self.action_machine.tick_and_update(phy_param);

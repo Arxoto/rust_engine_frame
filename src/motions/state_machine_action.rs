@@ -4,12 +4,12 @@ use std::collections::HashMap;
 
 use crate::{
     cores::unify_type::FixedString,
-    motion::{
+    motions::{
         abstracts::action_types::ActionExitLogic,
-        movement::MovementMode,
-        movement_action::MovementActionEvent,
+        motion_mode::MotionMode,
+        motion_action::MotionActionEvent,
         state_machine_param::{FrameParam, PhyParam},
-        state_machine_types::MovementAction,
+        state_machine_types::MotionAction,
     },
 };
 
@@ -21,10 +21,10 @@ pub struct ActionMachine<S, PhyEff>
 where
     S: FixedString,
 {
-    pub(crate) actions: HashMap<S, MovementAction<S, PhyEff>>,
+    pub(crate) actions: HashMap<S, MotionAction<S, PhyEff>>,
     pub(crate) current_action_name: S,
     pub(crate) current_anim_name: S,
-    pub(crate) event_trigger_actions: HashMap<MovementActionEvent, Vec<S>>,
+    pub(crate) event_trigger_actions: HashMap<MotionActionEvent, Vec<S>>,
 }
 
 impl<S, PhyEff> ActionMachine<S, PhyEff>
@@ -32,11 +32,11 @@ where
     S: FixedString,
     PhyEff: Clone,
 {
-    fn get_action(&self, action_name: &S) -> Option<&MovementAction<S, PhyEff>> {
+    fn get_action(&self, action_name: &S) -> Option<&MotionAction<S, PhyEff>> {
         self.actions.get(action_name)
     }
 
-    fn get_current_action(&self) -> Option<&MovementAction<S, PhyEff>> {
+    fn get_current_action(&self) -> Option<&MotionAction<S, PhyEff>> {
         self.get_action(&self.current_action_name)
     }
 
@@ -52,7 +52,7 @@ where
     }
 
     /// 动作内置的触发映射中 尝试获取下一个动作
-    fn fetch_next_action_name_by_event_local(&self, e: &MovementActionEvent) -> Option<S> {
+    fn fetch_next_action_name_by_event_local(&self, e: &MotionActionEvent) -> Option<S> {
         let Some(current_action) = self.get_current_action() else {
             return None;
         };
@@ -62,7 +62,7 @@ where
     }
 
     /// 全局触发映射中 尝试获取下一个动作
-    fn fetch_next_action_name_by_event_global(&self, e: &MovementActionEvent) -> Option<S> {
+    fn fetch_next_action_name_by_event_global(&self, e: &MotionActionEvent) -> Option<S> {
         let Some(actions) = self.event_trigger_actions.get(e) else {
             return None;
         };
@@ -85,7 +85,7 @@ where
         return None;
     }
 
-    fn fetch_next_action_name_by_event(&self, e: &MovementActionEvent) -> Option<S> {
+    fn fetch_next_action_name_by_event(&self, e: &MotionActionEvent) -> Option<S> {
         self.fetch_next_action_name_by_event_local(e)
             .or_else(|| self.fetch_next_action_name_by_event_global(e))
     }
@@ -103,7 +103,7 @@ where
     }
 
     /// 事件触发的状态更新
-    pub(crate) fn update_action_by_event(&mut self, e: &MovementActionEvent) -> bool {
+    pub(crate) fn update_action_by_event(&mut self, e: &MotionActionEvent) -> bool {
         if let Some(next_action_name) = self.fetch_next_action_name_by_event(e) {
             self.do_update_action(next_action_name);
             return true;
@@ -155,9 +155,9 @@ where
     }
 
     /// 在帧处理中根据参数自动生成事件并尝试触发
-    fn try_update_action_event(&mut self, phy_param: &PhyParam<S>, movement: MovementMode) -> bool {
+    fn try_update_action_event(&mut self, phy_param: &PhyParam<S>, motion: MotionMode) -> bool {
         for event in phy_param.to_instructions() {
-            let updated = self.update_action_by_event(&MovementActionEvent::new(event, movement));
+            let updated = self.update_action_by_event(&MotionActionEvent::new(event, motion));
             if updated {
                 return true;
             }
@@ -172,9 +172,9 @@ where
         // 帧处理
         let phy_eff = self.tick_physics(phy_param);
         // 事件更新 放一起统一维护
-        let updated_by_event = match phy_param.movement_changed {
-            Some((Some(current_movement), _)) => {
-                self.try_update_action_event(phy_param, current_movement)
+        let updated_by_event = match phy_param.motion_changed {
+            Some((Some(current_motion), _)) => {
+                self.try_update_action_event(phy_param, current_motion)
             }
             _ => false,
         };
@@ -195,7 +195,7 @@ where
     }
 
     /// 初始化时新增
-    pub fn add_action(&mut self, a: MovementAction<S, PhyEff>) {
+    pub fn add_action(&mut self, a: MotionAction<S, PhyEff>) {
         // set trigger
         for event in a.trigger_enter.iter() {
             if let Some(actions) = self.event_trigger_actions.get_mut(event) {
@@ -213,11 +213,11 @@ where
 
 #[cfg(test)]
 mod unit_tests {
-    use crate::motion::{
+    use crate::motions::{
         abstracts::action::Action,
         action_impl::{ActionBaseEvent, ActionBaseExitLogic},
-        movement::MovementMode,
-        movement_action::MovementActionExitLogic,
+        motion_mode::MotionMode,
+        motion_action::MotionActionExitLogic,
     };
 
     use super::*;
@@ -230,20 +230,20 @@ mod unit_tests {
         // first action
         // =========
 
-        let mut action: MovementAction<&'static str, ()> =
+        let mut action: MotionAction<&'static str, ()> =
             Action::new_empty("defence_action", "defence_anim");
         // 对所有运动模式进行匹配【防御指令】
         action
             .trigger_enter
-            .append(&mut MovementActionEvent::new_each_movement(
+            .append(&mut MotionActionEvent::new_each_motion(
                 ActionBaseEvent::BlockInstruction,
             ));
 
         action_machine.add_action(action);
 
         // test event trigger
-        for ele in MovementMode::each_mode() {
-            let event = MovementActionEvent::new(ActionBaseEvent::BlockInstruction, *ele);
+        for ele in MotionMode::each_mode() {
+            let event = MotionActionEvent::new(ActionBaseEvent::BlockInstruction, *ele);
             let action_names = action_machine.event_trigger_actions.get(&event).unwrap();
             assert_eq!(action_names, &vec!["defence_action"]);
         }
@@ -255,19 +255,19 @@ mod unit_tests {
         // second action
         // =========
 
-        let mut action: MovementAction<&'static str, ()> =
+        let mut action: MotionAction<&'static str, ()> =
             Action::new_empty("defence_action_2", "defence_anim_2");
         // 仅地面状态下的【防御指令】
-        action.trigger_enter.push(MovementActionEvent::new(
+        action.trigger_enter.push(MotionActionEvent::new(
             ActionBaseEvent::BlockInstruction,
-            MovementMode::OnFloor,
+            MotionMode::OnFloor,
         ));
 
         action_machine.add_action(action);
 
         // test event trigger
         let event =
-            MovementActionEvent::new(ActionBaseEvent::BlockInstruction, MovementMode::OnFloor);
+            MotionActionEvent::new(ActionBaseEvent::BlockInstruction, MotionMode::OnFloor);
         let action_names = action_machine.event_trigger_actions.get(&event).unwrap();
         assert_eq!(action_names, &vec!["defence_action", "defence_action_2"]);
 
@@ -301,24 +301,24 @@ mod unit_tests {
         let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
 
         action_machine.add_action(Action {
-            trigger_enter: vec![MovementActionEvent::new(
+            trigger_enter: vec![MotionActionEvent::new(
                 ActionBaseEvent::AttackInstruction,
-                MovementMode::OnFloor,
+                MotionMode::OnFloor,
             )],
             ..Action::new_empty("1", "anim_first")
         });
         action_machine.add_action(Action {
-            trigger_enter: vec![MovementActionEvent::new(
+            trigger_enter: vec![MotionActionEvent::new(
                 ActionBaseEvent::AttackInstruction,
-                MovementMode::OnFloor,
+                MotionMode::OnFloor,
             )],
             ..Action::new_empty("2", "anim_first")
         });
 
         assert_eq!(action_machine.current_action_name, "");
-        action_machine.update_action_by_event(&MovementActionEvent {
+        action_machine.update_action_by_event(&MotionActionEvent {
             event: ActionBaseEvent::AttackInstruction,
-            movement: MovementMode::OnFloor,
+            motion: MotionMode::OnFloor,
         });
         assert_eq!(action_machine.current_action_name, "1");
     }
@@ -333,17 +333,17 @@ mod unit_tests {
             ..Action::new_empty("0", "anim_first")
         });
         action_machine.add_action(Action {
-            trigger_enter: vec![MovementActionEvent::new(
+            trigger_enter: vec![MotionActionEvent::new(
                 ActionBaseEvent::AttackInstruction,
-                MovementMode::OnFloor,
+                MotionMode::OnFloor,
             )],
             action_priority: 0,
             ..Action::new_empty("1", "anim_first")
         });
         action_machine.add_action(Action {
-            trigger_enter: vec![MovementActionEvent::new(
+            trigger_enter: vec![MotionActionEvent::new(
                 ActionBaseEvent::AttackInstruction,
-                MovementMode::OnFloor,
+                MotionMode::OnFloor,
             )],
             action_priority: 1,
             action_switch_relation: HashMap::from([("1", true)]),
@@ -353,15 +353,15 @@ mod unit_tests {
         action_machine.init_action(&"0");
         assert_eq!(action_machine.current_action_name, "0");
 
-        action_machine.update_action_by_event(&MovementActionEvent {
+        action_machine.update_action_by_event(&MotionActionEvent {
             event: ActionBaseEvent::AttackInstruction,
-            movement: MovementMode::OnFloor,
+            motion: MotionMode::OnFloor,
         });
         assert_eq!(action_machine.current_action_name, "2"); // because action_priority
 
-        action_machine.update_action_by_event(&MovementActionEvent {
+        action_machine.update_action_by_event(&MotionActionEvent {
             event: ActionBaseEvent::AttackInstruction,
-            movement: MovementMode::OnFloor,
+            motion: MotionMode::OnFloor,
         });
         assert_eq!(action_machine.current_action_name, "1"); // because action_switch_relation
     }
@@ -374,23 +374,23 @@ mod unit_tests {
         action_machine.add_action(Action {
             action_priority: 1,
             trigger_exit: HashMap::from([(
-                MovementActionEvent::new(ActionBaseEvent::AttackInstruction, MovementMode::OnFloor),
+                MotionActionEvent::new(ActionBaseEvent::AttackInstruction, MotionMode::OnFloor),
                 "1",
             )]),
             ..Action::new_empty("0", "anim_first")
         });
         action_machine.add_action(Action {
-            trigger_enter: vec![MovementActionEvent::new(
+            trigger_enter: vec![MotionActionEvent::new(
                 ActionBaseEvent::AttackInstruction,
-                MovementMode::OnFloor,
+                MotionMode::OnFloor,
             )],
             action_priority: 0,
             ..Action::new_empty("1", "anim_first")
         });
         action_machine.add_action(Action {
-            trigger_enter: vec![MovementActionEvent::new(
+            trigger_enter: vec![MotionActionEvent::new(
                 ActionBaseEvent::AttackInstruction,
-                MovementMode::OnFloor,
+                MotionMode::OnFloor,
             )],
             action_priority: 1,
             action_switch_relation: HashMap::from([("1", true)]),
@@ -400,9 +400,9 @@ mod unit_tests {
         action_machine.init_action(&"0");
         assert_eq!(action_machine.current_action_name, "0");
 
-        action_machine.update_action_by_event(&MovementActionEvent {
+        action_machine.update_action_by_event(&MotionActionEvent {
             event: ActionBaseEvent::AttackInstruction,
-            movement: MovementMode::OnFloor,
+            motion: MotionMode::OnFloor,
         });
         assert_eq!(action_machine.current_action_name, "1"); // because trigger_to_next_action
     }
@@ -413,7 +413,7 @@ mod unit_tests {
 
         action_machine.add_action(Action {
             tick_exit: vec![(
-                MovementActionExitLogic::ExitLogic(ActionBaseExitLogic::AnimFinished("anim_first")),
+                MotionActionExitLogic::ExitLogic(ActionBaseExitLogic::AnimFinished("anim_first")),
                 "1",
             )],
             ..Action::new_empty("0", "anim_first")

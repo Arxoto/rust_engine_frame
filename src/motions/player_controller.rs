@@ -1,6 +1,6 @@
 use crate::{
     cores::{tiny_timer::TinyTimer, unify_type::FixedString},
-    motion::{abstracts::player_pre_input::PreInputOperation, state_machine_param::PhyParam},
+    motions::{abstracts::player_pre_input::PreInputOperation, state_machine_param::PhyParam},
 };
 
 /// 玩家控制器 实例化后对应一个玩家（本地或远端）

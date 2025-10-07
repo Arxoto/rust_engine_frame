@@ -1,6 +1,6 @@
 use std::f64;
 
-use crate::motion::abstracts::player_input::PlayerOperation;
+use crate::motions::abstracts::player_input::PlayerOperation;
 
 /// 将当前值 `current` 向目标值 `target` 移动最多 `step` 的距离，返回移动后的新值。
 /// 如果 `current` 已经达到或超过 `target` ，则返回 `target`
@@ -39,7 +39,7 @@ pub struct PhyEff {
 }
 
 #[derive(Clone, Debug)]
-pub struct MovementData {
+pub struct MotionData {
     // x
     /// 奔跑
     pub run_x_velocity: f64,
@@ -91,7 +91,7 @@ pub struct MovementData {
 
 impl PhyEff {
     /// 奔跑 传入方向（手柄能控制最大速度，但是摇杆左右为移动、上下为攻击方向，可能导致操作不顺，后期可换成 bool ）
-    pub fn create_run(data: &MovementData, direction: f64) -> PhyEff {
+    pub fn create_run(data: &MotionData, direction: f64) -> PhyEff {
         PhyEff {
             x_velocity: direction * data.run_x_velocity,
             x_acceleration: if direction.op_active() {
@@ -105,7 +105,7 @@ impl PhyEff {
     }
 
     /// 空中水平移动，用作默认值
-    fn create_air_move(data: &MovementData, direction: f64) -> PhyEff {
+    fn create_air_move(data: &MotionData, direction: f64) -> PhyEff {
         PhyEff {
             x_velocity: direction * data.air_x_velocity,
             x_acceleration: if direction.op_active() {
@@ -119,7 +119,7 @@ impl PhyEff {
     }
 
     /// 正常下落
-    pub fn create_falling(data: &MovementData, direction: f64) -> PhyEff {
+    pub fn create_falling(data: &MotionData, direction: f64) -> PhyEff {
         PhyEff {
             y_velocity: data.fall_velocity,
             y_acceleration: data.gravity,
@@ -128,7 +128,7 @@ impl PhyEff {
     }
 
     /// 跳跃上升时的重力加速度较为特殊
-    pub fn create_jumping(data: &MovementData, direction: f64) -> PhyEff {
+    pub fn create_jumping(data: &MotionData, direction: f64) -> PhyEff {
         PhyEff {
             y_velocity: data.fall_velocity,
             y_acceleration: data.jump_gravity,
@@ -137,7 +137,7 @@ impl PhyEff {
     }
 
     /// 跳跃 瞬间加速
-    pub fn create_jump(data: &MovementData, direction: f64) -> PhyEff {
+    pub fn create_jump(data: &MotionData, direction: f64) -> PhyEff {
         PhyEff {
             y_velocity: data.jump_velocity,
             y_acceleration: f64::INFINITY,
@@ -146,7 +146,7 @@ impl PhyEff {
     }
 
     /// 攀爬下滑
-    pub fn create_climb(data: &MovementData, direction: f64) -> PhyEff {
+    pub fn create_climb(data: &MotionData, direction: f64) -> PhyEff {
         PhyEff {
             y_velocity: data.climb_velocity,
             y_acceleration: f64::INFINITY,
@@ -174,8 +174,8 @@ mod unit_tests {
         assert_eq!(move_toward(0.0, 1.0, -0.5), -0.5);
     }
 
-    fn new_data() -> MovementData {
-        MovementData {
+    fn new_data() -> MotionData {
+        MotionData {
             run_x_velocity: 200.0,
             run_x_resistance: 4000.0,
             run_x_acceleration: 2000.0,
