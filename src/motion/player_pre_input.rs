@@ -29,7 +29,7 @@ pub trait PreInputOperation: PlayerOperation {
 /// 带预输入功能的操作 在其激活期间反复发送指令 直至指令下发成功
 ///
 /// 该类型属性生命周期在一帧内，每次根据玩家操作临时生成（指令响应后及时反馈给玩家操作）
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PreInputInstruction<T: PreInputOperation>(
     pub(crate) bool,
     pub(crate) std::marker::PhantomData<T>,

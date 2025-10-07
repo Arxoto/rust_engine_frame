@@ -3,41 +3,32 @@ use crate::{
     motion::{
         behaviour::Behaviour,
         player_input::PlayerOperation,
-        state_machine_types_impl::{FrameEff, FrameParam, PhyDirection, PhyEff, PhyMode, PhyParam},
+        state_machine_frame_eff_impl::FrameEff,
+        state_machine_param_impl::{FrameParam, PhyParam},
+        state_machine_phy_eff_impl::{MovementData, PhyEff},
     },
 };
 
 /// 行为系统的基础实现 无论如何都保证可以自由移动
+#[derive(Debug, Default)]
 pub struct BaseBehaviour;
 
 impl BaseBehaviour {
-    fn tick_physics<S: FixedString>(&mut self, p: &PhyParam<S>) -> PhyEff {
+    fn tick_physics<S: FixedString>(&mut self, p: &PhyParam<S>, data: &MovementData) -> PhyEff {
         // 对任意移动输入均做出反应
 
-        let mode = if p.jump_keep.op_active() {
-            PhyMode::Jumping
+        if p.jump_keep.op_active() {
+            PhyEff::create_jump(data, p.move_direction.0)
         } else {
-            PhyMode::Falling
-        };
-
-        let direction = if p.move_direction.op_active() {
-            if p.move_direction.0 > 0.0 {
-                PhyDirection::Right
-            } else {
-                PhyDirection::Left
-            }
-        } else {
-            PhyDirection::None
-        };
-
-        PhyEff { mode, direction }
+            PhyEff::create_falling(data, p.move_direction.0)
+        }
     }
 }
 
-impl<S: FixedString> Behaviour<FrameParam<S>, FrameParam<S>, FrameEff<S>, PhyParam<S>, PhyEff>
+impl<S: FixedString> Behaviour<PhyParam<S>, FrameParam<S>, FrameEff<S>, PhyParam<S>, PhyEff>
     for BaseBehaviour
 {
-    fn will_enter(&self, _p: &FrameParam<S>) -> bool {
+    fn will_enter(&self, _p: &PhyParam<S>) -> bool {
         true
     }
 
@@ -50,7 +41,7 @@ impl<S: FixedString> Behaviour<FrameParam<S>, FrameParam<S>, FrameEff<S>, PhyPar
         FrameEff::default()
     }
 
-    fn process_physics(&mut self, p: &mut PhyParam<S>) -> PhyEff {
-        self.tick_physics(p)
+    fn process_physics(&mut self, p: &mut PhyParam<S>, data: &MovementData) -> PhyEff {
+        self.tick_physics(p, data)
     }
 }

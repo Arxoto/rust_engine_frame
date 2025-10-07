@@ -1,12 +1,12 @@
 use crate::{
     cores::{tiny_timer::TinyTimer, unify_type::FixedString},
-    motion::{player_pre_input::PreInputOperation, state_machine_types_impl::PhyParam},
+    motion::{player_pre_input::PreInputOperation, state_machine_param_impl::PhyParam},
 };
 
 /// 玩家控制器 实例化后对应一个玩家（本地或远端）
 ///
 /// 其属性都是玩家操作 [`PlayerOperation`] 或 [`PreInputOperation`] （主：编码时由于没有引用所以没法跳转）
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct PlayerController {
     pub look_angle: f64,
 

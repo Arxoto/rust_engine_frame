@@ -8,14 +8,15 @@ use crate::{
         action_types::ActionExitLogic,
         movement_action_impl::MovementActionEvent,
         movement_impl::MovementMode,
-        state_machine_types_impl::{FrameParam, MovementAction, PhyParam},
+        state_machine_param_impl::{FrameParam, PhyParam},
+        state_machine_types_impl::MovementAction,
     },
 };
 
 /// 动作状态机
 ///
 /// 动作与动作之间有关联，面向数据设计，对分层状态也有一定程度上的支持
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ActionMachine<S, PhyEff>
 where
     S: FixedString,

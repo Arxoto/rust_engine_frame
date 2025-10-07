@@ -7,7 +7,7 @@ use crate::{
         action_types::{ActionEvent, ActionExitLogic},
         movement_impl::MovementMode,
         player_input::PlayerOperation,
-        state_machine_types_impl::PhyParam,
+        state_machine_param_impl::PhyParam,
     },
 };
 

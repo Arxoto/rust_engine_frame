@@ -5,20 +5,22 @@ use crate::{
     motion::{
         state_machine_action_impl::ActionMachine,
         state_machine_behaviour_impl::BehaviourMachine,
-        state_machine_types_impl::{EffGenerator, FrameEff, FrameParam, PhyEff, PhyParam},
+        state_machine_frame_eff_impl::FrameEff,
+        state_machine_param_impl::{FrameParam, PhyParam},
+        state_machine_phy_eff_impl::PhyEff,
+        state_machine_types_impl::EffGenerator,
     },
 };
 
 /// 玩家角色状态机
 ///
 /// 组合了行为与动作系统
-#[derive(Default)]
 pub struct PlayerMachine<S>
 where
     S: FixedString,
 {
-    pub(crate) action_machine: ActionMachine<S, PhyEff>,
-    pub(crate) behaviour_machine: BehaviourMachine<S, FrameEff<S>, PhyEff>,
+    pub action_machine: ActionMachine<S, PhyEff>,
+    pub behaviour_machine: BehaviourMachine<S, FrameEff<S>, PhyEff>,
 
     // inner field
     /// 动作持续时间
@@ -29,6 +31,17 @@ impl<S> PlayerMachine<S>
 where
     S: FixedString,
 {
+    pub fn new(
+        action_machine: ActionMachine<S, PhyEff>,
+        behaviour_machine: BehaviourMachine<S, FrameEff<S>, PhyEff>,
+    ) -> Self {
+        Self {
+            action_machine,
+            behaviour_machine,
+            action_duration: 0.0,
+        }
+    }
+
     /// 渲染帧执行
     pub fn tick_frame<FE, PE, EG: EffGenerator<S, FE, PE>>(&mut self, p: &FrameParam<S>) -> FE {
         let frame_eff = self.behaviour_machine.tick_frame(p);

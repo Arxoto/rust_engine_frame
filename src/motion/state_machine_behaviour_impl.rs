@@ -4,7 +4,9 @@ use crate::{
     cores::unify_type::FixedString,
     motion::{
         movement_impl::MovementMode,
-        state_machine_types_impl::{FrameParam, MovementBehaviour, PhyParam},
+        state_machine_param_impl::{FrameParam, PhyParam},
+        state_machine_phy_eff_impl::MovementData,
+        state_machine_types_impl::MovementBehaviour,
     },
 };
 
@@ -13,16 +15,30 @@ use crate::{
 /// 每个行为有自己的进入条件，每帧遍历检查状态切换，状态与状态之间解耦合
 ///
 /// 渲染帧的效果类型暂且保留在泛型中，感觉可能会复杂化，后续可简化为动画名称
-#[derive(Default)]
+#[derive()]
 pub struct BehaviourMachine<S, FrameEff, PhyEff>
 where
     S: FixedString,
 {
     pub(crate) stats: Vec<Box<dyn MovementBehaviour<S, FrameEff, PhyEff>>>,
     pub(crate) current_id: usize,
+    movement_data: MovementData,
 }
 
 impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
+    pub fn new(data: MovementData) -> Self {
+        Self {
+            stats: Vec::new(),
+            current_id: 0,
+            movement_data: data,
+        }
+    }
+
+    /// 设置行为数据集
+    pub fn set_movement_data(&mut self, data: MovementData) {
+        self.movement_data = data;
+    }
+
     fn fetch_next_stat_id(&self, enter_param: &PhyParam<S>) -> Option<usize> {
         for (id, ele) in self.stats.iter().enumerate() {
             if ele.will_enter(enter_param) && id != self.current_id {
@@ -80,16 +96,19 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
     /// 行为侧重逻辑处理，因此命名有所区别
     pub(crate) fn process_physics(&mut self, phy_param: &mut PhyParam<S>) -> Option<PhyEff> {
         if let Some(stat) = self.stats.get_mut(self.current_id) {
-            Some(stat.process_physics(phy_param))
+            Some(stat.process_physics(phy_param, &self.movement_data))
         } else {
             None
         }
     }
 
     /// 合并帧处理和状态更新
-    pub(crate) fn process_and_update(&mut self, phy_param: &mut PhyParam<S>) -> (Option<PhyEff>, (Option<MovementMode>, Option<MovementMode>)) {
+    pub(crate) fn process_and_update(
+        &mut self,
+        phy_param: &mut PhyParam<S>,
+    ) -> (Option<PhyEff>, (Option<MovementMode>, Option<MovementMode>)) {
         let phy_eff = self.process_physics(phy_param);
-        let movement_changed= self.update_stat(phy_param);
+        let movement_changed = self.update_stat(phy_param);
         (phy_eff, movement_changed)
     }
 
