@@ -37,6 +37,13 @@ pub struct InAirBehaviour<S: FixedString> {
     jump_on_wall_eff: S,
     double_jump_eff: S,
 
+    /// 问题：边缘无法跳跃
+    /// 分析：边缘之外才尝试跳跃，此时因为在空中无法进行跳跃
+    /// 预期：刚走出边缘的一段时间内允许跳跃
+    /// 分析：定义走出边缘：不是通过跳跃进入空中的
+    /// 实现：检测上一帧是否尝试跳跃，基本等价于检测这一帧有无向上速度（因此在 on_enter 中使用y轴是否向上做判断）
+    /// 例外：跳跃了但无速度：上一帧跳跃但是碰撞，本帧无碰撞仍然可跳（无所谓）
+    /// 例外：没跳跃但有速度：上一帧非主观原因导致升空，此时仍然可跳，存在逻辑错误（非主观升空即【不可控状态】，通过动作系统覆盖实现，而郊狼时间一般较短，因此无影响）
     coyote_timer: TinyTimer,
     jump_higher_timer: TinyTimer,
     double_jump: i64,
@@ -124,6 +131,7 @@ impl<S: FixedString>
 
     fn process_physics(&mut self, (p, data): &mut (&mut PhyParam<S>, &MotionData)) -> PhyEff {
         self.coyote_timer.add_time(p.delta);
+        // 提示，从攀爬状态转换到空中状态时触发的是普通的郊狼时间
         if p.character_can_jump_on_wall {
             self.coyote_timer.start_time();
         }
@@ -133,6 +141,9 @@ impl<S: FixedString>
         if p.jump_once.op_active() {
             // 尝试跳跃 注意尝试失败也不会消耗该指令
             let should_jump_once = if p.character_can_jump_on_wall {
+                // jump_on_wall 优化攀爬时体验（未进入攀爬状态，脚部碰撞墙体但手部没有碰撞，此时可以直接跳跃）
+                // 扩展能力：伸出式平台（壁架）边缘呈倒阶梯状，操作得当时可以逆攀而上
+                // P.S. 每个台阶二高度（允许脚部碰撞墙体）不依赖二段跳，一高度依赖二段跳（若蹬墙跳要求仅为身体与墙碰撞，则极限操作下也可以完成）
                 self.jump_special_effect = JumpSpecialEffect::JumpOnWall;
                 true
             } else if self.coyote_timer.in_time() {
