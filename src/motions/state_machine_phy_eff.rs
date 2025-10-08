@@ -19,8 +19,8 @@ pub fn move_toward(current: f64, target: f64, step: f64) -> f64 {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PhyAttribute {
-    pub x: f64,
-    pub y: f64,
+    pub(crate) x: f64,
+    pub(crate) y: f64,
 }
 
 impl PhyAttribute {
@@ -32,61 +32,61 @@ impl PhyAttribute {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PhyEff {
-    pub x_velocity: f64,
-    pub x_acceleration: f64,
-    pub y_velocity: f64,
-    pub y_acceleration: f64,
+    pub(crate) x_velocity: f64,
+    pub(crate) x_acceleration: f64,
+    pub(crate) y_velocity: f64,
+    pub(crate) y_acceleration: f64,
 }
 
 #[derive(Clone, Debug)]
 pub struct MotionData {
     // x
     /// 奔跑
-    pub run_x_velocity: f64,
+    pub(crate) run_x_velocity: f64,
     /// 奔跑
-    pub run_x_resistance: f64,
+    pub(crate) run_x_resistance: f64,
     /// 奔跑
-    pub run_x_acceleration: f64,
+    pub(crate) run_x_acceleration: f64,
 
     /// 跳跃下落 与奔跑速度一致即可 建议比跳跃速度略小（跳跃曲线优雅点）
-    pub air_x_velocity: f64,
+    pub(crate) air_x_velocity: f64,
     /// 跳跃下落 较大时落点可控 提升输入精确度
-    pub air_x_resistance: f64,
+    pub(crate) air_x_resistance: f64,
     /// 跳跃下落 较大时更灵活
-    pub air_x_acceleration: f64,
+    pub(crate) air_x_acceleration: f64,
 
-    /// 滑翔飞行 应稍大 体现出飞行的感觉
-    pub fly_x_velocity: f64,
-    /// 滑翔飞行 应较小 空中滑行惯性大
-    pub fly_x_resistance: f64,
-    /// 滑翔飞行 应较小 空中转向困难
-    pub fly_x_acceleration: f64,
+    // /// 滑翔飞行 应稍大 体现出飞行的感觉
+    // pub(crate) fly_x_velocity: f64,
+    // /// 滑翔飞行 应较小 空中滑行惯性大
+    // pub(crate) fly_x_resistance: f64,
+    // /// 滑翔飞行 应较小 空中转向困难
+    // pub(crate) fly_x_acceleration: f64,
 
     // y
     /// 重力加速度（正常情况下）
-    pub gravity: f64,
+    pub(crate) gravity: f64,
     /// 最大下落速度（防止过大） 一般取跳跃速度的两倍
-    pub fall_velocity: f64,
+    pub(crate) fall_velocity: f64,
 
     /// 重力加速度（跳跃时略小 `g' = g * 0.618` ），保证跳跃曲线先缓后急
-    pub jump_gravity: f64,
+    pub(crate) jump_gravity: f64,
     /// 跳跃速度
     ///
     /// 最佳实践：跳跃高度最低应该为一格左右 `h = v ** 2 /(g * 2)` `v=sqrt(2 * g * h)`
     ///
     /// 由下推导可推出单元格的高度 `h = 200*200 / 2 / (1000 * 0.618) = 32` （跳跃时重力加速度有个弹性系数）
-    pub jump_velocity: f64,
+    pub(crate) jump_velocity: f64,
     /// 跳得更高（开头一段时间跳跃速度不减）
     ///
     /// 最佳实践：跳跃高度最高为三格 保证 `t = v / g` 即可，且时长最好小于 0.2s 否则视觉效果不佳
     ///
     /// 因此可确定起跳速度 `v = g * 0.2` 参考 Godot `g=980px/s^2` 带入 `g=1000; v=200;`
-    pub jump_higher_time: f64,
+    // pub(crate) jump_higher_time: f64,
 
     /// 攀爬时的下落速度 可取 `g * (1-0.618)`
     ///
     /// 同时认为攀爬时摩擦力较大 应更为可控 因此可无视加速度直接修改速度
-    pub climb_velocity: f64,
+    pub(crate) climb_velocity: f64,
 }
 
 impl PhyEff {
@@ -182,14 +182,14 @@ mod unit_tests {
             air_x_velocity: 200.0,
             air_x_resistance: 1600.0,
             air_x_acceleration: 1600.0,
-            fly_x_velocity: 260.0,
-            fly_x_resistance: 100.0,
-            fly_x_acceleration: 100.0,
+            // fly_x_velocity: 260.0,
+            // fly_x_resistance: 100.0,
+            // fly_x_acceleration: 100.0,
             gravity: 980.0,
             fall_velocity: 400.0,
             jump_gravity: 618.0,
             jump_velocity: -200.0,
-            jump_higher_time: 0.2,
+            // jump_higher_time: 0.2,
             climb_velocity: 80.0,
         }
     }

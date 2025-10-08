@@ -11,32 +11,32 @@ use crate::{
 #[derive(Clone, Debug, Default)]
 pub struct FrameParam<S: FixedString> {
     // 客观条件
-    pub delta: f64,
-    pub anim_finished: bool,
-    pub anim_name: S, // 外部传入 因为考虑到动画不一定完全由动作系统控制
+    pub(crate) delta: f64,
+    pub(crate) anim_finished: bool,
+    pub(crate) anim_name: S, // 外部传入 因为考虑到动画不一定完全由动作系统控制
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct PhyParam<S: FixedString> {
     // 客观条件
-    pub delta: f64,
-    pub anim_finished: bool,
-    pub anim_name: S, // 外部传入 因为考虑到动画不一定完全由动作系统控制
-    pub character_x_velocity: f64,
-    pub character_y_velocity: f64,
-    pub character_can_climb: bool,
+    pub(crate) delta: f64,
+    pub(crate) anim_finished: bool,
+    pub(crate) anim_name: S, // 外部传入 因为考虑到动画不一定完全由动作系统控制
+    // pub(crate) character_x_velocity: f64,
+    // pub(crate) character_y_velocity: f64,
+    pub(crate) character_can_climb: bool,
     // 事件信号标志
-    pub hit_signal: bool,
-    pub behit_signal: bool,
+    pub(crate) hit_signal: bool,
+    pub(crate) behit_signal: bool,
     // 主观意图
-    pub look_angle: PlayerInstruction<f64>,
-    pub move_direction: PlayerInstruction<f64>,
-    pub jump_once: PreInputInstruction<TinyTimer>,
-    pub jump_keep: PlayerInstruction<bool>,
-    pub dodge_once: PreInputInstruction<TinyTimer>,
-    pub block_keep: PlayerInstruction<bool>,
-    pub attack_once: PlayerInstruction<bool>,
-    pub attack_keep: PlayerInstruction<bool>,
+    // pub(crate) look_angle: PlayerInstruction<f64>,
+    pub(crate) move_direction: PlayerInstruction<f64>,
+    pub(crate) jump_once: PreInputInstruction<TinyTimer>,
+    pub(crate) jump_keep: PlayerInstruction<bool>,
+    pub(crate) dodge_once: PreInputInstruction<TinyTimer>,
+    pub(crate) block_keep: PlayerInstruction<bool>,
+    pub(crate) attack_once: PlayerInstruction<bool>,
+    pub(crate) attack_keep: PlayerInstruction<bool>,
     // Option 框架内部维护 不从外界传入、明确状态
     /// None 时表示没有发生模式的切换
     pub(crate) motion_changed: Option<(Option<MotionMode>, Option<MotionMode>)>,

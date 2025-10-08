@@ -23,7 +23,7 @@ pub type MotionAction<S, PhyEff> =
 
 /// EnterParam 为 FrameParam ，角色状态机将输入参数聚合成一个
 pub trait MotionBehaviour<S: FixedString, FrameEff, PhyEff>:
-    for<'a> Behaviour<PhyParam<S>, FrameParam<S>, FrameEff, (&'a PhyParam<S>, &'a MotionData), PhyEff>
+    for<'a> Behaviour<PhyParam<S>, FrameParam<S>, FrameEff, (&'a mut PhyParam<S>, &'a MotionData), PhyEff>
 {
     fn get_motion_mode(&self) -> MotionMode;
 }

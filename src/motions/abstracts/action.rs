@@ -16,34 +16,34 @@ where
     ExitLogic: ActionExitLogic<ExitParam>,
 {
     /// 动作名称
-    pub action_name: S,
+    pub(crate) action_name: S,
 
     /// 本动作的触发事件
-    pub trigger_enter: Vec<Event>,
+    pub(crate) trigger_enter: Vec<Event>,
     /// 事件触发的下一个动作
-    pub trigger_exit: HashMap<Event, S>,
+    pub(crate) trigger_exit: HashMap<Event, S>,
 
     /// 每帧执行退出逻辑判断是否进行下一个动作
-    pub tick_exit: Vec<(ExitLogic, S)>,
+    pub(crate) tick_exit: Vec<(ExitLogic, S)>,
 
     /// 动作优先级
-    pub action_priority: i64,
+    pub(crate) action_priority: i64,
     /// 动作自定义覆盖关系 true能被其他覆盖 false不能
-    pub action_switch_relation: HashMap<S, bool>,
+    pub(crate) action_switch_relation: HashMap<S, bool>,
 
     /// 初始播放的动画名称
-    pub anim_first: S,
+    pub(crate) anim_first: S,
     /// 动画结束后自动播放的下一个动画
-    pub anim_next: HashMap<S, S>,
+    pub(crate) anim_next: HashMap<S, S>,
 
     /// 每帧的物理效果 key 为动画名称
-    pub anim_physics: HashMap<S, PhyEff>,
+    pub(crate) anim_physics: HashMap<S, PhyEff>,
 
     // ActionExitLogic 的参数使用【泛型方式】去实现的话需要如下实现
     // 让编译器以为使用了该泛型 零成本 （实例化时直接 `_marker: std::marker::PhantomData,` ）
     // 若使用【关联类型】去实现 则无需这样做
     // （没有选择【关联类型】这个方案，因为关联类型本身不支持泛型，编写框架时受限，且支持泛型后能够将多个参数合并：动作的退出逻辑、行为的进入逻辑等）
-    pub _marker: std::marker::PhantomData<ExitParam>,
+    pub(crate) _marker: std::marker::PhantomData<ExitParam>,
 }
 
 impl<S, Event, ExitParam, ExitLogic, PhyEff> Action<S, Event, ExitParam, ExitLogic, PhyEff>

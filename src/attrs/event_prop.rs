@@ -20,7 +20,7 @@ where
     // 让编译器以为使用了该泛型 零成本
     pub(crate) _marker: std::marker::PhantomData<S>,
 
-    pub once_current_to_min: Option<FnCurMin>,
+    pub(crate) once_current_to_min: Option<FnCurMin>,
 }
 
 impl<S, FnCurMin> DynPropEvents<S> for DynPropEventsImpl<S, FnCurMin>

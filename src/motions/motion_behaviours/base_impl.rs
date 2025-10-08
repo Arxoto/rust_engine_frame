@@ -33,7 +33,7 @@ impl BaseBehaviour {
 }
 
 impl<S: FixedString>
-    Behaviour<PhyParam<S>, FrameParam<S>, FrameEff<S>, (&PhyParam<S>, &MotionData), PhyEff>
+    Behaviour<PhyParam<S>, FrameParam<S>, FrameEff<S>, (&mut PhyParam<S>, &MotionData), PhyEff>
     for BaseBehaviour
 {
     fn will_enter(&self, _p: &PhyParam<S>) -> bool {
@@ -49,7 +49,7 @@ impl<S: FixedString>
         FrameEff::default()
     }
 
-    fn process_physics(&mut self, (p, data): &mut (&PhyParam<S>, &MotionData)) -> PhyEff {
+    fn process_physics(&mut self, (p, data): &mut (&mut PhyParam<S>, &MotionData)) -> PhyEff {
         // 对任意移动输入均做出反应
         self.tick_physics(p, data)
     }

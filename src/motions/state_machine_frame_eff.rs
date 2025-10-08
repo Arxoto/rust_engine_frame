@@ -3,7 +3,7 @@ use crate::cores::unify_type::FixedString;
 /// 若有必要可将角色动画分层（如上半身下半身组合动画），动作系统的逻辑保持单一仍然只返回一个动画
 #[derive(Debug, Default)]
 pub struct FrameEff<S: FixedString> {
-    pub anim_name: S,
+    pub(crate) anim_name: S,
 }
 
 // 由于 S 是泛型，所以无法实现 TryFrom （具体原因存疑，反正就是有冲突，怀疑可能是编译器太过于严格）

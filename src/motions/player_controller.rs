@@ -8,19 +8,19 @@ use crate::{
 /// 其属性都是玩家操作 [`PlayerOperation`] 或 [`PreInputOperation`] （注：编码时由于没有引用所以没法跳转）
 #[derive(Debug, Default)]
 pub struct PlayerController {
-    pub look_angle: f64,
+    // pub(crate) look_angle: f64,
 
-    pub move_direction: f64,
+    pub(crate) move_direction: f64,
 
-    pub jump_once: TinyTimer,
-    pub jump_keep: bool,
+    pub(crate) jump_once: TinyTimer,
+    pub(crate) jump_keep: bool,
 
-    pub dodge_once: TinyTimer,
+    pub(crate) dodge_once: TinyTimer,
 
-    pub block_keep: bool,
+    pub(crate) block_keep: bool,
 
-    pub attack_once: bool,
-    pub attack_keep: bool,
+    pub(crate) attack_once: bool,
+    pub(crate) attack_keep: bool,
 }
 
 impl PlayerController {
@@ -43,7 +43,7 @@ impl<S: FixedString> PhyParam<S> {
 impl<S: FixedString> From<&PlayerController> for PhyParam<S> {
     fn from(value: &PlayerController) -> Self {
         Self {
-            look_angle: value.look_angle.into(),
+            // look_angle: value.look_angle.into(),
             move_direction: value.move_direction.into(),
             jump_once: (&value.jump_once).into(),
             jump_keep: value.jump_keep.into(),

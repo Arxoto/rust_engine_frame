@@ -1,7 +1,7 @@
 use crate::{
     cores::{tiny_timer::TinyTimer, unify_type::FixedString},
     motions::{
-        abstracts::behaviour::Behaviour,
+        abstracts::{behaviour::Behaviour, player_pre_input::PreInputOperation},
         motion_mode::MotionMode,
         state_machine_frame_eff::FrameEff,
         state_machine_param::{FrameParam, PhyParam},
@@ -15,8 +15,8 @@ const CLIMB_BEGIN_TIME: f64 = 0.2;
 /// 行为系统的基础实现 无论如何都保证可以自由移动
 #[derive(Debug, Default)]
 pub struct ClimbWallBehaviour<S: FixedString> {
-    pub climb_begin_anim: S,
-    pub climbing_anim: S,
+    pub(crate) climb_begin_anim: S,
+    pub(crate) climbing_anim: S,
     beginning: TinyTimer,
 }
 
@@ -31,7 +31,7 @@ impl<S: FixedString> ClimbWallBehaviour<S> {
 }
 
 impl<S: FixedString>
-    Behaviour<PhyParam<S>, FrameParam<S>, FrameEff<S>, (&PhyParam<S>, &MotionData), PhyEff>
+    Behaviour<PhyParam<S>, FrameParam<S>, FrameEff<S>, (&mut PhyParam<S>, &MotionData), PhyEff>
     for ClimbWallBehaviour<S>
 {
     fn will_enter(&self, p: &PhyParam<S>) -> bool {
@@ -53,8 +53,12 @@ impl<S: FixedString>
         }
     }
 
-    fn process_physics(&mut self, (p, data): &mut (&PhyParam<S>, &MotionData)) -> PhyEff {
-        PhyEff::create_climb(data, p.move_direction.0)
+    fn process_physics(&mut self, (p, data): &mut (&mut PhyParam<S>, &MotionData)) -> PhyEff {
+        if p.jump_once.op_consume_active() {
+            PhyEff::create_jump(data, p.move_direction.0)
+        } else {
+            PhyEff::create_climb(data, p.move_direction.0)
+        }
     }
 }
 
