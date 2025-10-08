@@ -10,7 +10,7 @@
 pub trait Behaviour<EnterParam, FrameParam, FrameEff, PhyParam, PhyEff> {
     fn will_enter(&self, p: &EnterParam) -> bool;
 
-    fn on_enter(&mut self);
+    fn on_enter(&mut self, p: &EnterParam);
     fn on_exit(&mut self);
 
     fn tick_frame(&mut self, p: &FrameParam) -> FrameEff;

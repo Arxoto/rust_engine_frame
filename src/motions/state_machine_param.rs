@@ -14,8 +14,8 @@ pub struct FrameParam<S: FixedString> {
     pub(crate) delta: f64,
     pub(crate) anim_finished: bool,
     pub(crate) anim_name: S, // 外部传入 因为考虑到动画不一定完全由动作系统控制
-    pub(crate) character_x_velocity: f64,
-    // pub(crate) character_y_velocity: f64,
+    pub(crate) character_x_moving: bool, // 外部判断是否移动
+    pub(crate) character_y_fly_up: bool, // 不同游戏引擎2D游戏中的y轴方向不一样 因此不要自己判断上下
     pub(crate) character_landing: bool,
     // 这里不应包含主观意图
 }
@@ -26,8 +26,11 @@ pub struct PhyParam<S: FixedString> {
     pub(crate) delta: f64,
     pub(crate) anim_finished: bool,
     pub(crate) anim_name: S, // 外部传入 因为考虑到动画不一定完全由动作系统控制
+    pub(crate) behaviour_cut_out: bool, // 强制进行行为刷新时使用
     // pub(crate) character_x_velocity: f64,
     // pub(crate) character_y_velocity: f64,
+    pub(crate) character_can_jump_on_wall: bool,
+    pub(crate) character_jump_into_air: bool, // 不同游戏引擎2D游戏中的y轴方向不一样 因此不要自己判断上下
     pub(crate) character_is_on_floor: bool,
     pub(crate) character_can_climb: bool,
     // 事件信号标志

@@ -15,8 +15,8 @@ const CLIMB_BEGIN_TIME: f64 = 0.2;
 /// 攀爬（贴墙下滑）
 #[derive(Debug, Default)]
 pub struct ClimbWallBehaviour<S: FixedString> {
-    pub(crate) climb_begin_anim: S,
-    pub(crate) climbing_anim: S,
+    climb_begin_anim: S,
+    climbing_anim: S,
     beginning: TinyTimer,
 }
 
@@ -38,7 +38,7 @@ impl<S: FixedString>
         p.character_can_climb // 判断条件需要用到向量运算 为保证项目纯净 交由外部判断输入
     }
 
-    fn on_enter(&mut self) {
+    fn on_enter(&mut self, _p: &PhyParam<S>) {
         self.beginning.start_time();
     }
 

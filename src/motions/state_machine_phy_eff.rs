@@ -90,6 +90,16 @@ pub struct MotionData {
 }
 
 impl PhyEff {
+    /// 强行静止
+    pub fn create_stop(_data: &MotionData, _direction: f64) -> PhyEff {
+        PhyEff {
+            x_velocity: 0.0,
+            x_acceleration: f64::INFINITY,
+            y_velocity: 0.0,
+            y_acceleration: f64::INFINITY,
+        }
+    }
+
     /// 奔跑 传入方向（手柄能控制最大速度，但是摇杆左右为移动、上下为攻击方向，可能导致操作不顺，后期可换成 bool ）
     pub fn create_run(data: &MotionData, direction: f64) -> PhyEff {
         PhyEff {

@@ -10,7 +10,6 @@ use crate::{
     },
 };
 
-const RUN_OR_IDLE_THRESHOLD: f64 = 0.1;
 const LANDING_DELAY: f64 = 0.1;
 
 /// 地面
@@ -41,7 +40,7 @@ impl<S: FixedString>
         p.character_is_on_floor
     }
 
-    fn on_enter(&mut self) {}
+    fn on_enter(&mut self, _p: &PhyParam<S>) {}
 
     fn on_exit(&mut self) {}
 
@@ -55,10 +54,10 @@ impl<S: FixedString>
             return FrameEff::from(self.landing_anim.clone());
         }
 
-        if p.character_x_velocity.abs() < RUN_OR_IDLE_THRESHOLD {
-            FrameEff::from(self.idle_anim.clone())
-        } else {
+        if p.character_x_moving {
             FrameEff::from(self.run_anim.clone())
+        } else {
+            FrameEff::from(self.idle_anim.clone())
         }
     }
 

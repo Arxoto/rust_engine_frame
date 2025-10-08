@@ -2,7 +2,6 @@ use crate::{
     cores::unify_type::FixedString,
     motions::{
         abstracts::behaviour::Behaviour,
-        abstracts::player_input::PlayerOperation,
         motion_mode::MotionMode,
         state_machine_frame_eff::FrameEff,
         state_machine_param::{FrameParam, PhyParam},
@@ -11,22 +10,28 @@ use crate::{
     },
 };
 
-/// 行为系统的基础实现 无论如何都保证可以自由移动 测试时使用
+/// 行为系统的一般实现 无法移动 一般用作强制状态切换
+///
+/// 也可作为最小实现 用作模板创建新行为
 #[derive(Debug, Default)]
-pub struct BaseBehaviour;
+pub struct CommonBehaviour<S: FixedString> {
+    the_anim: S,
+}
 
-impl BaseBehaviour {
+impl<S: FixedString> CommonBehaviour<S> {
     pub fn new() -> Self {
-        Self
+        Self {
+            the_anim: S::default(),
+        }
     }
 }
 
 impl<S: FixedString>
     Behaviour<PhyParam<S>, FrameParam<S>, FrameEff<S>, (&mut PhyParam<S>, &MotionData), PhyEff>
-    for BaseBehaviour
+    for CommonBehaviour<S>
 {
-    fn will_enter(&self, _p: &PhyParam<S>) -> bool {
-        true
+    fn will_enter(&self, p: &PhyParam<S>) -> bool {
+        p.behaviour_cut_out
     }
 
     fn on_enter(&mut self, _p: &PhyParam<S>) {}
@@ -34,21 +39,15 @@ impl<S: FixedString>
     fn on_exit(&mut self) {}
 
     fn tick_frame(&mut self, _p: &FrameParam<S>) -> FrameEff<S> {
-        // 不对视觉效果做修改
-        FrameEff::default()
+        FrameEff::from(self.the_anim.clone())
     }
 
     fn process_physics(&mut self, (p, data): &mut (&mut PhyParam<S>, &MotionData)) -> PhyEff {
-        // 对任意移动输入均做出反应 摁住跳跃键螺旋升天
-        if p.jump_keep.op_active() {
-            PhyEff::create_jump(data, p.move_direction.0)
-        } else {
-            PhyEff::create_falling(data, p.move_direction.0)
-        }
+        PhyEff::create_stop(data, p.move_direction.0)
     }
 }
 
-impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for BaseBehaviour {
+impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for CommonBehaviour<S> {
     fn get_motion_mode(&self) -> MotionMode {
         MotionMode::FreeStat
     }

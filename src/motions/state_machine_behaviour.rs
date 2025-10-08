@@ -77,7 +77,7 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
 
         let mut new_motion_mode = None; // never
         if let Some(stat) = self.stats.get_mut(self.current_id) {
-            stat.on_enter();
+            stat.on_enter(enter_param);
             let motion_mode = stat.get_motion_mode();
             // self.motion_mode = motion_mode;
             new_motion_mode = Some(motion_mode);
