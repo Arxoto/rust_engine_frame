@@ -38,7 +38,8 @@ pub struct PhyEff {
     pub(crate) y_acceleration: f64,
 }
 
-#[derive(Clone, Debug)]
+/// 只有单元测试中可使用 Default
+#[derive(Clone, Debug, Default)]
 pub struct MotionData {
     // x
     /// 奔跑
@@ -174,6 +175,10 @@ mod unit_tests {
         assert_eq!(move_toward(0.0, 1.0, 0.9), 0.9);
         assert_eq!(move_toward(0.0, 1.0, 1.0), 1.0);
         assert_eq!(move_toward(0.0, 1.0, 1.9), 1.0);
+        assert_eq!(move_toward(-1.0, 1.0, 1.8), 0.8);
+        assert_eq!(move_toward(5.0, 0.0, 1.0), 4.0);
+        assert_eq!(move_toward(5.0, -1.0, 10.0), -1.0);
+        assert_eq!(move_toward(-1.0, -10.0, 1.0), -2.0);
 
         // 验证精度
         assert_ne!(0.1 + 0.2, 0.3);
@@ -211,4 +216,6 @@ mod unit_tests {
         current.velocity_eff(0.01, phy_eff);
         assert_eq!(current.y, -200.0);
     }
+
+    // todo test for each create
 }

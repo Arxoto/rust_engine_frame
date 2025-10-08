@@ -6,8 +6,8 @@ use crate::{
     cores::unify_type::FixedString,
     motions::{
         abstracts::action_types::ActionExitLogic,
-        motion_mode::MotionMode,
         motion_action::MotionActionEvent,
+        motion_mode::MotionMode,
         state_machine_param::{FrameParam, PhyParam},
         state_machine_types::MotionAction,
     },
@@ -127,7 +127,7 @@ where
         // 若出现动画名称不对应的情况 说明外部没有遵从动作框架的逻辑 （如动作框架处于缺省状态时，使用行为框架进行覆盖）
         if frame_param.anim_finished && frame_param.anim_name == self.current_anim_name {
             // update anim
-            // 1、注意这里的结果 None 在正常执行时不允许 要求必须在退出条件里进行动画的结束判断
+            // 1、注意这里的 next_anim_name 正常不应该是 None （若忘了在 exit_logic 添加动画完成的退出逻辑）
             //     但这里无视也没有什么大问题 因为会导致视觉上动画卡住 因此能立即发现
             // 2、同时有另一个问题，由于 update 方法与 tick 方法相互独立（设计上是为了将信号更新和每帧执行解耦合）
             //     这样就导致了执行 tick 的时候无法感知道 update 是否改变了动作（同时为了一致也不应把 tick 和 update_tick 强行合并）
@@ -164,6 +164,8 @@ where
         }
         false
     }
+
+    // todo test for try_update_action_event and tick_and_update
 
     /// 合并帧处理和状态更新
     ///
@@ -216,8 +218,8 @@ mod unit_tests {
     use crate::motions::{
         abstracts::action::Action,
         action_impl::{ActionBaseEvent, ActionBaseExitLogic},
-        motion_mode::MotionMode,
         motion_action::MotionActionExitLogic,
+        motion_mode::MotionMode,
     };
 
     use super::*;
@@ -266,8 +268,7 @@ mod unit_tests {
         action_machine.add_action(action);
 
         // test event trigger
-        let event =
-            MotionActionEvent::new(ActionBaseEvent::BlockInstruction, MotionMode::OnFloor);
+        let event = MotionActionEvent::new(ActionBaseEvent::BlockInstruction, MotionMode::OnFloor);
         let action_names = action_machine.event_trigger_actions.get(&event).unwrap();
         assert_eq!(action_names, &vec!["defence_action", "defence_action_2"]);
 

@@ -42,10 +42,9 @@ impl<S: FixedString>
         self.beginning.start_time();
     }
 
-    fn on_exit(&mut self) {}
-
     fn tick_frame(&mut self, p: &FrameParam<S>) -> FrameEff<S> {
         self.beginning.add_time(p.delta);
+        // 攀爬没有跳跃动画 因为预期内跳跃会切换至另一个行为
         if self.beginning.in_time() {
             FrameEff::from(self.climb_begin_anim.clone())
         } else {

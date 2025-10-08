@@ -42,5 +42,7 @@ pub enum ActionBaseExitLogic<S: FixedString> {
     /// 多长时间后，跳跃可打断
     JumpAfter(f64),
     /// 当播放动画为S时，攻击可打断
+    ///
+    /// 同时可实现攻击指令的预输入：切换到首动画为同名动画的动作
     AttackWhen(S),
 }

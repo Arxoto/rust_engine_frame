@@ -92,7 +92,7 @@ impl<S: FixedString>
     fn on_enter(&mut self, p: &PhyParam<S>) {
         self.start_double_jump_time();
 
-        if p.character_jump_into_air {
+        if p.character_y_fly_up {
             self.coyote_timer.final_time();
             self.jump_higher_timer.start_time();
         } else {
@@ -100,8 +100,6 @@ impl<S: FixedString>
             self.jump_higher_timer.final_time();
         }
     }
-
-    fn on_exit(&mut self) {}
 
     fn tick_frame(&mut self, p: &FrameParam<S>) -> FrameEff<S> {
         let special_eff = match self.jump_special_effect {

@@ -2,15 +2,15 @@
 //!
 //! 实现为2D游戏，因为输入参数和输出效果根据2D3D均有差别，索性一起抽象
 //!
-//! （仅行为系统的实现与2D3D有关，但是暂时先不独立抽象一层，因为输入参数需要抽象一层特征）
+//! （虽然仅行为系统的实现与2D3D有关，但是仍然不独立抽象一层，因为输入参数连带着也要抽象一层特征，暂时没必要）
 
 use crate::{
     cores::unify_type::FixedString,
     motions::{
         abstracts::action::Action,
         abstracts::behaviour::Behaviour,
-        motion_mode::MotionMode,
         motion_action::{MotionActionEvent, MotionActionExitLogic},
+        motion_mode::MotionMode,
         state_machine_frame_eff::FrameEff,
         state_machine_param::{FrameParam, PhyParam},
         state_machine_phy_eff::{MotionData, PhyEff},
@@ -23,7 +23,13 @@ pub type MotionAction<S, PhyEff> =
 
 /// EnterParam 为 FrameParam ，角色状态机将输入参数聚合成一个
 pub trait MotionBehaviour<S: FixedString, FrameEff, PhyEff>:
-    for<'a> Behaviour<PhyParam<S>, FrameParam<S>, FrameEff, (&'a mut PhyParam<S>, &'a MotionData), PhyEff>
+    for<'a> Behaviour<
+        PhyParam<S>,
+        FrameParam<S>,
+        FrameEff,
+        (&'a mut PhyParam<S>, &'a MotionData),
+        PhyEff,
+    >
 {
     fn get_motion_mode(&self) -> MotionMode;
 }
@@ -56,12 +62,28 @@ impl<S: FixedString>
 
 /// by_action first, and then by_behaviour
 pub struct ActionBehaviourGenerator;
-impl<S: FixedString> EffGenerator<S, Option<FrameEff<S>>, Option<PhyEff>> for CommonEffGenerator {
+impl<S: FixedString> EffGenerator<S, Option<FrameEff<S>>, Option<PhyEff>>
+    for ActionBehaviourGenerator
+{
     fn gen_frame_eff(by_action: &S, by_behaviour: Option<FrameEff<S>>) -> Option<FrameEff<S>> {
         FrameEff::try_new(by_action.clone()).or(by_behaviour)
     }
 
     fn gen_phy_eff(by_action: Option<PhyEff>, by_behaviour: Option<PhyEff>) -> Option<PhyEff> {
         by_action.or(by_behaviour)
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+
+    #[test]
+    fn gen_frame_eff() {
+        let eff = ActionBehaviourGenerator::gen_frame_eff(&"111", Some(FrameEff::from("222")));
+        assert_eq!(eff.unwrap().anim_name, "111");
+
+        let eff = ActionBehaviourGenerator::gen_frame_eff(&"", Some(FrameEff::from("anim")));
+        assert_eq!(eff.unwrap().anim_name, "anim");
     }
 }

@@ -8,8 +8,11 @@
 /// - 动作用于复杂操作、简单逻辑，如 combo 的依赖路径
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MotionMode {
+    /// 特殊状态 自由移动 一般用于测试
     FreeStat,
+    /// 特殊状态 静止 一般用于特殊逻辑强制切换不同的行为
     StopStat,
+    // 具体的运动模式
     OnFloor,
     InAir,
     UnderWater,

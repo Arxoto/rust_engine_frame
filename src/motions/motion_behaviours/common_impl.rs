@@ -36,8 +36,6 @@ impl<S: FixedString>
 
     fn on_enter(&mut self, _p: &PhyParam<S>) {}
 
-    fn on_exit(&mut self) {}
-
     fn tick_frame(&mut self, _p: &FrameParam<S>) -> FrameEff<S> {
         FrameEff::from(self.the_anim.clone())
     }

@@ -1,3 +1,9 @@
+//! 玩家角色控制器 实现了指令预输入功能
+//!
+//! 代码检视
+//! - 结构体 [`PlayerController`] 中的所有字段在转换至 [`PhyParam`] 时都应存在响应映射
+//! - [`TinyTimer`] 类型的字段在 [`PlayerController::op_echo_with`] 和 [`PhyParam::op_echo_with`] 中都应存在
+
 use crate::{
     cores::{tiny_timer::TinyTimer, unify_type::FixedString},
     motions::{abstracts::player_pre_input::PreInputOperation, state_machine_param::PhyParam},
@@ -9,7 +15,6 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct PlayerController {
     // pub(crate) look_angle: f64,
-
     pub(crate) move_direction: f64,
 
     pub(crate) jump_once: TinyTimer,

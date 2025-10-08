@@ -39,3 +39,17 @@ impl<S: FixedString> FrameEff<S> {
         }
     }
 }
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+
+    #[test]
+    fn test_is_legal() {
+        let a = FrameEff::try_new("");
+        assert!(a.is_none());
+
+        let b = FrameEff::try_new(" ");
+        assert!(b.is_some());
+    }
+}
