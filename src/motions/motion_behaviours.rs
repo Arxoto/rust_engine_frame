@@ -2,6 +2,7 @@
 //!
 //! 代码检视：
 //! - 所有的 [`TinyTimer`] 类型的字段都应在 on_enter 方法中去初始化
+//! - 所实现的方法 [`MotionBehaviour::get_motion_mode`] 返回值正确
 //!
 //! 建议运行游戏进行测试，测试点：
 //! - 框架

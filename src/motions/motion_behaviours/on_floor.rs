@@ -104,6 +104,6 @@ impl<S: FixedString>
 
 impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for OnFloorBehaviour<S> {
     fn get_motion_mode(&self) -> MotionMode {
-        MotionMode::FreeStat
+        MotionMode::OnFloor
     }
 }
