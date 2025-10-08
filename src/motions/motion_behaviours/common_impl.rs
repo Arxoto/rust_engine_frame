@@ -49,6 +49,6 @@ impl<S: FixedString>
 
 impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for CommonBehaviour<S> {
     fn get_motion_mode(&self) -> MotionMode {
-        MotionMode::FreeStat
+        MotionMode::StopStat
     }
 }

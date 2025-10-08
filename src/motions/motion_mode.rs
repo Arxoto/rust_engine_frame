@@ -9,6 +9,7 @@
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MotionMode {
     FreeStat,
+    StopStat,
     OnFloor,
     InAir,
     UnderWater,
@@ -19,6 +20,7 @@ impl MotionMode {
     pub fn each_mode() -> &'static [MotionMode] {
         &[
             MotionMode::FreeStat,
+            MotionMode::StopStat,
             MotionMode::OnFloor,
             MotionMode::InAir,
             MotionMode::UnderWater,
@@ -44,6 +46,7 @@ mod unit_tests {
         for ele in motions.iter() {
             match ele {
                 MotionMode::FreeStat => {}
+                MotionMode::StopStat => {}
                 MotionMode::OnFloor => {}
                 MotionMode::InAir => {}
                 MotionMode::UnderWater => {}
