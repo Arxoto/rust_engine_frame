@@ -21,15 +21,6 @@ impl BaseBehaviour {
     pub fn new() -> Self {
         Self
     }
-
-    fn tick_physics<S: FixedString>(&mut self, p: &PhyParam<S>, data: &MotionData) -> PhyEff {
-        // 摁住螺旋升天
-        if p.jump_keep.op_active() {
-            PhyEff::create_jump(data, p.move_direction.0)
-        } else {
-            PhyEff::create_falling(data, p.move_direction.0)
-        }
-    }
 }
 
 impl<S: FixedString>
@@ -50,8 +41,12 @@ impl<S: FixedString>
     }
 
     fn process_physics(&mut self, (p, data): &mut (&mut PhyParam<S>, &MotionData)) -> PhyEff {
-        // 对任意移动输入均做出反应
-        self.tick_physics(p, data)
+        // 对任意移动输入均做出反应 摁住跳跃键螺旋升天
+        if p.jump_keep.op_active() {
+            PhyEff::create_jump(data, p.move_direction.0)
+        } else {
+            PhyEff::create_falling(data, p.move_direction.0)
+        }
     }
 }
 

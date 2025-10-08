@@ -12,7 +12,7 @@ use crate::{
 
 const CLIMB_BEGIN_TIME: f64 = 0.2;
 
-/// 行为系统的基础实现 无论如何都保证可以自由移动
+/// 攀爬（贴墙下滑）
 #[derive(Debug, Default)]
 pub struct ClimbWallBehaviour<S: FixedString> {
     pub(crate) climb_begin_anim: S,

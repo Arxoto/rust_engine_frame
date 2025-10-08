@@ -14,6 +14,10 @@ pub struct FrameParam<S: FixedString> {
     pub(crate) delta: f64,
     pub(crate) anim_finished: bool,
     pub(crate) anim_name: S, // 外部传入 因为考虑到动画不一定完全由动作系统控制
+    pub(crate) character_x_velocity: f64,
+    // pub(crate) character_y_velocity: f64,
+    pub(crate) character_landing: bool,
+    // 这里不应包含主观意图
 }
 
 #[derive(Clone, Debug, Default)]
@@ -24,6 +28,7 @@ pub struct PhyParam<S: FixedString> {
     pub(crate) anim_name: S, // 外部传入 因为考虑到动画不一定完全由动作系统控制
     // pub(crate) character_x_velocity: f64,
     // pub(crate) character_y_velocity: f64,
+    pub(crate) character_is_on_floor: bool,
     pub(crate) character_can_climb: bool,
     // 事件信号标志
     pub(crate) hit_signal: bool,
