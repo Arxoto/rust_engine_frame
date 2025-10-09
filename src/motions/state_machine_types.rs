@@ -7,13 +7,13 @@
 use crate::{
     cores::unify_type::FixedString,
     motions::{
-        abstracts::action::Action,
-        abstracts::behaviour::Behaviour,
+        abstracts::{action::Action, behaviour::Behaviour},
         motion_action::{MotionActionEvent, MotionActionExitLogic},
         motion_mode::MotionMode,
         state_machine_frame_eff::FrameEff,
-        state_machine_param::{FrameParam, PhyParam},
+        state_machine_frame_param::FrameParam,
         state_machine_phy_eff::{MotionData, PhyEff},
+        state_machine_phy_param::PhyParam,
     },
 };
 

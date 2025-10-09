@@ -1,12 +1,12 @@
 use crate::{
     cores::unify_type::FixedString,
     motions::{
-        abstracts::behaviour::Behaviour,
-        abstracts::player_input::PlayerOperation,
+        abstracts::{behaviour::Behaviour, player_input::PlayerOperation},
         motion_mode::MotionMode,
         state_machine_frame_eff::FrameEff,
-        state_machine_param::{FrameParam, PhyParam},
+        state_machine_frame_param::FrameParam,
         state_machine_phy_eff::{MotionData, PhyEff},
+        state_machine_phy_param::PhyParam,
         state_machine_types::MotionBehaviour,
     },
 };
@@ -38,10 +38,10 @@ impl<S: FixedString>
 
     fn process_physics(&mut self, (p, data): &mut (&mut PhyParam<S>, &MotionData)) -> PhyEff {
         // 对任意移动输入均做出反应 摁住跳跃键螺旋升天
-        if p.jump_keep.op_active() {
-            PhyEff::create_jump(data, p.move_direction.0)
+        if p.instructions.jump_keep.op_active() {
+            PhyEff::create_jump(data, p.instructions.move_direction.0)
         } else {
-            PhyEff::create_falling(data, p.move_direction.0)
+            PhyEff::create_falling(data, p.instructions.move_direction.0)
         }
     }
 }

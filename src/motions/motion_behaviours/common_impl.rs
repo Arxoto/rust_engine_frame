@@ -4,8 +4,9 @@ use crate::{
         abstracts::behaviour::Behaviour,
         motion_mode::MotionMode,
         state_machine_frame_eff::FrameEff,
-        state_machine_param::{FrameParam, PhyParam},
+        state_machine_frame_param::FrameParam,
         state_machine_phy_eff::{MotionData, PhyEff},
+        state_machine_phy_param::PhyParam,
         state_machine_types::MotionBehaviour,
     },
 };
@@ -41,7 +42,7 @@ impl<S: FixedString>
     }
 
     fn process_physics(&mut self, (p, data): &mut (&mut PhyParam<S>, &MotionData)) -> PhyEff {
-        PhyEff::create_stop(data, p.move_direction.0)
+        PhyEff::create_stop(data, p.instructions.move_direction.0)
     }
 }
 

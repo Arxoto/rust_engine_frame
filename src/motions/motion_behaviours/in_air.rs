@@ -7,8 +7,9 @@ use crate::{
         },
         motion_mode::MotionMode,
         state_machine_frame_eff::FrameEff,
-        state_machine_param::{FrameParam, PhyParam},
+        state_machine_frame_param::FrameParam,
         state_machine_phy_eff::{MotionData, PhyEff},
+        state_machine_phy_param::PhyParam,
         state_machine_types::MotionBehaviour,
     },
 };
@@ -138,7 +139,7 @@ impl<S: FixedString>
         self.jump_higher_timer.add_time(p.delta);
 
         // 处理跳跃下落逻辑
-        if p.jump_once.op_active() {
+        if p.instructions.jump_once.op_active() {
             // 尝试跳跃 注意尝试失败也不会消耗该指令
             let should_jump_once = if p.character_can_jump_on_wall {
                 // jump_on_wall 优化攀爬时体验（未进入攀爬状态，脚部碰撞墙体但手部没有碰撞，此时可以直接跳跃）
@@ -158,21 +159,21 @@ impl<S: FixedString>
             };
 
             if should_jump_once {
-                p.jump_once.op_echo();
+                p.instructions.jump_once.op_echo();
                 self.jump_higher_timer.start_time();
-                return PhyEff::create_jump(data, p.move_direction.0);
+                return PhyEff::create_jump(data, p.instructions.move_direction.0);
             }
-        } else if p.jump_keep.op_active() {
+        } else if p.instructions.jump_keep.op_active() {
             // 尝试跳得更高
             if self.jump_higher_timer.in_time() {
-                return PhyEff::create_jumping(data, p.move_direction.0);
+                return PhyEff::create_jumping(data, p.instructions.move_direction.0);
             }
         } else {
             // 中断任何跳跃意图都会导致无法继续跳得更高
             self.jump_higher_timer.final_time();
         }
 
-        PhyEff::create_falling(data, p.move_direction.0)
+        PhyEff::create_falling(data, p.instructions.move_direction.0)
     }
 }
 

@@ -13,11 +13,9 @@
 use crate::{
     cores::unify_type::FixedString,
     motions::{
-        state_machine_action::ActionMachine,
-        state_machine_behaviour::BehaviourMachine,
-        state_machine_frame_eff::FrameEff,
-        state_machine_param::{FrameParam, PhyParam},
-        state_machine_phy_eff::PhyEff,
+        state_machine_action::ActionMachine, state_machine_behaviour::BehaviourMachine,
+        state_machine_frame_eff::FrameEff, state_machine_frame_param::FrameParam,
+        state_machine_phy_eff::PhyEff, state_machine_phy_param::PhyParam,
         state_machine_types::EffGenerator,
     },
 };
@@ -76,7 +74,7 @@ where
         self.action_duration += phy_param.delta;
         // ===========================
         // fix param
-        phy_param.action_duration = Some(self.action_duration);
+        phy_param.inner_param.action_duration = Some(self.action_duration);
 
         // process machine
         // ===========================
@@ -84,7 +82,7 @@ where
         let phy_param_b = &mut phy_param.clone();
         let (phy_eff_b, motion_changed) = self.behaviour_machine.process_and_update(phy_param_b);
         // updated motion_changed
-        phy_param.motion_changed = Some(motion_changed);
+        phy_param.inner_param.motion_changed = Some(motion_changed);
 
         // for action_machine
         let (phy_eff_a, action_updated) = self.action_machine.tick_and_update(phy_param);
@@ -95,7 +93,9 @@ where
 
         // do echo for behaviour_machine
         // no need echo for action_machine
-        phy_param.op_echo_with(phy_param_b);
+        phy_param
+            .instructions
+            .op_echo_with(&phy_param_b.instructions);
 
         EG::gen_phy_eff(phy_eff_a, phy_eff_b)
     }

@@ -15,6 +15,7 @@ where
     Event: ActionEvent,
     ExitLogic: ActionExitLogic<ExitParam>,
 {
+    // todo 对 S 进行进一步抽象 FrameEff 在上半身下半身动画播放器分离的场景中可用
     /// 动作名称
     pub(crate) action_name: S,
 
@@ -22,6 +23,7 @@ where
     pub(crate) trigger_enter: Vec<Event>,
     /// 事件触发的下一个动作
     pub(crate) trigger_exit: HashMap<Event, S>,
+    // todo 数据结构类型修改为 Vec
 
     /// 每帧执行退出逻辑判断是否进行下一个动作
     pub(crate) tick_exit: Vec<(ExitLogic, S)>,

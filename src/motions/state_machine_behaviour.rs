@@ -5,9 +5,8 @@ use std::usize;
 use crate::{
     cores::unify_type::FixedString,
     motions::{
-        motion_mode::MotionMode,
-        state_machine_param::{FrameParam, PhyParam},
-        state_machine_phy_eff::MotionData,
+        motion_mode::MotionMode, state_machine_frame_param::FrameParam,
+        state_machine_phy_eff::MotionData, state_machine_phy_param::PhyParam,
         state_machine_types::MotionBehaviour,
     },
 };

@@ -7,6 +7,7 @@ pub trait FixedString: Eq + std::hash::Hash + Clone + std::fmt::Debug + Default 
     }
 }
 
+// 当使用 godot-rust 时，若在一个封闭系统中（仅初始化时涉及字符串输入，运行时字符串不与外部交互），也可以直接将 GString 转换为 String 使用
 impl FixedName for String {}
 impl FixedName for &str {}
 impl FixedString for String {}

@@ -6,9 +6,12 @@ use crate::{
     cores::unify_type::FixedString,
     motions::{
         abstracts::action_types::ActionExitLogic,
+        action_impl::ActionBaseEvent,
         motion_action::MotionActionEvent,
         motion_mode::MotionMode,
-        state_machine_param::{FrameParam, PhyParam},
+        player_controller::PlayerInstructionCollection,
+        state_machine_frame_param::FrameParam,
+        state_machine_phy_param::{GameSignalCollection, PhyParam},
         state_machine_types::MotionAction,
     },
 };
@@ -21,10 +24,13 @@ pub struct ActionMachine<S, PhyEff>
 where
     S: FixedString,
 {
+    // todo 所有的 HashMap 评估换成 Vec
     pub(crate) actions: HashMap<S, MotionAction<S, PhyEff>>,
     pub(crate) current_action_name: S,
     pub(crate) current_anim_name: S,
     pub(crate) event_trigger_actions: HashMap<MotionActionEvent, Vec<S>>,
+    /// 用于指令生成
+    instructions: Option<PlayerInstructionCollection>,
 }
 
 impl<S, PhyEff> ActionMachine<S, PhyEff>
@@ -49,28 +55,41 @@ where
     fn do_update_action(&mut self, next_action_name: S) {
         self.current_action_name = next_action_name;
         self.do_update_anim_first_time();
+        self.instructions = None;
     }
 
-    /// 动作内置的触发映射中 尝试获取下一个动作
+    /// 动作内置的触发映射（字段 trigger_exit ）中 尝试获取下一个动作
+    ///
+    /// 返回 None 当前无状态或动作不存在
     fn fetch_next_action_name_by_event_local(&self, e: &MotionActionEvent) -> Option<S> {
         let Some(current_action) = self.get_current_action() else {
             return None;
         };
-        current_action
+        let anim_name_opt = current_action
             .fetch_next_action_by_trigger(e)
-            .map(|next_action_name| next_action_name.clone())
+            .map(|next_action_name| next_action_name.clone());
+
+        if let Some(anim_name) = anim_name_opt {
+            if self.actions.contains_key(&anim_name) {
+                return Some(anim_name);
+            }
+        }
+        None
     }
 
-    /// 全局触发映射中 尝试获取下一个动作
+    /// 全局触发映射（字段 trigger_enter ）中 尝试获取下一个动作
+    ///
+    /// 返回 None 不存在符合条件的动作或动作不存在
     fn fetch_next_action_name_by_event_global(&self, e: &MotionActionEvent) -> Option<S> {
         let Some(actions) = self.event_trigger_actions.get(e) else {
             return None;
         };
 
         let Some(current_action) = self.get_current_action() else {
-            // just first
+            // has no current_action, just return the first one
             return actions
                 .get(0)
+                // if get(0) not None , the action_name also must be exist.
                 .map(|next_action_name| next_action_name.clone());
         };
 
@@ -79,23 +98,30 @@ where
                 continue;
             };
             if current_action.can_switch_other_action(next_action) {
+                // the action_name already exist.
                 return Some(next_action_name.clone());
             }
         }
         return None;
     }
 
+    /// 事件处理中 及时地进行动作切换
+    ///
+    /// 返回 None 无法切换
     fn fetch_next_action_name_by_event(&self, e: &MotionActionEvent) -> Option<S> {
         self.fetch_next_action_name_by_event_local(e)
             .or_else(|| self.fetch_next_action_name_by_event_global(e))
     }
 
+    /// 帧处理时根据 tick_exit 进行动作切换
+    ///
+    /// 返回 None 无法切换
     fn fetch_next_action_name_by_tick(&self, exit_param: &PhyParam<S>) -> Option<S> {
         let Some(the_action) = self.get_current_action() else {
             return None;
         };
         for (exit_logic, next_action_name) in the_action.tick_exit.iter() {
-            if exit_logic.should_exit(exit_param) {
+            if exit_logic.should_exit(exit_param) && self.actions.contains_key(next_action_name) {
                 return Some(next_action_name.clone());
             }
         }
@@ -154,9 +180,30 @@ where
         }
     }
 
+    fn gen_events(
+        signals: &GameSignalCollection,
+        instructions_opt: &Option<PlayerInstructionCollection>,
+    ) -> Vec<ActionBaseEvent> {
+        // todo vec with_capacity enough
+        // 为性能考虑给予必要的空间防止后续扩容
+        let mut list = Vec::with_capacity(10);
+        // 确认是否排序 大部分指令都不应该在信号之前
+        signals.push_instruction(&mut list);
+        if let Some(instructions) = instructions_opt {
+            instructions.push_instruction(&mut list);
+        }
+        list
+    }
+
     /// 在帧处理中根据参数自动生成事件并尝试触发
     fn try_update_action_event(&mut self, phy_param: &PhyParam<S>, motion: MotionMode) -> bool {
-        for event in phy_param.to_instructions() {
+        // update instructions
+        match &mut self.instructions {
+            Some(ins) => ins.overwrite_with(&phy_param.instructions),
+            None => self.instructions = Some(phy_param.instructions.clone()),
+        }
+        // each event try update
+        for event in Self::gen_events(&phy_param.signals, &self.instructions) {
             let updated = self.update_action_by_event(&MotionActionEvent::new(event, motion));
             if updated {
                 return true;
@@ -165,8 +212,6 @@ where
         false
     }
 
-    // todo test for try_update_action_event and tick_and_update
-
     /// 合并帧处理和状态更新
     ///
     /// 注意动作系统不会消费任何一个指令（不好实现且经评估影响不大，只有跳跃闪避有预输入） 因此入参为只读
@@ -174,7 +219,7 @@ where
         // 帧处理
         let phy_eff = self.tick_physics(phy_param);
         // 事件更新 放一起统一维护
-        let updated_by_event = match phy_param.motion_changed {
+        let updated_by_event = match phy_param.inner_param.motion_changed {
             Some((Some(current_motion), _)) => {
                 self.try_update_action_event(phy_param, current_motion)
             }
@@ -216,10 +261,11 @@ where
 #[cfg(test)]
 mod unit_tests {
     use crate::motions::{
-        abstracts::action::Action,
+        abstracts::{action::Action, player_input::PlayerInstruction},
         action_impl::{ActionBaseEvent, ActionBaseExitLogic},
         motion_action::MotionActionExitLogic,
         motion_mode::MotionMode,
+        player_controller::PlayerInstructionCollection,
     };
 
     use super::*;
@@ -298,7 +344,8 @@ mod unit_tests {
 
     #[test]
     fn update_by_event_global_none() {
-        // update global (current is none)
+        // global 意为通过 trigger_enter 进入到对应动作
+        // without init
         let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
 
         action_machine.add_action(Action {
@@ -326,7 +373,8 @@ mod unit_tests {
 
     #[test]
     fn update_by_event_global_some() {
-        // update global (current is some, second action will be updated)
+        // global 意为通过 trigger_enter 进入到对应动作
+        // with init
         let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
 
         action_machine.add_action(Action {
@@ -369,7 +417,7 @@ mod unit_tests {
 
     #[test]
     fn update_by_event_local() {
-        // update local
+        // local 意为由 trigger_exit 根据当前动作的自定义转换逻辑切换到新动作
         let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
 
         action_machine.add_action(Action {
@@ -495,5 +543,94 @@ mod unit_tests {
             ..Default::default()
         });
         assert_eq!(the_anim_name, &"2");
+    }
+
+    #[test]
+    fn try_update_action_event() {
+        // todo 尝试切换一个不存在的动作
+        let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
+        action_machine.add_action(Action {
+            trigger_enter: vec![MotionActionEvent::new(
+                ActionBaseEvent::AttackInstruction, // 轻击进入动作1
+                MotionMode::OnFloor,
+            )],
+            trigger_exit: HashMap::from([(
+                MotionActionEvent::new(ActionBaseEvent::AttackInstruction, MotionMode::OnFloor), // 动作1中接轻击进入动作2
+                "action_2",
+            )]),
+            ..Action::new_empty("action_1", "0")
+        });
+        action_machine.add_action(Action {
+            trigger_enter: vec![MotionActionEvent::new(
+                ActionBaseEvent::AttackHeavierInstruction, // 重击进入动作2
+                MotionMode::OnFloor,
+            )],
+            ..Action::new_empty("action_2", "0")
+        });
+
+        // 初始动作1
+        action_machine.init_action(&"action_1");
+        assert_eq!(action_machine.current_action_name, "action_1");
+
+        // 重击进入动作2
+        let updated = action_machine.try_update_action_event(
+            &PhyParam {
+                instructions: PlayerInstructionCollection {
+                    attack_keep: PlayerInstruction::from(true),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            MotionMode::OnFloor,
+        );
+        assert!(updated);
+        assert_eq!(action_machine.current_action_name, "action_2");
+
+        // 轻击进入动作1
+        let updated = action_machine.try_update_action_event(
+            &PhyParam {
+                instructions: PlayerInstructionCollection {
+                    attack_once: PlayerInstruction::from(true),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            MotionMode::OnFloor,
+        );
+        assert!(updated);
+        assert_eq!(action_machine.current_action_name, "action_1");
+
+        // 动作1中接轻击进入动作2
+        let updated = action_machine.try_update_action_event(
+            &PhyParam {
+                instructions: PlayerInstructionCollection {
+                    attack_once: PlayerInstruction::from(true),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            MotionMode::OnFloor,
+        );
+        assert!(updated);
+        assert_eq!(action_machine.current_action_name, "action_2");
+    }
+
+    #[test]
+    fn tick_and_update() {
+        // todo 动作1 触发到 动作3  动画不存在切换失败
+        // todo 动作1 运动模式切换 到 动作2
+        // todo 新增动作3  动作1 触发到 动作3
+        let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
+        action_machine.add_action(Action {
+            trigger_enter: vec![MotionActionEvent::new(
+                ActionBaseEvent::AttackInstruction, // 轻击进入动作1
+                MotionMode::OnFloor,
+            )],
+            trigger_exit: HashMap::from([(
+                MotionActionEvent::new(ActionBaseEvent::AttackInstruction, MotionMode::OnFloor), // 动作1中接轻击进入动作2
+                "action_2",
+            )]),
+            ..Action::new_empty("action_1", "0")
+        });
     }
 }

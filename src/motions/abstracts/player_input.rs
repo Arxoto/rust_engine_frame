@@ -9,7 +9,7 @@ pub trait PlayerOperation {
 /// 玩家指令 从 [`PlayerOperation`] 中生成，用于传给状态机
 ///
 /// 该类型属性生命周期在一帧内，每次根据玩家操作临时生成
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct PlayerInstruction<T: PlayerOperation>(pub(crate) T);
 
 impl<T: PlayerOperation> PlayerOperation for PlayerInstruction<T> {

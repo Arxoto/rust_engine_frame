@@ -7,13 +7,15 @@ use crate::{
         },
         motion_mode::MotionMode,
         state_machine_frame_eff::FrameEff,
-        state_machine_param::{FrameParam, PhyParam},
+        state_machine_frame_param::FrameParam,
         state_machine_phy_eff::{MotionData, PhyEff},
+        state_machine_phy_param::PhyParam,
         state_machine_types::MotionBehaviour,
     },
 };
 
 const LANDING_DELAY: f64 = 0.1;
+const MOVEING_THRESHOLD: f64 = 0.1; // 视觉相关 没必要很小
 
 /// 地面
 #[derive(Debug, Default)]
@@ -24,6 +26,9 @@ pub struct OnFloorBehaviour<S: FixedString> {
     landing_timer: TinyTimer,
     ready_jump_anim: S,
     ready_jump_timer: TinyTimer,
+    turn_back_anim: S,
+    turn_back_flag: bool,
+    turn_back_velocity: f64,
 }
 
 impl<S: FixedString> OnFloorBehaviour<S> {
@@ -33,6 +38,8 @@ impl<S: FixedString> OnFloorBehaviour<S> {
         landing_anim: S,
         ready_jump_anim: S,
         jump_delay: f64,
+        turn_back_anim: S,
+        turn_back_velocity: f64,
     ) -> Self {
         Self {
             run_anim,
@@ -41,6 +48,9 @@ impl<S: FixedString> OnFloorBehaviour<S> {
             landing_timer: TinyTimer::new(LANDING_DELAY),
             ready_jump_anim,
             ready_jump_timer: TinyTimer::new(jump_delay),
+            turn_back_anim,
+            turn_back_flag: false,
+            turn_back_velocity,
         }
     }
 }
@@ -74,7 +84,9 @@ impl<S: FixedString>
             return FrameEff::from(self.ready_jump_anim.clone());
         }
 
-        if p.character_x_moving {
+        if self.turn_back_flag {
+            FrameEff::from(self.turn_back_anim.clone())
+        } else if p.character_x_velocity.abs() > MOVEING_THRESHOLD {
             FrameEff::from(self.run_anim.clone())
         } else {
             FrameEff::from(self.idle_anim.clone())
@@ -82,9 +94,12 @@ impl<S: FixedString>
     }
 
     fn process_physics(&mut self, (p, data): &mut (&mut PhyParam<S>, &MotionData)) -> PhyEff {
+        // 转身判断  当前速度大于阈值 && 意图方向与速度方向相反
+        self.turn_back_flag = p.character_x_velocity.abs() >= self.turn_back_velocity && p.character_x_velocity * p.instructions.move_direction.0 < 0.0;
+
         // hard-landing 硬着陆眩晕效果通过动作系统实现（或者说一切非自由移动的状态都能通过动作系统实现）
         self.ready_jump_timer.add_time(p.delta);
-        if p.jump_once.op_active() {
+        if p.instructions.jump_once.op_active() {
             // 起跳动画 不要立即跳跃（缺乏重量感和冲击力） 不要过长（不跟手）
             // 快节奏/硬核 0.05 - 0.15 秒
             // 中节奏/流畅 0.15 - 0.2  秒
@@ -95,10 +110,10 @@ impl<S: FixedString>
             }
         }
         if self.ready_jump_timer.is_end() {
-            p.jump_once.op_echo();
-            return PhyEff::create_jump(data, p.move_direction.0);
+            p.instructions.jump_once.op_echo();
+            return PhyEff::create_jump(data, p.instructions.move_direction.0);
         }
-        PhyEff::create_run(data, p.move_direction.0)
+        PhyEff::create_run(data, p.instructions.move_direction.0)
     }
 }
 

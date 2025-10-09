@@ -3,11 +3,13 @@
 use crate::{
     cores::unify_type::FixedString,
     motions::{
-        abstracts::action_types::{ActionEvent, ActionExitLogic},
-        abstracts::player_input::PlayerOperation,
+        abstracts::{
+            action_types::{ActionEvent, ActionExitLogic},
+            player_input::PlayerOperation,
+        },
         action_impl::{ActionBaseEvent, ActionBaseExitLogic},
         motion_mode::MotionMode,
-        state_machine_param::PhyParam,
+        state_machine_phy_param::PhyParam,
     },
 };
 
@@ -56,21 +58,23 @@ impl<S: FixedString> MotionActionExitLogic<S> {
                 param.anim_finished && param.anim_name == *anim_name
             }
             ActionBaseExitLogic::MoveAfter(the_time) => {
-                param.move_direction.op_active()
+                param.instructions.move_direction.op_active()
                     && param
+                        .inner_param
                         .action_duration
                         .map(|duration_time| duration_time > *the_time)
                         .unwrap_or(false)
             }
             ActionBaseExitLogic::JumpAfter(the_time) => {
-                param.jump_once.op_active()
+                param.instructions.jump_once.op_active()
                     && param
+                        .inner_param
                         .action_duration
                         .map(|duration_time| duration_time > *the_time)
                         .unwrap_or(false)
             }
             ActionBaseExitLogic::AttackWhen(anim_name) => {
-                param.attack_once.op_active() && param.anim_name == *anim_name
+                param.instructions.attack_once.op_active() && param.anim_name == *anim_name
             }
         }
     }
@@ -80,7 +84,7 @@ impl<S: FixedString> MotionActionExitLogic<S> {
         new_motion: &MotionMode,
         param: &PhyParam<S>,
     ) -> bool {
-        match param.motion_changed {
+        match param.inner_param.motion_changed {
             Some((Some(the_old), Some(the_new))) => {
                 the_old == *old_motion && the_new == *new_motion
             }
@@ -104,7 +108,10 @@ impl<S: FixedString> ActionExitLogic<PhyParam<S>> for MotionActionExitLogic<S> {
 
 #[cfg(test)]
 mod unit_tests {
-    use crate::motions::abstracts::player_pre_input::PreInputInstruction;
+    use crate::motions::{
+        abstracts::player_pre_input::PreInputInstruction,
+        player_controller::PlayerInstructionCollection, state_machine_phy_param::PhyInnerParam,
+    };
 
     use super::*;
 
@@ -139,43 +146,79 @@ mod unit_tests {
         let exit_logic = MotionActionExitLogic::ExitLogic(ActionBaseExitLogic::MoveAfter(1.2));
 
         let param: PhyParam<String> = PhyParam {
-            action_duration: Some(1.0),
-            move_direction: 0.0.into(),
+            inner_param: PhyInnerParam {
+                action_duration: Some(1.0),
+                ..Default::default()
+            },
+            instructions: PlayerInstructionCollection {
+                move_direction: 0.0.into(),
+                ..Default::default()
+            },
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
-            action_duration: Some(1.0),
-            move_direction: 1.0.into(),
+            inner_param: PhyInnerParam {
+                action_duration: Some(1.0),
+                ..Default::default()
+            },
+            instructions: PlayerInstructionCollection {
+                move_direction: 1.0.into(),
+                ..Default::default()
+            },
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
-            action_duration: Some(1.2),
-            move_direction: 0.0.into(),
+            inner_param: PhyInnerParam {
+                action_duration: Some(1.2),
+                ..Default::default()
+            },
+            instructions: PlayerInstructionCollection {
+                move_direction: 0.0.into(),
+                ..Default::default()
+            },
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
-            action_duration: Some(1.2),
-            move_direction: 1.0.into(),
+            inner_param: PhyInnerParam {
+                action_duration: Some(1.2),
+                ..Default::default()
+            },
+            instructions: PlayerInstructionCollection {
+                move_direction: 1.0.into(),
+                ..Default::default()
+            },
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
-            action_duration: Some(1.3),
-            move_direction: 0.0.into(),
+            inner_param: PhyInnerParam {
+                action_duration: Some(1.3),
+                ..Default::default()
+            },
+            instructions: PlayerInstructionCollection {
+                move_direction: 0.0.into(),
+                ..Default::default()
+            },
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
-            action_duration: Some(1.3),
-            move_direction: 1.0.into(),
+            inner_param: PhyInnerParam {
+                action_duration: Some(1.3),
+                ..Default::default()
+            },
+            instructions: PlayerInstructionCollection {
+                move_direction: 1.0.into(),
+                ..Default::default()
+            },
             ..Default::default()
         };
         assert!(exit_logic.should_exit(&param));
@@ -186,15 +229,27 @@ mod unit_tests {
         let exit_logic = MotionActionExitLogic::ExitLogic(ActionBaseExitLogic::JumpAfter(1.2));
 
         let param: PhyParam<String> = PhyParam {
-            action_duration: Some(1.3),
-            jump_once: PreInputInstruction(false, Default::default()),
+            inner_param: PhyInnerParam {
+                action_duration: Some(1.3),
+                ..Default::default()
+            },
+            instructions: PlayerInstructionCollection {
+                jump_once: PreInputInstruction(false, Default::default()),
+                ..Default::default()
+            },
             ..Default::default()
         };
         assert!(!exit_logic.should_exit(&param));
 
         let param: PhyParam<String> = PhyParam {
-            action_duration: Some(1.3),
-            jump_once: PreInputInstruction(true, Default::default()),
+            inner_param: PhyInnerParam {
+                action_duration: Some(1.3),
+                ..Default::default()
+            },
+            instructions: PlayerInstructionCollection {
+                jump_once: PreInputInstruction(true, Default::default()),
+                ..Default::default()
+            },
             ..Default::default()
         };
         assert!(exit_logic.should_exit(&param));
