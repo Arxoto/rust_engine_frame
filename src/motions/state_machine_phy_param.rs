@@ -78,3 +78,11 @@ pub struct PhyInnerParam {
     pub(crate) motion_changed: Option<(Option<MotionMode>, Option<MotionMode>)>,
     pub(crate) action_duration: Option<f64>,
 }
+
+/// just for test
+pub fn signals_all_active() -> GameSignalCollection {
+    GameSignalCollection {
+        hit_signal: true,
+        behit_signal: true,
+    }
+}

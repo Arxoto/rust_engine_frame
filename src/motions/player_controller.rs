@@ -154,4 +154,48 @@ impl PlayerInstructionCollection {
     }
 }
 
-// todo 指令的语义保证
+/// just for test
+pub fn instructions_all_active() -> PlayerInstructionCollection {
+    PlayerInstructionCollection {
+        move_direction: PlayerInstruction::from(1.0),
+        jump_once: PreInputInstruction(true, Default::default()),
+        jump_keep: PlayerInstruction::from(true),
+        dodge_once: PreInputInstruction(true, Default::default()),
+        block_hold: PlayerInstruction::from(true),
+        attack_once: PlayerInstruction::from(true),
+        attack_keep: PlayerInstruction::from(true),
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+
+    #[test]
+    fn overwrite_with() {
+        let mut old_instructions = PlayerInstructionCollection {
+            move_direction: PlayerInstruction::from(1.0),
+            jump_once: PreInputInstruction(false, Default::default()),
+            jump_keep: PlayerInstruction::from(false),
+            dodge_once: PreInputInstruction(false, Default::default()),
+            block_hold: PlayerInstruction::from(false),
+            attack_once: PlayerInstruction::from(false),
+            attack_keep: PlayerInstruction::from(false),
+        };
+
+        let new_instructions = instructions_all_active();
+        old_instructions.overwrite_with(&new_instructions);
+
+        // hold
+        assert!(old_instructions.block_hold.op_active());
+
+        // once
+        assert!(old_instructions.jump_once.op_active());
+        assert!(old_instructions.dodge_once.op_active());
+        assert!(old_instructions.attack_once.op_active());
+
+        // keep not active
+        assert!(!old_instructions.jump_keep.op_active());
+        assert!(!old_instructions.attack_keep.op_active());
+    }
+}

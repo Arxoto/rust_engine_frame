@@ -262,13 +262,12 @@ where
 #[cfg(test)]
 mod unit_tests {
     use crate::motions::{
-        abstracts::{
-            action::Action, player_input::PlayerInstruction, player_pre_input::PreInputInstruction,
-        },
+        abstracts::{action::Action, player_input::PlayerInstruction},
         action_impl::{ActionBaseEvent, ActionBaseExitLogic},
         motion_action::MotionActionExitLogic,
         motion_mode::MotionMode,
-        player_controller::PlayerInstructionCollection,
+        player_controller::{PlayerInstructionCollection, instructions_all_active},
+        state_machine_phy_param::signals_all_active,
     };
 
     use super::*;
@@ -639,19 +638,8 @@ mod unit_tests {
 
     #[test]
     fn test_event_list_capacity() {
-        let game_signal_collection = GameSignalCollection {
-            hit_signal: true,
-            behit_signal: true,
-        };
-        let player_instruction_collection = PlayerInstructionCollection {
-            move_direction: PlayerInstruction::from(1.0),
-            jump_once: PreInputInstruction(true, Default::default()),
-            jump_keep: PlayerInstruction::from(true),
-            dodge_once: PreInputInstruction(true, Default::default()),
-            block_hold: PlayerInstruction::from(true),
-            attack_once: PlayerInstruction::from(true),
-            attack_keep: PlayerInstruction::from(true),
-        };
+        let game_signal_collection = signals_all_active();
+        let player_instruction_collection = instructions_all_active();
 
         let ll = ActionMachine::<String, ()>::gen_events(
             &game_signal_collection,
