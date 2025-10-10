@@ -16,6 +16,8 @@ use crate::{
     },
 };
 
+const EVENT_LIST_CAPACITY: usize = 10;
+
 /// 动作状态机
 ///
 /// 动作与动作之间有关联，面向数据设计，对分层状态也有一定程度上的支持
@@ -184,9 +186,8 @@ where
         signals: &GameSignalCollection,
         instructions_opt: &Option<PlayerInstructionCollection>,
     ) -> Vec<ActionBaseEvent> {
-        // todo vec with_capacity enough
         // 为性能考虑给予必要的空间防止后续扩容
-        let mut list = Vec::with_capacity(10);
+        let mut list = Vec::with_capacity(EVENT_LIST_CAPACITY);
         // 确认是否排序 大部分指令都不应该在信号之前
         signals.push_instruction(&mut list);
         if let Some(instructions) = instructions_opt {
@@ -261,7 +262,9 @@ where
 #[cfg(test)]
 mod unit_tests {
     use crate::motions::{
-        abstracts::{action::Action, player_input::PlayerInstruction},
+        abstracts::{
+            action::Action, player_input::PlayerInstruction, player_pre_input::PreInputInstruction,
+        },
         action_impl::{ActionBaseEvent, ActionBaseExitLogic},
         motion_action::MotionActionExitLogic,
         motion_mode::MotionMode,
@@ -632,5 +635,28 @@ mod unit_tests {
             )]),
             ..Action::new_empty("action_1", "0")
         });
+    }
+
+    #[test]
+    fn test_event_list_capacity() {
+        let game_signal_collection = GameSignalCollection {
+            hit_signal: true,
+            behit_signal: true,
+        };
+        let player_instruction_collection = PlayerInstructionCollection {
+            move_direction: PlayerInstruction::from(1.0),
+            jump_once: PreInputInstruction(true, Default::default()),
+            jump_keep: PlayerInstruction::from(true),
+            dodge_once: PreInputInstruction(true, Default::default()),
+            block_hold: PlayerInstruction::from(true),
+            attack_once: PlayerInstruction::from(true),
+            attack_keep: PlayerInstruction::from(true),
+        };
+
+        let ll = ActionMachine::<String, ()>::gen_events(
+            &game_signal_collection,
+            &Some(player_instruction_collection),
+        );
+        assert_eq!(ll.capacity(), EVENT_LIST_CAPACITY);
     }
 }

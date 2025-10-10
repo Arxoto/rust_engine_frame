@@ -6,7 +6,6 @@
 //! - [ ] （新增字段后有编译错误，修复时注意即可）结构体 [`PlayerInstructionCollection`] 中的字段语义与覆写函数逻辑一致 [`PlayerInstructionCollection::overwrite_with`]
 //! - [ ] 结构体 [`PlayerInstructionCollection`] 中的【大部分】字段在 [`PlayerInstructionCollection::push_instruction`] 中转换成事件
 
-// todo 其他的【代码检视】检查遗漏项看是否能通过【结构体初始化】来显式报错
 use crate::{
     cores::tiny_timer::TinyTimer,
     motions::{
