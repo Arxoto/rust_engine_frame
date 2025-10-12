@@ -11,6 +11,8 @@ use crate::{
     },
 };
 
+const SELF_MOTION_MODE: MotionMode = MotionMode::FreeStat;
+
 /// 行为系统的基础实现 无论如何都保证可以自由移动 测试时使用
 #[derive(Debug, Default)]
 pub struct BaseBehaviour;
@@ -25,11 +27,16 @@ impl<S: FixedString>
     Behaviour<PhyParam<S>, FrameParam<S>, FrameEff<S>, (&mut PhyParam<S>, &MotionData), PhyEff>
     for BaseBehaviour
 {
-    fn will_enter(&self, _p: &PhyParam<S>) -> bool {
-        true
+    fn will_enter(&self, p: &PhyParam<S>) -> bool {
+        match p.inner_param.motion_changed {
+            Some((_, mode)) => mode == SELF_MOTION_MODE,
+            None => false,
+        }
     }
 
-    fn on_enter(&mut self, _p: &PhyParam<S>) {}
+    fn on_enter(&mut self, _p: &PhyParam<S>) {
+        // do something
+    }
 
     fn tick_frame(&mut self, _p: &FrameParam<S>) -> FrameEff<S> {
         // 不对视觉效果做修改
@@ -46,8 +53,4 @@ impl<S: FixedString>
     }
 }
 
-impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for BaseBehaviour {
-    fn get_motion_mode(&self) -> MotionMode {
-        MotionMode::FreeStat
-    }
-}
+impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for BaseBehaviour {}

@@ -42,16 +42,9 @@ pub enum ActionBaseEvent {
 
 impl ActionEvent for ActionBaseEvent {}
 
-// todo
-// 大状态机中 首先判断 MotionMode 其次进行 Action 与 Behaviour 子状态机的执行
-// Action 与 Behaviour 解耦合，不依赖 Behaviour 的状态刷新结果（因为在退出逻辑中无法枚举状态切换）
-// Behaviour 与 MotionMode 强耦合， MotionMode 有自己的状态判断逻辑，在 Behaviour 中可直接使用，另外 Behaviour 应该是 MotionMode 的超集
-
 /// 和 [`MotionMode`] 组合来实现 [`ActionEvent`]
 ///
-/// 支持复杂的触发条件判断
-///
-/// 一般基于事件或信号机制去响应
+/// 支持仅某种 运动状态 下的事件触发
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct MotionActionEvent {
     pub(crate) event: ActionBaseEvent,
@@ -128,22 +121,7 @@ impl<S: FixedString> ActionBaseExitLogic<S> {
 #[derive(Clone, Debug)]
 pub enum MotionActionExitLogic<S: FixedString> {
     ExitLogic(ActionBaseExitLogic<S>),
-    MotionChange(MotionMode, MotionMode),
-}
-
-impl<S: FixedString> MotionActionExitLogic<S> {
-    fn should_exit_by_motion_change(
-        old_motion: &MotionMode,
-        new_motion: &MotionMode,
-        param: &PhyParam<S>,
-    ) -> bool {
-        match param.inner_param.motion_changed {
-            Some((Some(the_old), Some(the_new))) => {
-                the_old == *old_motion && the_new == *new_motion
-            }
-            _ => false,
-        }
-    }
+    MotionLegal(MotionMode),
 }
 
 impl<S: FixedString> ActionExitLogic<PhyParam<S>> for MotionActionExitLogic<S> {
@@ -152,8 +130,11 @@ impl<S: FixedString> ActionExitLogic<PhyParam<S>> for MotionActionExitLogic<S> {
             MotionActionExitLogic::ExitLogic(exit_logic) => {
                 exit_logic.should_exit_by_logic(exit_param)
             }
-            MotionActionExitLogic::MotionChange(old_motion, new_motion) => {
-                Self::should_exit_by_motion_change(old_motion, new_motion, exit_param)
+            MotionActionExitLogic::MotionLegal(allowed_motion) => {
+                match exit_param.inner_param.motion_changed {
+                    Some((_, current_motion)) => current_motion == *allowed_motion,
+                    None => false,
+                }
             }
         }
     }

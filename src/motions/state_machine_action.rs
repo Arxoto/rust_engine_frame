@@ -7,7 +7,6 @@ use crate::{
     motions::{
         abstracts::action_types::ActionExitLogic,
         motion_action::{ActionBaseEvent, MotionActionEvent},
-        motion_mode::MotionMode,
         player_controller::PlayerInstructionCollection,
         state_machine_frame_param::FrameParam,
         state_machine_phy_param::{GameSignalCollection, PhyParam},
@@ -197,15 +196,20 @@ where
     }
 
     /// 在帧处理中根据参数自动生成事件并尝试触发
-    fn try_update_action_by_event(&mut self, phy_param: &PhyParam<S>, motion: MotionMode) -> bool {
+    fn try_update_action_by_event(&mut self, phy_param: &PhyParam<S>) -> bool {
         // update instructions
         match &mut self.instructions {
             Some(ins) => ins.overwrite_with(&phy_param.instructions),
             None => self.instructions = Some(phy_param.instructions.clone()),
         }
+
+        // get mode
+        let Some((_, mode)) = phy_param.inner_param.motion_changed else {
+            return false;
+        };
         // each event try update
         for event in Self::gen_events(&phy_param.signals, &self.instructions) {
-            let updated = self.update_action_by_event(&MotionActionEvent::new(event, motion));
+            let updated = self.update_action_by_event(&MotionActionEvent::new(event, mode));
             if updated {
                 return true;
             }
@@ -222,12 +226,7 @@ where
         // 先进行事件的状态更新（因为有信号，如击飞等控制效果应该优先级最高）
         // 注意若想实现 combo 则连招顺序靠后的招式【优先级】应该比初始招式【高】以防止切换
         // todo test it
-        let updated_by_event = match phy_param.inner_param.motion_changed {
-            Some((Some(current_motion), _)) => {
-                self.try_update_action_by_event(phy_param, current_motion)
-            }
-            _ => false,
-        };
+        let updated_by_event = self.try_update_action_by_event(phy_param);
         // 后进行逻辑的状态更新
         let updated_by_logic = if !updated_by_event {
             self.update_action_by_logic(phy_param)
@@ -621,58 +620,62 @@ mod unit_tests {
         assert_eq!(action_machine.current_action_name, "action_1");
 
         // 重击进入动作2
-        let updated = action_machine.try_update_action_by_event(
-            &PhyParam {
-                instructions: PlayerInstructionCollection {
-                    attack_keep: PlayerInstruction::from(true),
-                    ..Default::default()
-                },
+        let updated = action_machine.try_update_action_by_event(&PhyParam {
+            instructions: PlayerInstructionCollection {
+                attack_keep: PlayerInstruction::from(true),
                 ..Default::default()
             },
-            MotionMode::OnFloor,
-        );
+            inner_param: PhyInnerParam {
+                motion_changed: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
         assert!(updated);
         assert_eq!(action_machine.current_action_name, "action_2");
 
         // 轻击进入动作1
-        let updated = action_machine.try_update_action_by_event(
-            &PhyParam {
-                instructions: PlayerInstructionCollection {
-                    attack_once: PlayerInstruction::from(true),
-                    ..Default::default()
-                },
+        let updated = action_machine.try_update_action_by_event(&PhyParam {
+            instructions: PlayerInstructionCollection {
+                attack_once: PlayerInstruction::from(true),
                 ..Default::default()
             },
-            MotionMode::OnFloor,
-        );
+            inner_param: PhyInnerParam {
+                motion_changed: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
         assert!(updated);
         assert_eq!(action_machine.current_action_name, "action_1");
 
         // 动作1中接轻击进入动作2
-        let updated = action_machine.try_update_action_by_event(
-            &PhyParam {
-                instructions: PlayerInstructionCollection {
-                    attack_once: PlayerInstruction::from(true),
-                    ..Default::default()
-                },
+        let updated = action_machine.try_update_action_by_event(&PhyParam {
+            instructions: PlayerInstructionCollection {
+                attack_once: PlayerInstruction::from(true),
                 ..Default::default()
             },
-            MotionMode::OnFloor,
-        );
+            inner_param: PhyInnerParam {
+                motion_changed: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
         assert!(updated);
         assert_eq!(action_machine.current_action_name, "action_2");
 
         // 动作2中接格挡进入动作3 但是动作3不存在 因此仍然是动作2
-        let updated = action_machine.try_update_action_by_event(
-            &PhyParam {
-                instructions: PlayerInstructionCollection {
-                    block_hold: PlayerInstruction::from(true),
-                    ..Default::default()
-                },
+        let updated = action_machine.try_update_action_by_event(&PhyParam {
+            instructions: PlayerInstructionCollection {
+                block_hold: PlayerInstruction::from(true),
                 ..Default::default()
             },
-            MotionMode::OnFloor,
-        );
+            inner_param: PhyInnerParam {
+                motion_changed: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
         assert!(!updated);
         assert_eq!(action_machine.current_action_name, "action_2");
     }

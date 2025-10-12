@@ -14,6 +14,7 @@ use crate::{
     },
 };
 
+const SELF_MOTION_MODE: MotionMode = MotionMode::OnFloor;
 const LANDING_DELAY: f64 = 0.1;
 const MOVEING_THRESHOLD: f64 = 0.1; // 视觉相关 没必要很小
 
@@ -60,7 +61,10 @@ impl<S: FixedString>
     for OnFloorBehaviour<S>
 {
     fn will_enter(&self, p: &PhyParam<S>) -> bool {
-        p.character_is_on_floor
+        match p.inner_param.motion_changed {
+            Some((_, mode)) => mode == SELF_MOTION_MODE,
+            None => false,
+        }
     }
 
     fn on_enter(&mut self, p: &PhyParam<S>) {
@@ -95,7 +99,8 @@ impl<S: FixedString>
 
     fn process_physics(&mut self, (p, data): &mut (&mut PhyParam<S>, &MotionData)) -> PhyEff {
         // 转身判断  当前速度大于阈值 && 意图方向与速度方向相反
-        self.turn_back_flag = p.character_x_velocity.abs() >= self.turn_back_velocity && p.character_x_velocity * p.instructions.move_direction.0 < 0.0;
+        self.turn_back_flag = p.character_x_velocity.abs() >= self.turn_back_velocity
+            && p.character_x_velocity * p.instructions.move_direction.0 < 0.0;
 
         // hard-landing 硬着陆眩晕效果通过动作系统实现（或者说一切非自由移动的状态都能通过动作系统实现）
         self.ready_jump_timer.add_time(p.delta);
@@ -117,8 +122,4 @@ impl<S: FixedString>
     }
 }
 
-impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for OnFloorBehaviour<S> {
-    fn get_motion_mode(&self) -> MotionMode {
-        MotionMode::OnFloor
-    }
-}
+impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for OnFloorBehaviour<S> {}

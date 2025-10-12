@@ -5,9 +5,8 @@ use std::usize;
 use crate::{
     cores::unify_type::FixedString,
     motions::{
-        motion_mode::MotionMode, state_machine_frame_param::FrameParam,
-        state_machine_phy_eff::MotionData, state_machine_phy_param::PhyParam,
-        state_machine_types::MotionBehaviour,
+        state_machine_frame_param::FrameParam, state_machine_phy_eff::MotionData,
+        state_machine_phy_param::PhyParam, state_machine_types::MotionBehaviour,
     },
 };
 
@@ -23,7 +22,6 @@ where
     pub(crate) stats: Vec<Box<dyn MotionBehaviour<S, FrameEff, PhyEff>>>,
     pub(crate) current_id: usize,
     motion_data: MotionData,
-    // motion_mode: MotionMode,
 }
 
 impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
@@ -32,7 +30,6 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
             stats: Vec::new(),
             current_id: usize::MAX, // 第一次状态转换使旧状态为 None
             motion_data: data,
-            // motion_mode: MotionMode::FreeStat,
         }
     }
 
@@ -51,39 +48,23 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
     }
 
     /// 更新状态 返回运动模式的切换
-    pub(crate) fn update_stat(
-        &mut self,
-        enter_param: &PhyParam<S>,
-    ) -> (Option<MotionMode>, Option<MotionMode>) {
+    pub(crate) fn update_stat(&mut self, enter_param: &PhyParam<S>) {
         let Some(next_stat_id) = self.fetch_next_stat_id(enter_param) else {
             // do not update_stat
-            let current_motion_mode = self
-                .stats
-                .get_mut(self.current_id)
-                .map(|s| s.get_motion_mode());
-            // return new_stat = None
-            return (current_motion_mode, None);
+            return;
         };
 
         // do update
 
-        let mut old_motion_mode = None;
-        if let Some(stat) = self.stats.get_mut(self.current_id) {
-            // stat.on_exit();
-            old_motion_mode = Some(stat.get_motion_mode());
-        }
+        // if let Some(stat) = self.stats.get_mut(self.current_id) {
+        //     stat.on_exit();
+        // }
 
         self.current_id = next_stat_id;
 
-        let mut new_motion_mode = None; // never
         if let Some(stat) = self.stats.get_mut(self.current_id) {
             stat.on_enter(enter_param);
-            let motion_mode = stat.get_motion_mode();
-            // self.motion_mode = motion_mode;
-            new_motion_mode = Some(motion_mode);
         }
-
-        (old_motion_mode, new_motion_mode)
     }
 
     /// 渲染帧执行 返回渲染效果
@@ -107,57 +88,14 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
     }
 
     /// 合并帧处理和状态更新
-    pub(crate) fn process_and_update(
-        &mut self,
-        phy_param: &mut PhyParam<S>,
-    ) -> (Option<PhyEff>, (Option<MotionMode>, Option<MotionMode>)) {
+    pub(crate) fn process_and_update(&mut self, phy_param: &mut PhyParam<S>) -> Option<PhyEff> {
         let phy_eff = self.process_physics(phy_param);
-        let motion_changed = self.update_stat(phy_param);
-        (phy_eff, motion_changed)
+        self.update_stat(phy_param);
+        phy_eff
     }
 
     /// 初始化时新增
     pub fn add_behaviour(&mut self, b: Box<dyn MotionBehaviour<S, FrameEff, PhyEff>>) {
         self.stats.push(b);
-    }
-}
-
-#[cfg(test)]
-mod unit_tests {
-    use crate::motions::motion_behaviours::{
-        base_impl::BaseBehaviour, common_impl::CommonBehaviour,
-    };
-
-    use super::*;
-
-    #[test]
-    fn test_update_stat() {
-        let mut behaviour_machine = BehaviourMachine::new(MotionData {
-            ..Default::default()
-        });
-        behaviour_machine.add_behaviour(Box::new(BaseBehaviour::new()));
-        behaviour_machine.add_behaviour(Box::new(CommonBehaviour::<String>::new()));
-
-        // 第一次状态转换 首次稳定状态
-        let motion_changed = behaviour_machine.update_stat(&PhyParam {
-            ..Default::default()
-        });
-        assert_eq!(motion_changed.0, None);
-        assert_eq!(motion_changed.1, Some(MotionMode::FreeStat));
-
-        // 第二次状态转换 切换状态
-        let motion_changed = behaviour_machine.update_stat(&PhyParam {
-            behaviour_cut_out: true,
-            ..Default::default()
-        });
-        assert_eq!(motion_changed.0, Some(MotionMode::FreeStat));
-        assert_eq!(motion_changed.1, Some(MotionMode::StopStat));
-
-        // 第三次状态转换 切换回状态
-        let motion_changed = behaviour_machine.update_stat(&PhyParam {
-            ..Default::default()
-        });
-        assert_eq!(motion_changed.0, Some(MotionMode::StopStat));
-        assert_eq!(motion_changed.1, Some(MotionMode::FreeStat));
     }
 }

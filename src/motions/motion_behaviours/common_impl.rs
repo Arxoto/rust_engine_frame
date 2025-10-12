@@ -11,6 +11,8 @@ use crate::{
     },
 };
 
+const SELF_MOTION_MODE: MotionMode = MotionMode::Motionless;
+
 /// 行为系统的一般实现 无法移动 一般用作强制状态切换
 ///
 /// 也可作为最小实现 用作模板创建新行为
@@ -32,10 +34,15 @@ impl<S: FixedString>
     for CommonBehaviour<S>
 {
     fn will_enter(&self, p: &PhyParam<S>) -> bool {
-        p.behaviour_cut_out
+        match p.inner_param.motion_changed {
+            Some((_, mode)) => mode == SELF_MOTION_MODE,
+            None => false,
+        }
     }
 
-    fn on_enter(&mut self, _p: &PhyParam<S>) {}
+    fn on_enter(&mut self, _p: &PhyParam<S>) {
+        // do something
+    }
 
     fn tick_frame(&mut self, _p: &FrameParam<S>) -> FrameEff<S> {
         FrameEff::from(self.the_anim.clone())
@@ -46,8 +53,4 @@ impl<S: FixedString>
     }
 }
 
-impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for CommonBehaviour<S> {
-    fn get_motion_mode(&self) -> MotionMode {
-        MotionMode::StopStat
-    }
-}
+impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for CommonBehaviour<S> {}

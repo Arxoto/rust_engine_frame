@@ -11,6 +11,7 @@ use crate::{
     },
 };
 
+const SELF_MOTION_MODE: MotionMode = MotionMode::ClimbWall;
 const CLIMB_BEGIN_TIME: f64 = 0.2;
 
 /// 攀爬（贴墙下滑）
@@ -36,7 +37,10 @@ impl<S: FixedString>
     for ClimbWallBehaviour<S>
 {
     fn will_enter(&self, p: &PhyParam<S>) -> bool {
-        p.character_can_climb // 判断条件需要用到向量运算 为保证项目纯净 交由外部判断输入
+        match p.inner_param.motion_changed {
+            Some((_, mode)) => mode == SELF_MOTION_MODE,
+            None => false,
+        }
     }
 
     fn on_enter(&mut self, _p: &PhyParam<S>) {
@@ -62,8 +66,4 @@ impl<S: FixedString>
     }
 }
 
-impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for ClimbWallBehaviour<S> {
-    fn get_motion_mode(&self) -> MotionMode {
-        MotionMode::ClimbWall
-    }
-}
+impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for ClimbWallBehaviour<S> {}

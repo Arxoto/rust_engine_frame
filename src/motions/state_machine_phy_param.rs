@@ -19,8 +19,8 @@ pub struct PhyParam<S: FixedString> {
     pub(crate) anim_finished: bool,
     /// 当前正在播放的动画名称 外部传入 因为考虑到动画不一定完全由框架控制
     pub(crate) anim_name: S,
-    /// 强制进行行为切换时使用 一般用于特殊逻辑
-    pub(crate) behaviour_cut_out: bool,
+    /// 自由移动模式 一般用于测试
+    pub(crate) behaviour_to_free: bool,
     /// 角色当前x轴移动方向
     pub(crate) character_x_velocity: f64,
     /// 角色是否y轴上升（不包含静止） 不同游戏引擎2D游戏中的y轴方向不一样 因此不要自己判断上下
@@ -30,7 +30,7 @@ pub struct PhyParam<S: FixedString> {
     /// 角色正站在地面
     pub(crate) character_is_on_floor: bool,
     /// 角色能否攀爬（脚部手部都碰撞可攀爬墙体）
-    pub(crate) character_can_climb: bool,
+    pub(crate) character_should_climb: bool,
     /// 角色是否刚刚着陆（下落速度超过阈值后标记，速度为零时消耗标记）
     pub(crate) character_landing: bool,
     // =========
@@ -72,9 +72,9 @@ impl GameSignalCollection {
 #[derive(Clone, Debug, Default)]
 pub struct PhyInnerParam {
     /// - `None` 表示内部框架还未进行判断
-    /// - `Some((Some, None))` 表示未进行切换
-    /// - `Some((_, Some))` 表示进行切换（首次切换旧状态为 `None` ）
-    pub(crate) motion_changed: Option<(Option<MotionMode>, Option<MotionMode>)>,
+    /// - `Some((old, new))` 中的 old 表示旧状态 new 表示新状态
+    /// - 若 old 和 new 相等，则表示状态未切换
+    pub(crate) motion_changed: Option<(MotionMode, MotionMode)>,
     pub(crate) action_duration: Option<f64>,
 }
 

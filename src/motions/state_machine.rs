@@ -13,10 +13,10 @@
 use crate::{
     cores::unify_type::FixedString,
     motions::{
-        state_machine_action::ActionMachine, state_machine_behaviour::BehaviourMachine,
-        state_machine_frame_eff::FrameEff, state_machine_frame_param::FrameParam,
-        state_machine_phy_eff::PhyEff, state_machine_phy_param::PhyParam,
-        state_machine_types::EffGenerator,
+        motion_mode::MotionMode, state_machine_action::ActionMachine,
+        state_machine_behaviour::BehaviourMachine, state_machine_frame_eff::FrameEff,
+        state_machine_frame_param::FrameParam, state_machine_phy_eff::PhyEff,
+        state_machine_phy_param::PhyParam, state_machine_types::EffGenerator,
     },
 };
 
@@ -31,6 +31,8 @@ where
     pub(crate) behaviour_machine: BehaviourMachine<S, FrameEff<S>, PhyEff>,
 
     // inner field
+    /// 运动状态
+    motion_mode: MotionMode,
     /// 动作持续时间
     action_duration: f64,
 }
@@ -46,6 +48,7 @@ where
         Self {
             action_machine,
             behaviour_machine,
+            motion_mode: MotionMode::Motionless,
             action_duration: 0.0,
         }
     }
@@ -70,19 +73,16 @@ where
 
         // porcess self
         // ===========================
+        // 运动状态刷新
+        let new_motion_mode = MotionMode::from(phy_param as &PhyParam<S>);
+        let old_motion_mode = std::mem::replace(&mut self.motion_mode, new_motion_mode);
+        phy_param.inner_param.motion_changed = Some((old_motion_mode, new_motion_mode));
         // 动作持续时间
         self.action_duration += phy_param.delta;
-        // ===========================
-        // fix param
         phy_param.inner_param.action_duration = Some(self.action_duration);
 
         // process machine
         // ===========================
-        // for behaviour_machine
-        let phy_param_b = &mut phy_param.clone();
-        let (phy_eff_b, motion_changed) = self.behaviour_machine.process_and_update(phy_param_b);
-        // updated motion_changed
-        phy_param.inner_param.motion_changed = Some(motion_changed);
 
         // for action_machine
         let (phy_eff_a, action_updated) = self.action_machine.tick_and_update(phy_param);
@@ -91,11 +91,8 @@ where
             self.action_duration = 0.0;
         }
 
-        // do echo for behaviour_machine
-        // no need echo for action_machine
-        phy_param
-            .instructions
-            .op_echo_with(&phy_param_b.instructions);
+        // for behaviour_machine
+        let phy_eff_b = self.behaviour_machine.process_and_update(phy_param);
 
         EG::gen_phy_eff(phy_eff_a, phy_eff_b)
     }

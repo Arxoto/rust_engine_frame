@@ -14,6 +14,7 @@ use crate::{
     },
 };
 
+const SELF_MOTION_MODE: MotionMode = MotionMode::InAir;
 const COYOTE_TIME_DELAY: f64 = 0.1;
 
 /// 跳跃的特效 在视觉上区分特殊的跳跃
@@ -94,7 +95,10 @@ impl<S: FixedString>
     for InAirBehaviour<S>
 {
     fn will_enter(&self, p: &PhyParam<S>) -> bool {
-        !p.character_is_on_floor
+        match p.inner_param.motion_changed {
+            Some((_, mode)) => mode == SELF_MOTION_MODE,
+            None => false,
+        }
     }
 
     fn on_enter(&mut self, p: &PhyParam<S>) {
@@ -177,8 +181,4 @@ impl<S: FixedString>
     }
 }
 
-impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for InAirBehaviour<S> {
-    fn get_motion_mode(&self) -> MotionMode {
-        MotionMode::InAir
-    }
-}
+impl<S: FixedString> MotionBehaviour<S, FrameEff<S>, PhyEff> for InAirBehaviour<S> {}

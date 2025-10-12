@@ -9,7 +9,6 @@ use crate::{
     motions::{
         abstracts::{action::Action, behaviour::Behaviour},
         motion_action::{MotionActionEvent, MotionActionExitLogic},
-        motion_mode::MotionMode,
         state_machine_frame_eff::FrameEff,
         state_machine_frame_param::FrameParam,
         state_machine_phy_eff::{MotionData, PhyEff},
@@ -21,7 +20,7 @@ use crate::{
 pub type MotionAction<S, PhyEff> =
     Action<S, MotionActionEvent, PhyParam<S>, MotionActionExitLogic<S>, PhyEff>;
 
-/// EnterParam 为 FrameParam ，角色状态机将输入参数聚合成一个
+/// EnterParam 为 [`FrameParam`] ，角色状态机将输入参数聚合成一个
 pub trait MotionBehaviour<S: FixedString, FrameEff, PhyEff>:
     for<'a> Behaviour<
         PhyParam<S>,
@@ -31,7 +30,6 @@ pub trait MotionBehaviour<S: FixedString, FrameEff, PhyEff>:
         PhyEff,
     >
 {
-    fn get_motion_mode(&self) -> MotionMode;
 }
 
 /// 最终效果聚合器 将两个状态机的结果聚合

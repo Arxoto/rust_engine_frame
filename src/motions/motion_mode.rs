@@ -1,8 +1,10 @@
 //! 运动模式的枚举定义
 
+use crate::{cores::unify_type::FixedString, motions::state_machine_phy_param::PhyParam};
+
 /// 运动模式
 ///
-/// 每一套运动模式都应实现对应行为 用于动作之外的默认效果
+/// 每一套运动模式都应实现对应行为（但行为可以是运动模式的超集） 用于动作之外的默认效果
 ///
 /// - 行为用于基础操作、复杂逻辑，如带容错时间的移动跳跃
 /// - 动作用于复杂操作、简单逻辑，如 combo 的依赖路径
@@ -10,8 +12,8 @@
 pub enum MotionMode {
     /// 特殊状态 自由移动 一般用于测试
     FreeStat,
-    /// 特殊状态 静止 一般用于特殊逻辑强制切换不同的行为
-    StopStat,
+    /// 特殊状态 静止 仅初始状态用
+    Motionless,
     // 具体的运动模式
     OnFloor,
     InAir,
@@ -19,11 +21,32 @@ pub enum MotionMode {
     ClimbWall,
 }
 
+impl<S: FixedString> From<&PhyParam<S>> for MotionMode {
+    fn from(value: &PhyParam<S>) -> Self {
+        // 特殊状态
+        if value.behaviour_to_free {
+            return Self::FreeStat;
+        }
+
+        // 具体运动模式
+        if value.character_should_climb {
+            // 判断条件需要用到向量运算 为保证项目纯净 交由外部判断输入
+            return Self::ClimbWall;
+        }
+        // 基础运动模式
+        if value.character_is_on_floor {
+            Self::OnFloor
+        } else {
+            Self::InAir
+        }
+    }
+}
+
 impl MotionMode {
     pub fn each_mode() -> &'static [MotionMode] {
         &[
             MotionMode::FreeStat,
-            MotionMode::StopStat,
+            MotionMode::Motionless,
             MotionMode::OnFloor,
             MotionMode::InAir,
             MotionMode::UnderWater,
@@ -49,7 +72,7 @@ mod unit_tests {
         for ele in motions.iter() {
             match ele {
                 MotionMode::FreeStat => {}
-                MotionMode::StopStat => {}
+                MotionMode::Motionless => {}
                 MotionMode::OnFloor => {}
                 MotionMode::InAir => {}
                 MotionMode::UnderWater => {}
