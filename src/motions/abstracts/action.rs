@@ -19,14 +19,13 @@ where
     /// 动作名称
     pub(crate) action_name: S,
 
-    /// 本动作的触发事件
-    pub(crate) trigger_enter: Vec<Event>,
-    /// 事件触发的下一个动作
-    pub(crate) trigger_exit: HashMap<Event, S>,
+    /// 定义接收到何种事件能进入该动作
+    pub(crate) event_enter: Vec<Event>,
+    /// 定义接收到事件后切换到其他动作
+    pub(crate) event_exit: HashMap<Event, S>,
     // todo 数据结构类型修改为 Vec
-
-    /// 每帧执行退出逻辑判断是否进行下一个动作
-    pub(crate) tick_exit: Vec<(ExitLogic, S)>,
+    /// 定义满足一定逻辑条件后切换到其他动作
+    pub(crate) logic_exit: Vec<(ExitLogic, S)>,
 
     /// 动作优先级
     pub(crate) action_priority: i64,
@@ -57,9 +56,9 @@ where
     pub fn new_empty(action_name: S, anim_first: S) -> Self {
         Self {
             action_name,
-            trigger_enter: Vec::new(),
-            trigger_exit: HashMap::new(),
-            tick_exit: Vec::new(),
+            event_enter: Vec::new(),
+            event_exit: HashMap::new(),
+            logic_exit: Vec::new(),
             action_priority: 0,
             action_switch_relation: HashMap::new(),
             anim_first,
@@ -69,9 +68,9 @@ where
         }
     }
 
-    /// return None if should not trigger other action
-    pub fn fetch_next_action_by_trigger(&self, trigger: &Event) -> Option<&S> {
-        self.trigger_exit.get(trigger)
+    /// return None if not exist
+    pub fn fetch_next_action_by_event(&self, event: &Event) -> Option<&S> {
+        self.event_exit.get(event)
     }
 
     /// 本动作可以切换到另一个动作
@@ -132,12 +131,12 @@ mod tests {
     {
         Action {
             action_name: "attack",
-            trigger_enter: Vec::from([TmpActionEvent::AttackInstruction]),
-            trigger_exit: HashMap::from([
+            event_enter: Vec::from([TmpActionEvent::AttackInstruction]),
+            event_exit: HashMap::from([
                 (TmpActionEvent::AttackInstruction, "twice_atk"),
                 (TmpActionEvent::JumpInstruction, "jump_atk"),
             ]),
-            tick_exit: Vec::from([
+            logic_exit: Vec::from([
                 (TmpActionExitLogic::AnimFinished("attack_end"), "idle"),
                 (TmpActionExitLogic::OtherExitLogic, "other"),
             ]),
@@ -161,14 +160,18 @@ mod tests {
     }
 
     #[test]
-    fn test_event_trigger_and_action_priority() {
+    fn test_event_getter() {
         let test_action = gen_for_test();
         assert_eq!(test_action.action_name, "attack");
-        let res = test_action.fetch_next_action_by_trigger(&TmpActionEvent::AttackInstruction);
+        let res = test_action.fetch_next_action_by_event(&TmpActionEvent::AttackInstruction);
         assert_eq!(res, Some(&"twice_atk"));
-        let res = test_action.fetch_next_action_by_trigger(&TmpActionEvent::DodgeInstruction);
+        let res = test_action.fetch_next_action_by_event(&TmpActionEvent::DodgeInstruction);
         assert_eq!(res, None);
+    }
 
+    #[test]
+    fn test_action_priority() {
+        let test_action = gen_for_test();
         // by action_priority
         let empty_action = Action::new_empty("tmp", "tmp");
         assert!(!test_action.can_switch_other_action(&empty_action));

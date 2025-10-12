@@ -1,7 +1,5 @@
 pub mod abstracts;
 
-pub mod action_impl;
-
 pub mod motion_mode;
 
 pub mod motion_action;
