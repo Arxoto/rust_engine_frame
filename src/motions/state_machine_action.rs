@@ -59,6 +59,11 @@ where
         self.instructions = None;
     }
 
+    fn action_can_switch(&self, next_action_name: &S) -> bool {
+        return *next_action_name != self.current_action_name
+            && self.actions.contains_key(next_action_name);
+    }
+
     /// 动作内置的触发映射（字段 event_exit ）中 尝试获取下一个动作
     ///
     /// 返回 None 当前无状态或动作不存在
@@ -67,11 +72,11 @@ where
             return None;
         };
         let anim_name_opt = current_action
-            .fetch_next_action_by_event(e)
+            .fetch_next_action_name_by_event(e)
             .map(|next_action_name| next_action_name.clone());
 
         if let Some(anim_name) = anim_name_opt {
-            if self.actions.contains_key(&anim_name) {
+            if self.action_can_switch(&anim_name) {
                 return Some(anim_name);
             }
         }
@@ -87,11 +92,13 @@ where
         };
 
         let Some(current_action) = self.get_current_action() else {
-            // has no current_action, just return the first one
-            return actions
-                .get(0)
-                // if get(0) not None , the action_name also must be exist.
-                .map(|next_action_name| next_action_name.clone());
+            // 当前动作为空，无需比较优先级
+            for next_action_name in actions.iter() {
+                if self.action_can_switch(&next_action_name) {
+                    return Some(next_action_name.clone());
+                }
+            }
+            return None;
         };
 
         for next_action_name in actions.iter() {
@@ -99,8 +106,10 @@ where
                 continue;
             };
             if current_action.can_switch_other_action(next_action) {
-                // the action_name already exist.
-                return Some(next_action_name.clone());
+                if self.action_can_switch(next_action_name) {
+                    return Some(next_action_name.clone());
+                }
+                return None;
             }
         }
         return None;
@@ -122,7 +131,7 @@ where
             return None;
         };
         for (exit_logic, next_action_name) in the_action.logic_exit.iter() {
-            if exit_logic.should_exit(exit_param) && self.actions.contains_key(next_action_name) {
+            if exit_logic.should_exit(exit_param) && self.action_can_switch(next_action_name) {
                 return Some(next_action_name.clone());
             }
         }
@@ -225,7 +234,6 @@ where
         let phy_eff = self.tick_physics(phy_param);
         // 先进行事件的状态更新（因为有信号，如击飞等控制效果应该优先级最高）
         // 注意若想实现 combo 则连招顺序靠后的招式【优先级】应该比初始招式【高】以防止切换
-        // todo test it
         let updated_by_event = self.try_update_action_by_event(phy_param);
         // 后进行逻辑的状态更新
         let updated_by_logic = if !updated_by_event {
@@ -238,12 +246,12 @@ where
 
     /// 初始化默认动作
     pub fn init_action(&mut self, action_name: &S) {
-        if let Some(_) = self.get_action(action_name) {
+        if self.actions.contains_key(action_name) {
             self.do_update_action(action_name.clone());
         }
     }
 
-    /// 初始化时新增
+    /// 新增动作
     pub fn add_action(&mut self, a: MotionAction<S, PhyEff>) {
         // set event map
         for event in a.event_enter.iter() {
@@ -257,6 +265,22 @@ where
 
         // add to action map
         self.actions.insert(a.action_name.clone(), a);
+    }
+
+    /// 删除动作
+    ///
+    /// 新增动作的逆操作 能达到更新事件全局触发顺序的效果
+    pub fn del_action(&mut self, action_name: &S) {
+        let removed_opt = self.actions.remove(action_name);
+        let Some(removed_action) = removed_opt else {
+            return;
+        };
+        for event in removed_action.event_enter.iter() {
+            if let Some(actions) = self.event_to_actions.get_mut(event) {
+                // 删除 即保留不相等的名称
+                actions.retain(|a_name| a_name != action_name);
+            }
+        }
     }
 }
 
@@ -342,6 +366,221 @@ mod unit_tests {
         action_machine.do_update_action(&"defence_action_2");
         assert_eq!(action_machine.current_action_name, "defence_action_2");
         assert_eq!(action_machine.current_anim_name, "defence_anim_2");
+    }
+
+    #[test]
+    fn add_del() {
+        let event = MotionActionEvent::new(ActionBaseEvent::AttackInstruction, MotionMode::OnFloor);
+        let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
+        action_machine.add_action(Action {
+            event_enter: vec![event.clone()],
+            ..Action::new_empty("1", "")
+        });
+        action_machine.add_action(Action {
+            event_enter: vec![event.clone()],
+            ..Action::new_empty("2", "")
+        });
+
+        assert_eq!(
+            action_machine.event_to_actions.get(&event),
+            Some(vec!["1", "2"]).as_ref()
+        );
+
+        // 删除后，全局事件触发刷新
+        action_machine.del_action(&"1");
+        assert_eq!(
+            action_machine.event_to_actions.get(&event),
+            Some(vec!["2"]).as_ref()
+        );
+
+        // 重新加入后，全局事件触发顺序更新
+        action_machine.add_action(Action {
+            event_enter: vec![event.clone()],
+            ..Action::new_empty("1", "")
+        });
+        assert_eq!(
+            action_machine.event_to_actions.get(&event),
+            Some(vec!["2", "1"]).as_ref()
+        );
+    }
+
+    #[test]
+    fn fetch_next_action_name_by_event_local() {
+        let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
+        action_machine.add_action(Action {
+            event_exit: HashMap::from([
+                (
+                    MotionActionEvent::new(ActionBaseEvent::AttackInstruction, MotionMode::OnFloor),
+                    "0",
+                ),
+                (
+                    MotionActionEvent::new(ActionBaseEvent::BlockInstruction, MotionMode::OnFloor),
+                    "1",
+                ),
+                (
+                    MotionActionEvent::new(ActionBaseEvent::DodgeInstruction, MotionMode::OnFloor),
+                    "2",
+                ),
+            ]),
+            ..Action::new_empty("0", "")
+        });
+        action_machine.add_action(Action::new_empty("2", ""));
+        action_machine.init_action(&"0");
+        assert_eq!(action_machine.current_action_name, "0");
+
+        let next_anim_name = action_machine.fetch_next_action_name_by_event_local(
+            &MotionActionEvent::new(ActionBaseEvent::AttackInstruction, MotionMode::OnFloor),
+        );
+        assert_eq!(next_anim_name, None); // because action is current
+
+        let next_anim_name = action_machine.fetch_next_action_name_by_event_local(
+            &MotionActionEvent::new(ActionBaseEvent::BlockInstruction, MotionMode::OnFloor),
+        );
+        assert_eq!(next_anim_name, None); // because action is not exist
+
+        let next_anim_name = action_machine.fetch_next_action_name_by_event_local(
+            &MotionActionEvent::new(ActionBaseEvent::DodgeInstruction, MotionMode::OnFloor),
+        );
+        assert_eq!(next_anim_name, Some("2")); // suc
+    }
+
+    #[test]
+    fn fetch_next_action_name_by_event_global() {
+        let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
+        action_machine.add_action(Action {
+            event_enter: vec![MotionActionEvent::new(
+                ActionBaseEvent::AttackInstruction,
+                MotionMode::OnFloor,
+            )],
+            ..Action::new_empty("1", "")
+        });
+        action_machine.add_action(Action {
+            event_enter: vec![MotionActionEvent::new(
+                ActionBaseEvent::BlockInstruction,
+                MotionMode::OnFloor,
+            )],
+            ..Action::new_empty("2", "")
+        });
+
+        // 当前动作为空（未初始化的场景，且没有动作名称为空字符串）
+        assert_eq!(action_machine.current_action_name, "");
+
+        // 全局事件触发 逻辑上不可能存在出现【动作名称对应的动作不存在】的情况 （由新增动作的方法内部维护，对应验证由其他单测保证）
+        // 当前动作为空时 不会出现要切换的动作名称（对应动作必定存在）与当前动作名称（空字符串）相同
+
+        // 当前动作为空时 允许动作切换
+        let next_anim_name = action_machine.fetch_next_action_name_by_event_global(
+            &MotionActionEvent::new(ActionBaseEvent::AttackInstruction, MotionMode::OnFloor),
+        );
+        assert_eq!(next_anim_name, Some("1"));
+
+        // 当前动作非空（正常初始化的场景）
+        action_machine.init_action(&"1");
+        assert_eq!(action_machine.current_action_name, "1");
+
+        // 全局事件触发 逻辑上不可能存在出现【动作名称对应的动作不存在】的情况 （由新增动作的方法内部维护，对应验证由其他单测保证）
+
+        // 当前动作非空时 要切换的动作名称与当前动作名称相同
+        let next_anim_name = action_machine.fetch_next_action_name_by_event_global(
+            &MotionActionEvent::new(ActionBaseEvent::AttackInstruction, MotionMode::OnFloor),
+        );
+        assert_eq!(next_anim_name, None);
+
+        // 当前动作非空时 允许动作切换
+        let next_anim_name = action_machine.fetch_next_action_name_by_event_global(
+            &MotionActionEvent::new(ActionBaseEvent::BlockInstruction, MotionMode::OnFloor),
+        );
+        assert_eq!(next_anim_name, Some("2"));
+    }
+
+    #[test]
+    fn fetch_next_action_name_by_event() {
+        let event = MotionActionEvent::new(ActionBaseEvent::AttackInstruction, MotionMode::OnFloor);
+
+        let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
+        action_machine.add_action(Action {
+            event_exit: HashMap::from([(event.clone(), "1")]),
+            ..Action::new_empty("0", "")
+        });
+        action_machine.init_action(&"0");
+        assert_eq!(action_machine.current_action_name, "0");
+
+        // local=None  global=None  return None
+        let next_local = action_machine.fetch_next_action_name_by_event_local(&event);
+        let next_global = action_machine.fetch_next_action_name_by_event_global(&event);
+        let next_returned = action_machine.fetch_next_action_name_by_event(&event);
+        assert_eq!(next_local, None);
+        assert_eq!(next_global, None);
+        assert_eq!(next_returned, None);
+
+        action_machine.add_action(Action::new_empty("1", ""));
+        // local="1"   global=None  return "1"
+        let next_local = action_machine.fetch_next_action_name_by_event_local(&event);
+        let next_global = action_machine.fetch_next_action_name_by_event_global(&event);
+        let next_returned = action_machine.fetch_next_action_name_by_event(&event);
+        assert_eq!(next_local, Some("1"));
+        assert_eq!(next_global, None);
+        assert_eq!(next_returned, Some("1"));
+
+        action_machine.add_action(Action {
+            event_enter: vec![event.clone()],
+            ..Action::new_empty("2", "")
+        });
+        action_machine.del_action(&"1");
+        // local=None  global="2"   return "2"
+        let next_local = action_machine.fetch_next_action_name_by_event_local(&event);
+        let next_global = action_machine.fetch_next_action_name_by_event_global(&event);
+        let next_returned = action_machine.fetch_next_action_name_by_event(&event);
+        assert_eq!(next_local, None);
+        assert_eq!(next_global, Some("2"));
+        assert_eq!(next_returned, Some("2"));
+
+        action_machine.add_action(Action::new_empty("1", ""));
+        // local="1"   global="2"   return "1"
+        let next_local = action_machine.fetch_next_action_name_by_event_local(&event);
+        let next_global = action_machine.fetch_next_action_name_by_event_global(&event);
+        let next_returned = action_machine.fetch_next_action_name_by_event(&event);
+        assert_eq!(next_local, Some("1"));
+        assert_eq!(next_global, Some("2"));
+        assert_eq!(next_returned, Some("1"));
+    }
+
+    #[test]
+    fn fetch_next_action_name_by_logic() {
+        let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
+        action_machine.add_action(Action {
+            logic_exit: vec![
+                (
+                    MotionActionExitLogic::ExitLogic(ActionBaseExitLogic::MoveAfter(0.0)),
+                    "999", // 不存在动作 预期内将跳过
+                ),
+                (
+                    MotionActionExitLogic::ExitLogic(ActionBaseExitLogic::MoveAfter(0.0)),
+                    "0", // 与当前动作相同 预期内将跳过
+                ),
+                (
+                    MotionActionExitLogic::ExitLogic(ActionBaseExitLogic::MoveAfter(0.0)),
+                    "1",
+                ),
+            ],
+            ..Action::new_empty("0", "")
+        });
+        action_machine.add_action(Action::new_empty("1", ""));
+        action_machine.init_action(&"0");
+
+        let phy_param = PhyParam {
+            instructions: PlayerInstructionCollection {
+                move_direction: PlayerInstruction::from(1.0),
+                ..Default::default()
+            },
+            inner_param: PhyInnerParam {
+                action_duration: Some(1.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let next_action_name = action_machine.fetch_next_action_name_by_logic(&phy_param);
+        assert_eq!(next_action_name, Some("1"));
     }
 
     #[test]
@@ -682,9 +921,6 @@ mod unit_tests {
 
     #[test]
     fn tick_and_update() {
-        // todo 动作1 触发到 动作2  动画不存在切换失败
-        // todo 动作1 运动模式切换 到 动作3
-        // todo 新增动作2  动作1 触发到 动作2
         let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
         action_machine.add_action(Action {
             event_enter: vec![MotionActionEvent::new(
@@ -697,6 +933,65 @@ mod unit_tests {
             )]),
             ..Action::new_empty("action_1", "0")
         });
+        action_machine.add_action(Action::new_empty("action_3", "0"));
+        action_machine.init_action(&"action_1");
+
+        let phy_param = PhyParam {
+            instructions: PlayerInstructionCollection {
+                attack_once: PlayerInstruction::from(true),
+                ..Default::default()
+            },
+            inner_param: PhyInnerParam {
+                motion_changed: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        // 验证动作不在状态机中时不进行转换（事件）
+        // action_1 -> action_2, failed
+        let (_, updated) = action_machine.tick_and_update(&phy_param);
+        // action_1 轻击尝试转换到 action_2 ，但由于没有该动作转换失败
+        // 轻击匹配 action_1 入口，但由于动作与当前重复，因此也转换失败
+        assert!(!updated);
+        assert_eq!(action_machine.current_action_name, "action_1");
+
+        // 验证运动模式的切换能够导致动作转换（退出逻辑）
+        action_machine
+            .actions
+            .get_mut(&"action_1")
+            .unwrap()
+            .logic_exit = vec![(
+            MotionActionExitLogic::MotionOnlyAllowed(MotionMode::InAir), // 若非空中，则立即退出
+            "action_3",
+        )];
+        // action_1 -> action_3
+        let (_, updated) = action_machine.tick_and_update(&phy_param);
+        assert!(updated);
+        assert_eq!(action_machine.current_action_name, "action_3");
+
+        // 回退
+        // action_3 -> action_1
+        let (_, updated) = action_machine.tick_and_update(&PhyParam {
+            instructions: PlayerInstructionCollection {
+                attack_once: PlayerInstruction::from(true),
+                ..Default::default()
+            },
+            inner_param: PhyInnerParam {
+                motion_changed: Some((MotionMode::InAir, MotionMode::OnFloor)),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        assert!(updated);
+        assert_eq!(action_machine.current_action_name, "action_1");
+
+        // 验证：若事件更新，则不执行逻辑更新
+        action_machine.add_action(Action::new_empty("action_2", "0"));
+        // action_1 -> action_2
+        let (_, updated) = action_machine.tick_and_update(&phy_param);
+        assert!(updated);
+        assert_eq!(action_machine.current_action_name, "action_2");
     }
 
     #[test]

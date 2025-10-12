@@ -121,7 +121,7 @@ impl<S: FixedString> ActionBaseExitLogic<S> {
 #[derive(Clone, Debug)]
 pub enum MotionActionExitLogic<S: FixedString> {
     ExitLogic(ActionBaseExitLogic<S>),
-    MotionLegal(MotionMode),
+    MotionOnlyAllowed(MotionMode),
 }
 
 impl<S: FixedString> ActionExitLogic<PhyParam<S>> for MotionActionExitLogic<S> {
@@ -130,9 +130,9 @@ impl<S: FixedString> ActionExitLogic<PhyParam<S>> for MotionActionExitLogic<S> {
             MotionActionExitLogic::ExitLogic(exit_logic) => {
                 exit_logic.should_exit_by_logic(exit_param)
             }
-            MotionActionExitLogic::MotionLegal(allowed_motion) => {
+            MotionActionExitLogic::MotionOnlyAllowed(allowed_motion) => {
                 match exit_param.inner_param.motion_changed {
-                    Some((_, current_motion)) => current_motion == *allowed_motion,
+                    Some((_, current_motion)) => current_motion != *allowed_motion,
                     None => false,
                 }
             }

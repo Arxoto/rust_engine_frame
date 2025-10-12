@@ -69,7 +69,7 @@ where
     }
 
     /// return None if not exist
-    pub fn fetch_next_action_by_event(&self, event: &Event) -> Option<&S> {
+    pub fn fetch_next_action_name_by_event(&self, event: &Event) -> Option<&S> {
         self.event_exit.get(event)
     }
 
@@ -163,9 +163,9 @@ mod tests {
     fn test_event_getter() {
         let test_action = gen_for_test();
         assert_eq!(test_action.action_name, "attack");
-        let res = test_action.fetch_next_action_by_event(&TmpActionEvent::AttackInstruction);
+        let res = test_action.fetch_next_action_name_by_event(&TmpActionEvent::AttackInstruction);
         assert_eq!(res, Some(&"twice_atk"));
-        let res = test_action.fetch_next_action_by_event(&TmpActionEvent::DodgeInstruction);
+        let res = test_action.fetch_next_action_name_by_event(&TmpActionEvent::DodgeInstruction);
         assert_eq!(res, None);
     }
 
