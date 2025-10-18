@@ -1,6 +1,6 @@
 //! 动作系统的状态机实现
 
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 use crate::{
     cores::unify_type::FixedString,
@@ -24,12 +24,12 @@ pub struct ActionMachine<S, PhyEff>
 where
     S: FixedString,
 {
-    // todo 所有的 HashMap 评估换成 Vec
     // todo test_performance for Vec HashMap FxHashMap
-    pub(crate) actions: HashMap<S, MotionAction<S, PhyEff>>,
+    // 预期内动作数量较多 所以使用 FxHashMap 而不是 Vec
+    pub(crate) actions: FxHashMap<S, MotionAction<S, PhyEff>>,
     pub(crate) current_action_name: S,
     pub(crate) current_anim_name: S,
-    pub(crate) event_to_actions: HashMap<MotionActionEvent, Vec<S>>,
+    pub(crate) event_to_actions: FxHashMap<MotionActionEvent, Vec<S>>,
     /// 用于指令生成
     instructions: Option<PlayerInstructionCollection>,
 }

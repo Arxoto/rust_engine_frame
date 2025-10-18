@@ -11,7 +11,7 @@
 //!     - 可用 rustc-hash （rust编译器使用的库）的 `FxHashMap` ，对数字类型或短字符串具有极大的性能提升，适用于游戏引擎
 //!     - 仅当 key 为纯数字时， 斟酌选用 nohash-hasher 库，键本身即是哈希值，非极端场景一般用 rustc-hash 也足够了
 //!     - 通用解 ahash 库，较高的安全性和优秀的性能，大结构体时也会使用 SIMD 指令进行性能优化
-//!   - 另一方面，预分配容量也是一个优化点 `HashMap::with_capacity(capacity.next_power_of_two())` ，避免重新分配和重新哈希
+//!   - 另一方面，预分配容量也是一个优化点 `Vec::with_capacity(capacity.next_power_of_two())` ，避免重新分配和重新哈希
 //!     - 注意处于内存对齐的目的，初始化时 capacity 尽量做 2 的幂次优化（因为后续扩容也是翻倍扩容的）
 //!     - 使用命令进行检查 `grep -r 'with_capacity' . | grep -v 'next_power_of_two' | grep -v EVENT_LIST_CAPACITY`
 
