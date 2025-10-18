@@ -3,7 +3,7 @@
 /// 动作关联的触发事件
 ///
 /// 直接基于类型去判断
-pub trait ActionEvent: Clone + std::fmt::Debug + Eq + std::hash::Hash + PartialEq {}
+pub trait ActionEvent: Clone + std::fmt::Debug + Eq + PartialEq {}
 
 /// 动作关联的退出逻辑
 ///

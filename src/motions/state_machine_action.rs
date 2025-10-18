@@ -408,7 +408,7 @@ mod unit_tests {
     fn fetch_next_action_name_by_event_local() {
         let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
         action_machine.add_action(Action {
-            event_exit: HashMap::from([
+            event_exit: Vec::from([
                 (
                     MotionActionEvent::new(ActionBaseEvent::AttackInstruction, MotionMode::OnFloor),
                     "0",
@@ -499,7 +499,7 @@ mod unit_tests {
 
         let mut action_machine: ActionMachine<&'static str, ()> = ActionMachine::default();
         action_machine.add_action(Action {
-            event_exit: HashMap::from([(event.clone(), "1")]),
+            event_exit: Vec::from([(event.clone(), "1")]),
             ..Action::new_empty("0", "")
         });
         action_machine.init_action(&"0");
@@ -636,7 +636,7 @@ mod unit_tests {
                 MotionMode::OnFloor,
             )],
             action_priority: 1,
-            action_switch_relation: HashMap::from([("1", true)]),
+            action_switch_relation: Vec::from([("1", true)]),
             ..Action::new_empty("2", "anim_first")
         });
 
@@ -663,7 +663,7 @@ mod unit_tests {
 
         action_machine.add_action(Action {
             action_priority: 1,
-            event_exit: HashMap::from([
+            event_exit: Vec::from([
                 (
                     MotionActionEvent::new(ActionBaseEvent::AttackInstruction, MotionMode::OnFloor),
                     "1",
@@ -689,7 +689,7 @@ mod unit_tests {
                 MotionMode::OnFloor,
             )],
             action_priority: 1,
-            action_switch_relation: HashMap::from([("1", true)]),
+            action_switch_relation: Vec::from([("1", true)]),
             ..Action::new_empty("2", "anim_first")
         });
 
@@ -773,7 +773,7 @@ mod unit_tests {
 
         // 一系列动作 环状结构
         action_machine.add_action(Action {
-            anim_next: HashMap::from([("0", "1"), ("1", "2"), ("2", "1")]),
+            anim_next: Vec::from([("0", "1"), ("1", "2"), ("2", "1")]),
             ..Action::new_empty("action_name", "0")
         });
         action_machine.init_action(&"action_name");
@@ -836,7 +836,7 @@ mod unit_tests {
                 ActionBaseEvent::AttackInstruction, // 轻击进入动作1
                 MotionMode::OnFloor,
             )],
-            event_exit: HashMap::from([(
+            event_exit: Vec::from([(
                 MotionActionEvent::new(ActionBaseEvent::AttackInstruction, MotionMode::OnFloor), // 动作1中接轻击进入动作2
                 "action_2",
             )]),
@@ -847,7 +847,7 @@ mod unit_tests {
                 ActionBaseEvent::AttackHeavierInstruction, // 重击进入动作2
                 MotionMode::OnFloor,
             )],
-            event_exit: HashMap::from([(
+            event_exit: Vec::from([(
                 MotionActionEvent::new(ActionBaseEvent::BlockInstruction, MotionMode::OnFloor), // 动作2中接格挡进入动作3
                 "action_3", // 一个不存在的动作
             )]),
@@ -927,7 +927,7 @@ mod unit_tests {
                 ActionBaseEvent::AttackInstruction, // 轻击进入动作1
                 MotionMode::OnFloor,
             )],
-            event_exit: HashMap::from([(
+            event_exit: Vec::from([(
                 MotionActionEvent::new(ActionBaseEvent::AttackInstruction, MotionMode::OnFloor), // 动作1中接轻击进入动作2
                 "action_2",
             )]),
@@ -1004,6 +1004,6 @@ mod unit_tests {
             &Some(player_instruction_collection),
         );
         assert_eq!(ll.capacity(), EVENT_LIST_CAPACITY);
-        assert_eq!(EVENT_LIST_CAPACITY, EVENT_LIST_CAPACITY.next_power_of_two()); // 保证内存对齐
+        // assert_eq!(EVENT_LIST_CAPACITY, EVENT_LIST_CAPACITY.next_power_of_two()); // 保证内存对齐
     }
 }

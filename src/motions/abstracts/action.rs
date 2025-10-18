@@ -1,7 +1,5 @@
 //! 动作系统的动作数据结构
 
-use std::collections::HashMap;
-
 use crate::{
     cores::unify_type::FixedString,
     motions::abstracts::action_types::{ActionEvent, ActionExitLogic},
@@ -22,8 +20,8 @@ where
 
     /// 定义接收到何种事件能进入该动作
     pub(crate) event_enter: Vec<Event>,
-    /// 定义接收到事件后切换到其他动作
-    pub(crate) event_exit: HashMap<Event, S>,
+    /// 定义接收到事件后切换到其他动作 一般不多所以用数组
+    pub(crate) event_exit: Vec<(Event, S)>,
     // todo 数据结构类型修改为 Vec
     /// 定义满足一定逻辑条件后切换到其他动作
     pub(crate) logic_exit: Vec<(ExitLogic, S)>,
@@ -31,15 +29,15 @@ where
     /// 动作优先级
     pub(crate) action_priority: i64,
     /// 动作自定义覆盖关系 true能被其他覆盖 false不能
-    pub(crate) action_switch_relation: HashMap<S, bool>,
+    pub(crate) action_switch_relation: Vec<(S, bool)>,
 
     /// 初始播放的动画名称
     pub(crate) anim_first: S,
     /// 动画结束后自动播放的下一个动画
-    pub(crate) anim_next: HashMap<S, S>,
+    pub(crate) anim_next: Vec<(S, S)>,
 
     /// 每帧的物理效果 key 为动画名称
-    pub(crate) anim_physics: HashMap<S, PhyEff>,
+    pub(crate) anim_physics: Vec<(S, PhyEff)>,
 
     // ActionExitLogic 的参数使用【泛型方式】去实现的话需要如下实现
     // 让编译器以为使用了该泛型 零成本 （实例化时直接 `_marker: std::marker::PhantomData,` ）
@@ -58,27 +56,32 @@ where
         Self {
             action_name,
             event_enter: Vec::new(),
-            event_exit: HashMap::new(),
+            event_exit: Vec::new(),
             logic_exit: Vec::new(),
             action_priority: 0,
-            action_switch_relation: HashMap::new(),
+            action_switch_relation: Vec::new(),
             anim_first,
-            anim_next: HashMap::new(),
-            anim_physics: HashMap::new(),
+            anim_next: Vec::new(),
+            anim_physics: Vec::new(),
             _marker: Default::default(),
         }
     }
 
     /// return None if not exist
     pub fn fetch_next_action_name_by_event(&self, event: &Event) -> Option<&S> {
-        self.event_exit.get(event)
+        let ele = self.event_exit.iter().find(|ele| ele.0 == *event);
+        ele.map(|ele| &ele.1)
     }
 
     /// 本动作可以切换到另一个动作
     ///
     /// 先判断自定义覆盖 后判断优先级 优先级相同也允许覆盖（反复击飞）
     pub fn can_switch_other_action(&self, other: &Self) -> bool {
-        if let Some(can_cover) = self.action_switch_relation.get(&other.action_name) {
+        let relation = self
+            .action_switch_relation
+            .iter()
+            .find(|ele| ele.0 == other.action_name);
+        if let Some((_, can_cover)) = relation {
             *can_cover
         } else {
             other.action_priority >= self.action_priority
@@ -91,11 +94,13 @@ where
 
     /// return None if has no next anim
     pub fn next_anim(&self, cur_anim: &S) -> Option<&S> {
-        self.anim_next.get(cur_anim)
+        let anim_map = self.anim_next.iter().find(|ele| ele.0 == *cur_anim);
+        anim_map.map(|ele| &ele.1)
     }
 
     pub fn get_phy_eff_by_anim(&self, anim: &S) -> Option<&PhyEff> {
-        self.anim_physics.get(anim)
+        let anim_map = self.anim_physics.iter().find(|ele| ele.0 == *anim);
+        anim_map.map(|ele| &ele.1)
     }
 }
 
@@ -133,7 +138,7 @@ mod tests {
         Action {
             action_name: "attack",
             event_enter: Vec::from([TmpActionEvent::AttackInstruction]),
-            event_exit: HashMap::from([
+            event_exit: Vec::from([
                 (TmpActionEvent::AttackInstruction, "twice_atk"),
                 (TmpActionEvent::JumpInstruction, "jump_atk"),
             ]),
@@ -142,16 +147,16 @@ mod tests {
                 (TmpActionExitLogic::OtherExitLogic, "other"),
             ]),
             action_priority: 1,
-            action_switch_relation: HashMap::from([
+            action_switch_relation: Vec::from([
                 ("be_knocked_down", true),
                 ("burning", false), // 燃烧
             ]),
             anim_first: "attack_begin",
-            anim_next: HashMap::from([
+            anim_next: Vec::from([
                 ("attack_begin", "attack_middle"),
                 ("attack_middle", "attack_end"),
             ]),
-            anim_physics: HashMap::from([
+            anim_physics: Vec::from([
                 ("attack_begin", (1.0, 0.0)),
                 ("attack_middle", (1.0, 0.0)),
                 ("attack_end", (1.0, 0.0)),
