@@ -14,7 +14,7 @@ use crate::{
     },
 };
 
-const EVENT_LIST_CAPACITY: usize = 10;
+const EVENT_LIST_CAPACITY: usize = 8;
 
 /// 动作状态机
 ///
@@ -1004,5 +1004,6 @@ mod unit_tests {
             &Some(player_instruction_collection),
         );
         assert_eq!(ll.capacity(), EVENT_LIST_CAPACITY);
+        assert_eq!(EVENT_LIST_CAPACITY, EVENT_LIST_CAPACITY.next_power_of_two()); // 保证内存对齐
     }
 }

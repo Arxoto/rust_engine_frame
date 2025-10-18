@@ -34,7 +34,7 @@ impl<S: FixedName> DynAttr<S> {
 
     /// 效果更新后刷新属性
     pub fn refresh_value(&mut self) {
-        self.effects.refresh_order_keys();
+        self.effects.refresh_capacity();
 
         let mut dyn_attr_modifier = DynAttrModifier::default();
         for ele in self.effects.keys() {
