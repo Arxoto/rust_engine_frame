@@ -19,14 +19,14 @@ pub fn move_toward(current: f64, target: f64, step: f64) -> f64 {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PhyAttribute {
-    pub(crate) x: f64,
-    pub(crate) y: f64,
+    pub(crate) x_velocity: f64,
+    pub(crate) y_velocity: f64,
 }
 
 impl PhyAttribute {
-    pub fn velocity_eff(&mut self, delta: f64, eff: PhyEff) {
-        self.x = move_toward(self.x, eff.x_velocity, delta * eff.x_acceleration);
-        self.y = move_toward(self.y, eff.y_velocity, delta * eff.y_acceleration);
+    pub fn apply_eff(&mut self, delta: f64, eff: PhyEff) {
+        self.x_velocity = move_toward(self.x_velocity, eff.x_velocity, delta * eff.x_acceleration);
+        self.y_velocity = move_toward(self.y_velocity, eff.y_velocity, delta * eff.y_acceleration);
     }
 }
 
@@ -69,7 +69,7 @@ pub struct MotionData {
     /// 最大下落速度（防止过大） 一般取跳跃速度的两倍
     pub(crate) fall_velocity: f64,
 
-    /// 重力加速度（跳跃时略小 `g' = g * 0.618` ），保证跳跃曲线先缓后急
+    /// 重力加速度（跳跃上升时略小 `g' = g * 0.618` ），保证跳跃曲线先缓后急
     pub(crate) jump_gravity: f64,
     /// 跳跃速度
     ///
@@ -92,7 +92,7 @@ pub struct MotionData {
 
 impl PhyEff {
     /// 强行静止
-    pub fn create_stop(_data: &MotionData, _direction: f64) -> PhyEff {
+    pub fn create_force_stop(_data: &MotionData, _direction: f64) -> PhyEff {
         PhyEff {
             x_velocity: 0.0,
             x_acceleration: f64::INFINITY,
@@ -210,12 +210,127 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_jump_immediately() {
-        let mut current = PhyAttribute { x: 0.0, y: 400.0 };
-        let phy_eff = PhyEff::create_jump(&new_data(), 1.0);
-        current.velocity_eff(0.01, phy_eff);
-        assert_eq!(current.y, -200.0);
+    fn create_force_stop() {
+        let delta = 0.001;
+        let motion_data = new_data();
+        let mut current = PhyAttribute {
+            x_velocity: 100.0,
+            y_velocity: 400.0,
+        };
+        let phy_eff = PhyEff::create_force_stop(&motion_data, 1.0);
+        current.apply_eff(delta, phy_eff);
+        assert_eq!(current.x_velocity, 0.0);
+        assert_eq!(current.y_velocity, 0.0);
     }
 
-    // todo test for each create
+    #[test]
+    fn create_run() {
+        let delta = 0.01;
+        let motion_data = new_data();
+        let mut current = PhyAttribute {
+            x_velocity: 0.0,
+            y_velocity: 0.0,
+        };
+        // run
+        let phy_eff = PhyEff::create_run(&motion_data, 1.0);
+        current.apply_eff(delta, phy_eff);
+        assert_eq!(current.x_velocity, delta * motion_data.run_x_acceleration);
+        // stop
+        current.x_velocity = motion_data.run_x_velocity;
+        let phy_eff = PhyEff::create_run(&motion_data, 0.0);
+        current.apply_eff(delta, phy_eff);
+        assert_eq!(
+            current.x_velocity,
+            motion_data.run_x_velocity - delta * motion_data.run_x_resistance
+        );
+        // stoped
+        let phy_eff = PhyEff::create_run(&motion_data, 0.0);
+        current.apply_eff(100.0, phy_eff);
+        assert_eq!(current.x_velocity, 0.0);
+    }
+
+    #[test]
+    fn create_air_move() {
+        let delta = 0.01;
+        let motion_data = new_data();
+        let mut current = PhyAttribute {
+            x_velocity: 0.0,
+            y_velocity: 0.0,
+        };
+        // run
+        let phy_eff = PhyEff::create_air_move(&motion_data, 1.0);
+        current.apply_eff(delta, phy_eff);
+        assert_eq!(current.x_velocity, delta * motion_data.air_x_acceleration);
+        // stop
+        current.x_velocity = motion_data.air_x_velocity;
+        let phy_eff = PhyEff::create_air_move(&motion_data, 0.0);
+        current.apply_eff(delta, phy_eff);
+        assert_eq!(
+            current.x_velocity,
+            motion_data.air_x_velocity - delta * motion_data.air_x_resistance
+        );
+        // stoped
+        let phy_eff = PhyEff::create_air_move(&motion_data, 0.0);
+        current.apply_eff(100.0, phy_eff);
+        assert_eq!(current.x_velocity, 0.0);
+    }
+
+    #[test]
+    fn create_falling() {
+        let delta = 0.01;
+        let motion_data = new_data();
+        let mut current = PhyAttribute {
+            x_velocity: 0.0,
+            y_velocity: 0.0,
+        };
+        // fall
+        let phy_eff = PhyEff::create_falling(&motion_data, 1.0);
+        current.apply_eff(delta, phy_eff);
+        assert_eq!(current.x_velocity, delta * motion_data.air_x_acceleration);
+        assert_eq!(current.y_velocity, delta * motion_data.gravity);
+    }
+
+    #[test]
+    fn create_jumping() {
+        let delta = 0.01;
+        let motion_data = new_data();
+        let mut current = PhyAttribute {
+            x_velocity: 0.0,
+            y_velocity: motion_data.jump_velocity,
+        };
+        // fall
+        let phy_eff = PhyEff::create_jumping(&motion_data, 1.0);
+        current.apply_eff(delta, phy_eff);
+        assert_eq!(current.x_velocity, delta * motion_data.air_x_acceleration);
+        assert_eq!(
+            current.y_velocity,
+            motion_data.jump_velocity + delta * motion_data.jump_gravity
+        );
+    }
+
+    #[test]
+    fn create_jump() {
+        let delta = 0.001;
+        let motion_data = new_data();
+        let mut current = PhyAttribute {
+            x_velocity: 0.0,
+            y_velocity: 400.0,
+        };
+        let phy_eff = PhyEff::create_jump(&motion_data, 1.0);
+        current.apply_eff(delta, phy_eff);
+        assert_eq!(current.y_velocity, motion_data.jump_velocity);
+    }
+
+    #[test]
+    fn create_climb() {
+        let delta = 0.001;
+        let motion_data = new_data();
+        let mut current = PhyAttribute {
+            x_velocity: 0.0,
+            y_velocity: 400.0,
+        };
+        let phy_eff = PhyEff::create_climb(&motion_data, 1.0);
+        current.apply_eff(delta, phy_eff);
+        assert_eq!(current.y_velocity, motion_data.climb_velocity);
+    }
 }

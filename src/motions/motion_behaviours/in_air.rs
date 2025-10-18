@@ -170,14 +170,18 @@ impl<S: FixedString>
         } else if p.instructions.jump_keep.op_active() {
             // 尝试跳得更高
             if self.jump_higher_timer.in_time() {
-                return PhyEff::create_jumping(data, p.instructions.move_direction.0);
+                return PhyEff::create_jump(data, p.instructions.move_direction.0);
             }
         } else {
             // 中断任何跳跃意图都会导致无法继续跳得更高
             self.jump_higher_timer.final_time();
         }
 
-        PhyEff::create_falling(data, p.instructions.move_direction.0)
+        if p.character_y_fly_up {
+            PhyEff::create_jumping(data, p.instructions.move_direction.0)
+        } else {
+            PhyEff::create_falling(data, p.instructions.move_direction.0)
+        }
     }
 }
 

@@ -49,7 +49,7 @@ impl<S: FixedString>
     }
 
     fn process_physics(&mut self, (p, data): &mut (&mut PhyParam<S>, &MotionData)) -> PhyEff {
-        PhyEff::create_stop(data, p.instructions.move_direction.0)
+        PhyEff::create_force_stop(data, p.instructions.move_direction.0)
     }
 }
 

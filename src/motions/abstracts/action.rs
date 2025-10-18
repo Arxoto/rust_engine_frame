@@ -22,7 +22,6 @@ where
     pub(crate) event_enter: Vec<Event>,
     /// 定义接收到事件后切换到其他动作 一般不多所以用数组
     pub(crate) event_exit: Vec<(Event, S)>,
-    // todo 数据结构类型修改为 Vec
     /// 定义满足一定逻辑条件后切换到其他动作
     pub(crate) logic_exit: Vec<(ExitLogic, S)>,
 
