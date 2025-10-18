@@ -12,6 +12,7 @@ impl FixedName for String {}
 impl FixedName for &str {}
 impl FixedString for String {}
 impl FixedString for &str {}
+impl FixedString for usize {}
 
 #[cfg(test)]
 mod tests {

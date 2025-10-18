@@ -8,6 +8,8 @@ use crate::{
 };
 
 /// 动作 纯数据 实现固定效果
+///
+/// 若想实现高级的动画效果（如上下半身动画播放器分离），则外部自己实现组合逻辑
 #[derive(Clone, Debug)]
 pub struct Action<S, Event, ExitParam, ExitLogic, PhyEff>
 where
@@ -15,7 +17,6 @@ where
     Event: ActionEvent,
     ExitLogic: ActionExitLogic<ExitParam>,
 {
-    // todo 对 S 进行进一步抽象 FrameEff 在上半身下半身动画播放器分离的场景中可用
     /// 动作名称
     pub(crate) action_name: S,
 

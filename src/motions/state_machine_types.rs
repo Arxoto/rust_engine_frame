@@ -17,6 +17,8 @@ use crate::{
 };
 
 /// ExitParam 为 FrameParam ，角色状态机将输入参数聚合成一个
+///
+/// 具象化了部分泛型抽象，因为状态机的部分高聚合度方法涉及业务逻辑（若想保持抽象程度则将状态机分成两个，一个保持抽象，一个具象逻辑）
 pub type MotionAction<S, PhyEff> =
     Action<S, MotionActionEvent, PhyParam<S>, MotionActionExitLogic<S>, PhyEff>;
 
