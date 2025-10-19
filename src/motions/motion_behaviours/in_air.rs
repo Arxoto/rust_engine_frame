@@ -121,15 +121,19 @@ impl<S: FixedString>
         };
         self.jump_special_effect = JumpSpecialEffect::None;
 
+        // todo 空中转身动画
+
         if p.character_y_fly_up {
             FrameEff {
                 anim_name: self.jumping_anim.clone(),
                 special_eff,
+                not_turn_back: false,
             }
         } else {
             FrameEff {
                 anim_name: self.falling_anim.clone(),
                 special_eff,
+                not_turn_back: false,
             }
         }
     }

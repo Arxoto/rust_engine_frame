@@ -12,7 +12,11 @@ impl FixedName for String {}
 impl FixedName for &str {}
 impl FixedString for String {}
 impl FixedString for &str {}
+// 支持用 id 代替字符串作为标识
+impl FixedName for usize {}
+impl FixedName for i64 {}
 impl FixedString for usize {}
+impl FixedString for i64 {}
 
 #[cfg(test)]
 mod tests {

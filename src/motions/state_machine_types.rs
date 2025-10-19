@@ -49,7 +49,10 @@ impl<S: FixedString>
         by_action: &S,
         by_behaviour: Option<FrameEff<S>>,
     ) -> (Option<FrameEff<S>>, Option<FrameEff<S>>) {
-        (FrameEff::try_new(by_action.clone()), by_behaviour)
+        (
+            FrameEff::try_from_action_anim(by_action.clone()),
+            by_behaviour,
+        )
     }
 
     fn gen_phy_eff(
@@ -66,7 +69,7 @@ impl<S: FixedString> EffGenerator<S, Option<FrameEff<S>>, Option<PhyEff>>
     for ActionBehaviourGenerator
 {
     fn gen_frame_eff(by_action: &S, by_behaviour: Option<FrameEff<S>>) -> Option<FrameEff<S>> {
-        FrameEff::try_new(by_action.clone()).or(by_behaviour)
+        FrameEff::try_from_action_anim(by_action.clone()).or(by_behaviour)
     }
 
     fn gen_phy_eff(by_action: Option<PhyEff>, by_behaviour: Option<PhyEff>) -> Option<PhyEff> {

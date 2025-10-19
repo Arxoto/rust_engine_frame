@@ -88,9 +88,16 @@ impl<S: FixedString>
             return FrameEff::from(self.ready_jump_anim.clone());
         }
 
-        if self.turn_back_flag {
-            FrameEff::from(self.turn_back_anim.clone())
-        } else if p.character_x_velocity.abs() > MOVEING_THRESHOLD {
+        if self.turn_back_flag || p.anim_playing(&self.turn_back_anim) {
+            // 外界控制动画优先级 内部不好判断
+            return FrameEff {
+                anim_name: self.turn_back_anim.clone(),
+                special_eff: Default::default(),
+                not_turn_back: true,
+            };
+        }
+
+        if p.character_x_velocity.abs() > MOVEING_THRESHOLD {
             FrameEff::from(self.run_anim.clone())
         } else {
             FrameEff::from(self.idle_anim.clone())
@@ -98,9 +105,8 @@ impl<S: FixedString>
     }
 
     fn process_physics(&mut self, (p, data): &mut (&mut PhyParam<S>, &MotionData)) -> PhyEff {
-        // 转身判断  当前速度大于阈值 && 意图方向与速度方向相反
-        self.turn_back_flag = p.character_x_velocity.abs() >= self.turn_back_velocity
-            && p.character_x_velocity * p.instructions.move_direction.0 < 0.0;
+        // 每帧判断 是否转身
+        self.turn_back_flag = p.want_turn_back(self.turn_back_velocity);
 
         // hard-landing 硬着陆眩晕效果通过动作系统实现（或者说一切非自由移动的状态都能通过动作系统实现）
         self.ready_jump_timer.add_time(p.delta);

@@ -3,7 +3,8 @@
 use crate::{
     cores::unify_type::FixedString,
     motions::{
-        motion_action::ActionBaseEvent, motion_mode::MotionMode, player_controller::PlayerInstructionCollection
+        motion_action::ActionBaseEvent, motion_mode::MotionMode,
+        player_controller::PlayerInstructionCollection,
     },
 };
 
@@ -12,37 +13,45 @@ pub struct PhyParam<S: FixedString> {
     // =========
     // 客观条件
     // =========
-    pub(crate) delta: f64,
-    pub(crate) anim_finished: bool,
+    pub delta: f64,          // pub-external
+    pub anim_finished: bool, // pub-external
     /// 当前正在播放的动画名称 外部传入 因为考虑到动画不一定完全由框架控制
-    pub(crate) anim_name: S,
+    pub anim_name: S, // pub-external
     /// 自由移动模式 一般用于测试
-    pub(crate) behaviour_to_free: bool,
+    pub behaviour_to_free: bool, // pub-external
     /// 角色当前x轴移动方向
-    pub(crate) character_x_velocity: f64,
+    pub character_x_velocity: f64, // pub-external
     /// 角色是否y轴上升（不包含静止） 不同游戏引擎2D游戏中的y轴方向不一样 因此不要自己判断上下
-    pub(crate) character_y_fly_up: bool,
+    pub character_y_fly_up: bool, // pub-external
     /// 角色能否蹬墙跳（脚部碰撞墙体）
-    pub(crate) character_can_jump_on_wall: bool,
+    pub character_can_jump_on_wall: bool, // pub-external
     /// 角色正站在地面
-    pub(crate) character_is_on_floor: bool,
+    pub character_is_on_floor: bool, // pub-external
     /// 角色能否攀爬（脚部手部都碰撞可攀爬墙体）
-    pub(crate) character_should_climb: bool,
+    pub character_should_climb: bool, // pub-external
     /// 角色是否刚刚着陆（下落速度超过阈值后标记，速度为零时消耗标记）
-    pub(crate) character_landing: bool,
+    pub character_landing: bool, // pub-external
     // =========
     // 事件信号标志
     // =========
-    pub(crate) signals: GameSignalCollection,
+    pub signals: GameSignalCollection, // pub-external
     // =========
     // 主观意图
     // =========
     /// 玩家指令
-    pub(crate) instructions: PlayerInstructionCollection,
+    pub instructions: PlayerInstructionCollection, // pub-external
     // =========
     // Option 框架内部维护
     // =========
-    pub(crate) inner_param: PhyInnerParam,
+    pub inner_param: PhyInnerParam, // pub-external
+}
+
+impl<S: FixedString> PhyParam<S> {
+    /// 转身判断  当前速度大于阈值 && 意图方向与速度方向相反
+    pub(crate) fn want_turn_back(&self, velocity_threshold: f64) -> bool {
+        self.character_x_velocity.abs() >= velocity_threshold
+            && self.character_x_velocity * self.instructions.move_direction.0 < 0.0
+    }
 }
 
 #[derive(Clone, Debug, Default)]
