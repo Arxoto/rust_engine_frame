@@ -1,7 +1,4 @@
 //! 状态机通用物理帧参数
-//!
-//! 代码检视：
-//! - [`PhyParam::into_instructions`] 中初始队列长度足够
 
 use crate::{
     cores::unify_type::FixedString,

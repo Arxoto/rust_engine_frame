@@ -85,8 +85,6 @@ where
     }
 
     /// 卸载一个效果
-    ///
-    /// 之后需手动调用 [`Self::refresh_order_keys`] 以刷新 [`Self::sorted_keys`]
     pub fn del_effect(&mut self, s: &S) {
         let the_eff = self.get_effect_mut_inner(s);
         if let Some(the_eff) = the_eff {
@@ -95,8 +93,6 @@ where
     }
 
     /// 装载一个效果
-    ///
-    /// 之后需手动调用 [`Self::refresh_order_keys`] 以刷新 [`Self::sorted_keys`]
     pub fn put_or_stack_effect(&mut self, eff: E) {
         let the_eff = self.get_effect_mut_inner(eff.get_effect_name());
         if let Some(the_eff) = the_eff {
@@ -125,7 +121,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn refresh_order_keys() {
+    fn refresh_capacity() {
         let mut container = EffectContainer::new();
 
         container.put_or_stack_effect(EffectBuilder::new_infinite("aaa", "1", 1.0));
@@ -141,7 +137,7 @@ mod tests {
         assert_eq!(container.keys(), ["2", "a", "1", "b"]);
         assert_eq!(container.effects.capacity(), 8); // 翻倍扩容
 
-        // 以上 不使用 refresh_order_keys 逻辑上也不会出错
+        // 以上 不使用 refresh_capacity 逻辑上也不会出错
         // 下面 验证刷新的准确性
         container.refresh_capacity();
         assert_eq!(container.keys(), ["2", "a", "1", "b"]);

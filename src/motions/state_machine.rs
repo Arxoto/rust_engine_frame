@@ -8,7 +8,7 @@
 //! 测试点：对 phy_param 的修改是否正确生效
 //! - action_duration 在动作切换后是否正确清零
 //! - motion_changed 在行为切换后是否能触发动作系统的对应动作
-//! - 预输入指令的回响是否被外部系统正确收集（ [`PlayerController`] 是否接收到回响，不重复指令下发）
+//! - 预输入指令的回响是否被外部系统正确收集（ [`crate::motions::player_controller::PlayerController`] 是否接收到回响，不重复指令下发）
 
 use crate::{
     cores::unify_type::FixedString,
