@@ -2,6 +2,14 @@
 //! - 为尽量保持项目纯净，尽量不对字段使用 `pub` ，函数由于编译期优化所以无所谓
 //!   - 使用命令检查是否有属性直接暴露给外部 `grep -r 'pub ' . | grep -v 'pub mod' | grep -v 'pub fn' | grep -v 'pub struct' | grep -v 'pub enum' | grep -v 'pub trait' | grep -v 'pub type' | grep -v '// pub-external'`
 //!
+//! 使用注意：
+//! - 若在 Bevy 引擎中使用，则属于原生语言开发，完全没有额外的性能损耗
+//! - 若在 Godot 引擎中使用，需要基于 <https://github.com/godot-rust/gdext> 的兼容层，每次调用 Rust 函数都有绑定层开销（少量开销，计算密集型逻辑能轻松弥补）
+//!   - 栈和寄存器的保存与恢复(Context Switching)，跨语言调用的必要消耗，一般开销通常以纳秒计算
+//!   - 参数和返回值的编组(Marshalling)，数据结构不匹配时的主要开销，对于 i64 和 f64 等类型通常是零成本编组
+//!   - 绑定层和运行时检查(Binding & Runtime Overhead)，如 Godot 通过 ClassDB 定位到要调用的 Rust 函数、绑定层运行时检查、跨语言错误机制处理等
+//!   - 因此：建议将大量操作打包成一个函数来一次调用，如同时大量角色的场景，则尽量不要在每个角色的 process 方法中去调用 Rust 函数
+//!
 //! 性能优化：
 //! - HashMap/HashSet 的性能瓶颈
 //!   - rust 的默认哈希算法考虑到 HashDoS 攻击，使用了加密哈希算法 SipHash ，计算哈希值时会有一定的性能损耗，特别是小数据、高频率的情况下
