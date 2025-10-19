@@ -14,6 +14,20 @@
 //!   - 另一方面，预分配容量也是一个优化点 `Vec::with_capacity(capacity.next_power_of_two())` ，避免重新分配和重新哈希
 //!     - 注意处于内存对齐的目的，初始化时 capacity 尽量做 2 的幂次优化（因为后续扩容也是翻倍扩容的）
 //!     - 使用命令进行检查 `grep -r 'with_capacity' . | grep -v 'next_power_of_two' | grep -v EVENT_LIST_CAPACITY`
+//! - 编译优化选项 (in Cargo.toml, see <https://doc.rust-lang.org/cargo/reference/profiles.html>)
+//!   - 构建命令 `cargo build --release`
+//!   - 编译优化等级 `opt-level = 3`
+//!     - 高等级需要更多编译时间
+//!   - 链接时优化 `lto = true`
+//!     - 增加链接时间为代价生成更优化代码，如允许跨模块函数内联
+//!     - 默认为 false ，即 "thin" ，提供了接近 "fat" 的性能提升，但链接时间可观减少
+//!     - 设置为 true ，即 "fat"
+//!   - 代码生成单元 `codegen-units = 1`
+//!     - 默认为 16 ，设置为 1 允许编译器将整个 crate 视为一个单元进行优化，以获得最佳运行时性能
+//!   - Panic 策略 `panic = "abort"`
+//!     - 发生 panic 时立即终止，减少运行时开销
+//!   - 调试符号 `debug = false`
+//!     - release 下默认关闭，仅显式配置
 
 pub mod cores;
 
