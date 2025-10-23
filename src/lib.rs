@@ -51,3 +51,4 @@ pub mod motions;
 
 // todo 修改的代码格式化
 // todo `cargo test`
+// todo `cargo clippy`

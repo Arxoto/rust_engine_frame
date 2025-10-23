@@ -175,7 +175,7 @@ pub trait ProxyDuration {
 
         let old_count = self.period_counts();
         self.set_life_time(self.get_life_time() + delta);
-        return self.period_counts() - old_count;
+        self.period_counts() - old_count
     }
 
     /// 尝试叠加 返回叠加后的层数
@@ -185,7 +185,7 @@ pub trait ProxyDuration {
         } else {
             self.set_stack(self.get_stack() + c);
         }
-        return self.get_stack();
+        self.get_stack()
     }
 }
 

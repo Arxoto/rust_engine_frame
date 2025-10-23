@@ -79,7 +79,7 @@ impl<S: FixedName> DynProp<S> {
     ///
     /// 无需手动修正属性值
     pub fn use_inst_effect(&mut self, e: DynPropInstEffect<S>) -> DynPropAlterResult {
-        let real_eff = e.convert_real_effect(&self);
+        let real_eff = e.convert_real_effect(self);
         self.alter_current_value(&real_eff)
     }
 
@@ -205,8 +205,8 @@ impl<S: FixedName> DynProp<S> {
                 self.period_effects.del_effect(&ele);
                 period_changed = true;
             } else if periods > 0 {
-                let inst_eff = eff.convert_prop_inst_effect(&self);
-                let mut real_eff = inst_eff.convert_real_effect(&self);
+                let inst_eff = eff.convert_prop_inst_effect(self);
+                let mut real_eff = inst_eff.convert_real_effect(self);
                 // 周期性应用效果
                 real_eff.value *= periods as f64;
                 let alter_result = self.alter_current_value(&real_eff);

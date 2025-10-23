@@ -3,7 +3,7 @@ use crate::cores::unify_type::FixedString;
 /// 若有必要可将角色动画分层（如上半身下半身组合动画），动作系统的逻辑保持单一仍然只返回一个动画
 #[derive(Debug, Default)]
 pub struct FrameEff<S: FixedString> {
-    /// 动画名称 始终不应为空
+    /// 动画名称（主动画） 始终不应为空
     pub anim_name: S, // pub-external
     /// 特效（不区分视觉听觉），可以为空
     pub special_eff: S, // pub-external

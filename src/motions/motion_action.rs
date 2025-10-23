@@ -61,7 +61,7 @@ impl MotionActionEvent {
     /// 当事件对运动模式没有要求时，全量生成
     pub fn new_each_motion(event: ActionBaseEvent) -> Vec<Self> {
         MotionMode::each_mode()
-            .into_iter()
+            .iter()
             .map(|motion| Self::new(event, *motion))
             .collect()
     }

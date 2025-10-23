@@ -59,42 +59,35 @@ where
         self.instructions = None;
     }
 
+    /// 只有与当前动作不一致 且实际存在的动作才允许切换
     fn action_can_switch(&self, next_action_name: &S) -> bool {
-        return *next_action_name != self.current_action_name
-            && self.actions.contains_key(next_action_name);
+        *next_action_name != self.current_action_name && self.actions.contains_key(next_action_name)
     }
 
     /// 动作内置的触发映射（字段 event_exit ）中 尝试获取下一个动作
     ///
     /// 返回 None 当前无状态或动作不存在
     fn fetch_next_action_name_by_event_local(&self, e: &MotionActionEvent) -> Option<S> {
-        let Some(current_action) = self.get_current_action() else {
-            return None;
-        };
-        let anim_name_opt = current_action
-            .fetch_next_action_name_by_event(e)
-            .map(|next_action_name| next_action_name.clone());
+        let the_action = self.get_current_action()?;
+        let anim_name = the_action.fetch_next_action_name_by_event(e)?;
 
-        if let Some(anim_name) = anim_name_opt {
-            if self.action_can_switch(&anim_name) {
-                return Some(anim_name);
-            }
+        if self.action_can_switch(anim_name) {
+            Some(anim_name.clone())
+        } else {
+            None
         }
-        None
     }
 
     /// 全局触发映射（字段 event_enter ）中 尝试获取下一个动作
     ///
     /// 返回 None 不存在符合条件的动作或动作不存在
     fn fetch_next_action_name_by_event_global(&self, e: &MotionActionEvent) -> Option<S> {
-        let Some(actions) = self.event_to_actions.get(e) else {
-            return None;
-        };
+        let actions = self.event_to_actions.get(e)?;
 
-        let Some(current_action) = self.get_current_action() else {
+        let Some(the_action) = self.get_current_action() else {
             // 当前动作为空，无需比较优先级
             for next_action_name in actions.iter() {
-                if self.action_can_switch(&next_action_name) {
+                if self.action_can_switch(next_action_name) {
                     return Some(next_action_name.clone());
                 }
             }
@@ -105,14 +98,13 @@ where
             let Some(next_action) = self.get_action(next_action_name) else {
                 continue;
             };
-            if current_action.can_switch_other_action(next_action) {
-                if self.action_can_switch(next_action_name) {
-                    return Some(next_action_name.clone());
-                }
-                return None;
+            if the_action.can_switch_other_action(next_action)
+                && self.action_can_switch(next_action_name)
+            {
+                return Some(next_action_name.clone());
             }
         }
-        return None;
+        None
     }
 
     /// 事件处理中 及时地进行动作切换
@@ -127,15 +119,14 @@ where
     ///
     /// 返回 None 无法切换
     fn fetch_next_action_name_by_logic(&self, exit_param: &PhyParam<S>) -> Option<S> {
-        let Some(the_action) = self.get_current_action() else {
-            return None;
-        };
+        let the_action = self.get_current_action()?;
+
         for (exit_logic, next_action_name) in the_action.logic_exit.iter() {
             if exit_logic.should_exit(exit_param) && self.action_can_switch(next_action_name) {
                 return Some(next_action_name.clone());
             }
         }
-        return None;
+        None
     }
 
     /// 事件触发的状态更新
@@ -144,7 +135,7 @@ where
             self.do_update_action(next_action_name);
             return true;
         }
-        return false;
+        false
     }
 
     /// 每帧进行状态更新
@@ -153,29 +144,40 @@ where
             self.do_update_action(next_action_name);
             return true;
         }
-        return false;
+        false
+    }
+
+    /// 更新动画 若更新则返回 Some （主要是为了使用问号语法糖，可根据需要改成返回新旧动画）
+    fn update_anim(&mut self, frame_param: &FrameParam<S>) -> Option<()> {
+        // 若出现动画名称不对应的情况 说明外部没有遵从动作框架的逻辑 （如动作框架处于缺省状态时，使用行为框架进行覆盖）
+        // 此时不进行动画刷新 也不知道要刷新什么动画
+        if frame_param.anim_name != self.current_anim_name {
+            return None;
+        }
+        // 仅动画结束时才进行帧刷新动画
+        if !frame_param.anim_finished {
+            return None;
+        }
+
+        // update anim
+        // 1、注意这里的 next_anim_name 正常不应该是 None （若忘了在 exit_logic 添加动画完成的退出逻辑）
+        //     但这里无视也没有什么大问题 因为会导致视觉上动画卡住 因此能立即发现
+        // 2、同时有另一个问题，由于 update 方法与 tick 方法相互独立（设计上是为了将信号更新和每帧执行解耦合）
+        //     这样就导致了执行 tick 的时候无法感知道 update 是否改变了动作（同时为了一致也不应把 tick 和 update_tick 强行合并）
+        //     当上一个动作满足动作完成的退出条件时，先进行了动作的切换，而后由于动画结束标志并未修改
+        //     若下一个动作的第一个动画恰好与上一个最后一个动画相同时，会直接跳过该动画
+        //     这个问题暂且当作特性处理，感觉存在会比修复更好
+        let the_action = self.get_current_action()?;
+        let next_anim_name = the_action.next_anim(&self.current_anim_name)?;
+        self.current_anim_name = next_anim_name.clone();
+        Some(())
     }
 
     /// 渲染帧执行 返回渲染效果
     ///
     /// 动作侧重数据，返回值一般认为是固定的，所以仅返回引用
     pub(crate) fn tick_frame(&mut self, frame_param: &FrameParam<S>) -> &S {
-        // 若出现动画名称不对应的情况 说明外部没有遵从动作框架的逻辑 （如动作框架处于缺省状态时，使用行为框架进行覆盖）
-        if frame_param.anim_finished && frame_param.anim_name == self.current_anim_name {
-            // update anim
-            // 1、注意这里的 next_anim_name 正常不应该是 None （若忘了在 exit_logic 添加动画完成的退出逻辑）
-            //     但这里无视也没有什么大问题 因为会导致视觉上动画卡住 因此能立即发现
-            // 2、同时有另一个问题，由于 update 方法与 tick 方法相互独立（设计上是为了将信号更新和每帧执行解耦合）
-            //     这样就导致了执行 tick 的时候无法感知道 update 是否改变了动作（同时为了一致也不应把 tick 和 update_tick 强行合并）
-            //     当上一个动作满足动作完成的退出条件时，先进行了动作的切换，而后由于动画结束标志并未修改
-            //     若下一个动作的第一个动画恰好与上一个最后一个动画相同时，会直接跳过该动画
-            //     这个问题暂且当作特性处理，感觉存在会比修复更好
-            if let Some(action) = self.get_current_action() {
-                if let Some(next_anim_name) = action.next_anim(&self.current_anim_name) {
-                    self.current_anim_name = next_anim_name.clone();
-                }
-            }
-        }
+        self.update_anim(frame_param);
         &self.current_anim_name
     }
 
@@ -183,11 +185,10 @@ where
     ///
     /// 没有内部处理逻辑 无需在意状态转换与帧处理的顺序
     pub(crate) fn tick_physics(&mut self, phy_param: &PhyParam<S>) -> Option<PhyEff> {
-        if let Some(action) = self.get_current_action() {
-            action.get_phy_eff_by_anim(&phy_param.anim_name).cloned()
-        } else {
-            None
-        }
+        let the_action = self.get_current_action()?;
+        the_action
+            .get_phy_eff_by_anim(&phy_param.anim_name)
+            .cloned()
     }
 
     fn gen_events(

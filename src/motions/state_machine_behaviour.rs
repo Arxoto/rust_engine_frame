@@ -1,7 +1,5 @@
 //! 行为系统的状态机实现
 
-use std::usize;
-
 use crate::{
     cores::unify_type::FixedString,
     motions::{
@@ -38,13 +36,14 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
         self.motion_data = data;
     }
 
+    /// 返回的值必定有效
     fn fetch_next_stat_id(&self, enter_param: &PhyParam<S>) -> Option<usize> {
         for (id, ele) in self.stats.iter().enumerate() {
             if ele.will_enter(enter_param) && id != self.current_id {
                 return Some(id);
             }
         }
-        return None;
+        None
     }
 
     /// 更新状态 返回运动模式的切换
@@ -69,22 +68,16 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
 
     /// 渲染帧执行 返回渲染效果
     pub(crate) fn tick_frame(&mut self, frame_param: &FrameParam<S>) -> Option<FrameEff> {
-        if let Some(stat) = self.stats.get_mut(self.current_id) {
-            Some(stat.tick_frame(frame_param))
-        } else {
-            None
-        }
+        let stat = self.stats.get_mut(self.current_id)?;
+        Some(stat.tick_frame(frame_param))
     }
 
     /// 物理帧执行 返回物理效果
     ///
     /// 行为侧重逻辑处理，因此命名有所区别
     pub(crate) fn process_physics(&mut self, phy_param: &mut PhyParam<S>) -> Option<PhyEff> {
-        if let Some(stat) = self.stats.get_mut(self.current_id) {
-            Some(stat.process_physics(&mut (phy_param, &self.motion_data)))
-        } else {
-            None
-        }
+        let stat = self.stats.get_mut(self.current_id)?;
+        Some(stat.process_physics(&mut (phy_param, &self.motion_data)))
     }
 
     /// 合并帧处理和状态更新

@@ -15,7 +15,7 @@ pub struct PhyParam<S: FixedString> {
     // =========
     pub delta: f64,          // pub-external
     pub anim_finished: bool, // pub-external
-    /// 当前正在播放的动画名称 外部传入 因为考虑到动画不一定完全由框架控制
+    /// 当前正在播放的动画名称（主动画） 外部传入 因为考虑到动画不一定完全由框架控制
     pub anim_name: S, // pub-external
     /// 自由移动模式 一般用于测试
     pub behaviour_to_free: bool, // pub-external
