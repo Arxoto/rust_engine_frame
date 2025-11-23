@@ -2,6 +2,11 @@
 //! - 为尽量保持项目纯净，尽量不对字段使用 `pub` ，函数由于编译期优化所以无所谓
 //!   - 使用命令检查是否有属性直接暴露给外部 `grep -r 'pub ' . | grep -v 'pub mod' | grep -v 'pub fn' | grep -v 'pub struct' | grep -v 'pub enum' | grep -v 'pub trait' | grep -v 'pub type' | grep -v '// pub-external'`
 //!
+//! 特性：
+//! - baselib 最小依赖包，用于打包成 lib
+//! - commonimpl 基础的业务实现
+//! - godotext 使用 godot-rust 来生成 GDExtension
+//!
 //! 使用注意：
 //! - 若在 Bevy 引擎中使用，则属于原生语言开发，完全没有额外的性能损耗
 //! - 若在 Godot 引擎中使用，需要基于 <https://github.com/godot-rust/gdext> 的兼容层，每次调用 Rust 函数都有绑定层开销（少量开销，计算密集型逻辑能轻松弥补）
@@ -43,12 +48,16 @@ pub mod cores;
 pub mod attrs;
 pub mod effects;
 
-// Damage System Component
-pub mod damage;
-
 // Motion System Component
 pub mod motions;
 
 // todo 修改的代码格式化
 // todo `cargo test`
 // todo `cargo clippy`
+
+// Combat System Component
+#[cfg(feature = "commonimpl")]
+pub mod combat;
+
+#[cfg(feature = "godotext")]
+pub mod godot_ext_impl;

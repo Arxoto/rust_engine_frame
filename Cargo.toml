@@ -3,8 +3,18 @@ name = "rust_engine_frame"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["godotext"]
+baselib = []
+commonimpl = []
+godotext = ["commonimpl", "godot"] # 这里依赖子特性或者依赖包都可以
+
 [dependencies]
 rustc-hash = "2.1.1"
+godot = { version = "0.4.2", optional = true }
+
+[lib]
+crate-type = ["rlib", "cdylib"]  # Compile this crate to a dynamic C library.
 
 [profile.release]
 opt-level = 3

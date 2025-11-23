@@ -21,8 +21,8 @@ pub enum DynPropInstEffectType {
 /// prop属性瞬时效果 一般用作扣血蓝耗等
 #[derive(Clone, Debug)]
 pub struct DynPropInstEffect<S = String> {
-    pub(crate) the_type: DynPropInstEffectType,
-    pub(crate) effect: Effect<S>,
+    pub(super) the_type: DynPropInstEffectType,
+    pub(super) effect: Effect<S>,
 }
 
 impl<S: FixedName> DynPropInstEffect<S> {

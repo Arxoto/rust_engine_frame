@@ -241,27 +241,22 @@ impl<S: FixedName> DynProp<S> {
     }
 
     /// 如对血量直接造成伤害 return delta 用于处理护盾逻辑 无需再次刷新
-    fn alter_current_value(&mut self, e: &Effect<S>) -> DynPropAlterResult {
+    pub(crate) fn alter_current_value(&mut self, e: &Effect<S>) -> DynPropAlterResult {
         let the_old = self.get_current();
         self.current += e.get_value();
         self.fix_current();
         let the_new = self.get_current();
         let the_delta = the_new - the_old;
 
-        DynPropAlterResult { delta: the_delta }
+        DynPropAlterResult {
+            delta: the_delta,
+            value: e.value,
+        }
     }
 
     /// 是否被修改至最小值
-    pub fn alter_to_min_by(
-        &self,
-        alter_result: DynPropAlterResult,
-        e: &Effect<S>,
-    ) -> Option<Effect<S>> {
-        if alter_result.is_harmful() && self.current_is_min() {
-            Some(e.clone())
-        } else {
-            None
-        }
+    pub fn alter_to_min(&self, alter_result: &DynPropAlterResult) -> bool {
+        alter_result.is_harmful() && self.current_is_min()
     }
 }
 
@@ -672,12 +667,51 @@ mod tests {
         for i in 0..5 {
             let eff = Effect::new(format!("killed_by_{}", i), "effect_name".to_string(), -4.6);
             let alter_result = prop.alter_current_value(&eff);
-            if let Some(to_min_eff) = prop.alter_to_min_by(alter_result, &eff) {
-                from_name = to_min_eff.from_name;
+            if prop.alter_to_min(&alter_result) {
+                from_name = eff.from_name;
             }
         }
 
         assert_eq!(from_name, "killed_by_2");
+    }
+
+    #[test]
+    fn alter_result_value() {
+        let mut prop: DynProp = DynProp::new_by_max(10.0);
+        let dyn_prop_alter_result = prop.alter_current_value(&Effect {
+            effect_name: "eff".to_string(),
+            from_name: "aaa".to_string(),
+            value: -6.0,
+        });
+        assert_eq!(dyn_prop_alter_result.delta, -6.0);
+        assert_eq!(dyn_prop_alter_result.value, -6.0);
+
+        let mut prop: DynProp = DynProp::new_by_max(10.0);
+        let dyn_prop_alter_result = prop.alter_current_value(&Effect {
+            effect_name: "eff".to_string(),
+            from_name: "aaa".to_string(),
+            value: -12.0,
+        });
+        assert_eq!(dyn_prop_alter_result.delta, -10.0);
+        assert_eq!(dyn_prop_alter_result.value, -12.0);
+
+        let mut prop: DynProp = DynProp::new_by_max(10.0);
+        let dyn_prop_alter_result = prop.use_inst_effect(DynPropInstEffect::new_max_per(Effect {
+            effect_name: "eff".to_string(),
+            from_name: "aaa".to_string(),
+            value: -0.3,
+        }));
+        assert_eq!(dyn_prop_alter_result.delta, -3.0);
+        assert_eq!(dyn_prop_alter_result.value, -3.0);
+
+        let mut prop: DynProp = DynProp::new_by_max(10.0);
+        let dyn_prop_alter_result = prop.use_inst_effect(DynPropInstEffect::new_max_per(Effect {
+            effect_name: "eff".to_string(),
+            from_name: "aaa".to_string(),
+            value: -1.2,
+        }));
+        assert_eq!(dyn_prop_alter_result.delta, -10.0);
+        assert_eq!(dyn_prop_alter_result.value, -12.0);
     }
 
     #[test]

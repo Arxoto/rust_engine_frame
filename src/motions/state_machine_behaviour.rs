@@ -17,8 +17,8 @@ pub struct BehaviourMachine<S, FrameEff, PhyEff>
 where
     S: FixedString,
 {
-    pub(crate) stats: Vec<Box<dyn MotionBehaviour<S, FrameEff, PhyEff>>>,
-    pub(crate) current_id: usize,
+    pub(super) stats: Vec<Box<dyn MotionBehaviour<S, FrameEff, PhyEff>>>,
+    pub(super) current_id: usize,
     motion_data: MotionData,
 }
 

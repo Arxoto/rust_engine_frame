@@ -9,6 +9,8 @@ use crate::{cores::unify_type::FixedName, effects::native_effect::Effect};
 
 #[derive(Debug, Default)]
 pub struct DynPropAlterResult {
+    /// 效果值 在扣血等场景下 效果值可能大于实际修改值
+    pub value: f64, // pub-external
     /// 效果实际修改值
     pub delta: f64, // pub-external
 }

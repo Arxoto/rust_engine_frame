@@ -27,8 +27,8 @@ pub struct PlayerMachine<S>
 where
     S: FixedString,
 {
-    pub(crate) action_machine: ActionMachine<S, PhyEff>,
-    pub(crate) behaviour_machine: BehaviourMachine<S, FrameEff<S>, PhyEff>,
+    pub(super) action_machine: ActionMachine<S, PhyEff>,
+    pub(super) behaviour_machine: BehaviourMachine<S, FrameEff<S>, PhyEff>,
 
     // inner field
     /// 运动状态

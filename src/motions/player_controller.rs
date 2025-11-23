@@ -21,18 +21,18 @@ use crate::{
 /// 其属性都是玩家操作 [`PlayerOperation`] 或 [`PreInputOperation`] （注：编码时由于没有引用所以没法跳转）
 #[derive(Debug, Default)]
 pub struct PlayerController {
-    // pub(crate) look_angle: f64,
-    pub(crate) move_direction: f64,
+    // pub(super) look_angle: f64,
+    pub(super) move_direction: f64,
 
-    pub(crate) jump_once: TinyTimer,
-    pub(crate) jump_keep: bool,
+    pub(super) jump_once: TinyTimer,
+    pub(super) jump_keep: bool,
 
-    pub(crate) dodge_once: TinyTimer,
+    pub(super) dodge_once: TinyTimer,
 
-    pub(crate) block_hold: bool,
+    pub(super) block_hold: bool,
 
-    pub(crate) attack_once: bool,
-    pub(crate) attack_keep: bool,
+    pub(super) attack_once: bool,
+    pub(super) attack_keep: bool,
 }
 
 /// 玩家指令 由玩家控制器直接转换而来
@@ -45,14 +45,14 @@ pub struct PlayerController {
 /// - keep 按键按下后从未松开（指令初始化之后）
 #[derive(Clone, Debug, Default)]
 pub struct PlayerInstructionCollection {
-    // pub(crate) look_angle: PlayerInstruction<f64>,
-    pub(crate) move_direction: PlayerInstruction<f64>,
-    pub(crate) jump_once: PreInputInstruction<TinyTimer>,
-    pub(crate) jump_keep: PlayerInstruction<bool>,
-    pub(crate) dodge_once: PreInputInstruction<TinyTimer>,
-    pub(crate) block_hold: PlayerInstruction<bool>,
-    pub(crate) attack_once: PlayerInstruction<bool>,
-    pub(crate) attack_keep: PlayerInstruction<bool>,
+    // pub(super) look_angle: PlayerInstruction<f64>,
+    pub(super) move_direction: PlayerInstruction<f64>,
+    pub(super) jump_once: PreInputInstruction<TinyTimer>,
+    pub(super) jump_keep: PlayerInstruction<bool>,
+    pub(super) dodge_once: PreInputInstruction<TinyTimer>,
+    pub(super) block_hold: PlayerInstruction<bool>,
+    pub(super) attack_once: PlayerInstruction<bool>,
+    pub(super) attack_keep: PlayerInstruction<bool>,
 }
 
 impl From<PlayerInstructionCollection> for PlayerController {

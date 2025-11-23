@@ -56,8 +56,8 @@ impl<S: FixedString> PhyParam<S> {
 
 #[derive(Clone, Debug, Default)]
 pub struct GameSignalCollection {
-    pub(crate) hit_signal: bool,
-    pub(crate) behit_signal: bool,
+    pub(super) hit_signal: bool,
+    pub(super) behit_signal: bool,
 }
 
 impl GameSignalCollection {
@@ -80,8 +80,8 @@ pub struct PhyInnerParam {
     /// - `None` 表示内部框架还未进行判断
     /// - `Some((old, new))` 中的 old 表示旧状态 new 表示新状态
     /// - 若 old 和 new 相等，则表示状态未切换
-    pub(crate) motion_changed: Option<(MotionMode, MotionMode)>,
-    pub(crate) action_duration: Option<f64>,
+    pub(super) motion_changed: Option<(MotionMode, MotionMode)>,
+    pub(super) action_duration: Option<f64>,
 }
 
 /// just for test
