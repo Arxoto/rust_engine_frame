@@ -1,6 +1,6 @@
 use crate::{
     attrs::dyn_prop::DynProp,
-    combat::{combat_units::CombatUnit, damages::DamageComponent},
+    combat::{combat_units::CombatUnit, damages::HealthShieldComponent},
     cores::unify_type::FixedName,
 };
 
@@ -19,7 +19,8 @@ pub struct CombatEntity<S: FixedName = String> {
     /// 基础值和最大值固定 清空时触发倒地
     pub(crate) stamina: DynProp<S>,
 
-    pub(crate) damage_component: DamageComponent<S>,
+    /// 血量和护盾
+    pub(crate) health_and_shield: HealthShieldComponent<S>,
 
     /// 熵（炎热寒冷） 累积进度条 受元素系统控制
     ///
@@ -45,7 +46,7 @@ impl<S: FixedName> CombatEntity<S> {
             magicka: DynProp::new(0.0, magicka_max, 0.0),
             stamina: DynProp::new_by_max(100.0),
 
-            damage_component: DamageComponent {
+            health_and_shield: HealthShieldComponent {
                 health: DynProp::new_by_max(health_value),
                 shield_substitute: DynProp::new_by_max(0.0),
                 shield_defence: DynProp::new_by_max(0.0),
