@@ -34,9 +34,9 @@ pub enum DynPropDurEffectType {
 /// prop属性持久效果 包括直接作用于最大最小值的效果 还有特殊效果如持续流血回蓝等
 #[derive(Clone, Debug)]
 pub struct DynPropDurEffect<S = String> {
-    pub(super) the_type: DynPropDurEffectType,
-    pub(super) effect: Effect<S>,
-    pub(super) duration: Duration,
+    pub(crate) the_type: DynPropDurEffectType,
+    pub(crate) effect: Effect<S>,
+    pub(crate) duration: Duration,
 }
 
 impl<S> ProxyEffect<S> for DynPropDurEffect<S> {

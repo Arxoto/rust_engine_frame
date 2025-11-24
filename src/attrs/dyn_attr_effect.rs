@@ -24,9 +24,9 @@ pub enum DynAttrEffectType {
 /// Attr属性效果（周期性触发时堆叠效果）
 #[derive(Clone, Debug)]
 pub struct DynAttrEffect<S = String> {
-    pub(super) the_type: DynAttrEffectType,
-    pub(super) effect: Effect<S>,
-    pub(super) duration: Duration,
+    pub(crate) the_type: DynAttrEffectType,
+    pub(crate) effect: Effect<S>,
+    pub(crate) duration: Duration,
 }
 
 impl<S: FixedName> DynAttrEffect<S> {

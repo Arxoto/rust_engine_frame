@@ -27,9 +27,9 @@ pub enum DynPropPeriodEffectType {
 
 #[derive(Clone, Debug)]
 pub struct DynPropPeriodEffect<S = String> {
-    pub(super) the_type: DynPropPeriodEffectType,
-    pub(super) effect: Effect<S>,
-    pub(super) duration: Duration,
+    pub(crate) the_type: DynPropPeriodEffectType,
+    pub(crate) effect: Effect<S>,
+    pub(crate) duration: Duration,
 }
 
 impl<S> ProxyEffect<S> for DynPropPeriodEffect<S> {

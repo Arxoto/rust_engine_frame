@@ -7,19 +7,19 @@ use crate::{
 /// 外赋属性
 pub struct EquipUnit<S: FixedName = String> {
     /// 武器锋利度
-    pub(super) weapon_sharp: DynAttr<S>,
+    pub(crate) weapon_sharp: DynAttr<S>,
     /// 武器质量 外赋属性（装备加成）
     ///
     /// - 直接影响：连击奖励和冲击伤害
-    pub(super) weapon_mass: DynAttr<S>,
+    pub(crate) weapon_mass: DynAttr<S>,
     /// 盔甲坚韧 外赋属性（装备加成）
     ///
     /// - 直接影响：切割伤害
-    pub(super) armor_hard: DynAttr<S>,
+    pub(crate) armor_hard: DynAttr<S>,
     /// 盔甲柔韧 外赋属性（装备加成）
     ///
     /// - 直接影响：冲击伤害
-    pub(super) armor_soft: DynAttr<S>,
+    pub(crate) armor_soft: DynAttr<S>,
 }
 
 impl<S: FixedName> EquipUnit<S> {

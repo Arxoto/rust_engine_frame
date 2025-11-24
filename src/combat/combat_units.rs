@@ -3,9 +3,9 @@ use crate::{attrs::dyn_attr::DynAttr, cores::unify_type::FixedName};
 /// 内禀属性
 pub struct CombatUnit<S: FixedName = String> {
     /// 气力
-    pub(super) strength: DynAttr<S>,
+    pub(crate) strength: DynAttr<S>,
     /// 信念
-    pub(super) belief: DynAttr<S>,
+    pub(crate) belief: DynAttr<S>,
 }
 
 impl<S: FixedName> CombatUnit<S> {

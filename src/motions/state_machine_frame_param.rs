@@ -5,6 +5,10 @@ use crate::cores::unify_type::FixedString;
 #[derive(Clone, Debug, Default)]
 pub struct FrameParam<S: FixedString> {
     // =========
+    // 这里不应包含主观意图
+    // =========
+
+    // =========
     // 客观条件
     // =========
     pub delta: f64, // pub-external
@@ -16,10 +20,6 @@ pub struct FrameParam<S: FixedString> {
     pub character_x_velocity: f64, // pub-external
     /// 角色是否y轴上升（不包含静止） 不同游戏引擎2D游戏中的y轴方向不一样 因此不要自己判断上下
     pub character_y_fly_up: bool, // pub-external
-
-                    // =========
-                    // 这里不应包含主观意图
-                    // =========
 }
 
 impl<S: FixedString> FrameParam<S> {

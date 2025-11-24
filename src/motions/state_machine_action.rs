@@ -26,10 +26,10 @@ where
 {
     // todo test_performance for Vec HashMap FxHashMap
     // 预期内动作数量较多 所以使用 FxHashMap 而不是 Vec
-    pub(super) actions: FxHashMap<S, MotionAction<S, PhyEff>>,
-    pub(super) current_action_name: S,
-    pub(super) current_anim_name: S,
-    pub(super) event_to_actions: FxHashMap<MotionActionEvent, Vec<S>>,
+    pub(crate) actions: FxHashMap<S, MotionAction<S, PhyEff>>,
+    pub(crate) current_action_name: S,
+    pub(crate) current_anim_name: S,
+    pub(crate) event_to_actions: FxHashMap<MotionActionEvent, Vec<S>>,
     /// 用于指令生成
     instructions: Option<PlayerInstructionCollection>,
 }

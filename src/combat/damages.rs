@@ -19,7 +19,9 @@ pub enum DamageType {
 
 #[derive(Debug)]
 pub struct DeadInfo {
+    /// 是否致死
     pub(crate) dead: bool,
+    /// 造成的伤害（致死时伤害可能大于实际扣血值）
     pub(crate) damage: f64,
 }
 
@@ -27,14 +29,14 @@ pub struct DamageComponent<S: FixedName = String> {
     /// 血量 战时动态值 变化由伤害系统控制
     ///
     /// 基础值受气力的基础值影响
-    pub(super) health: DynProp<S>,
+    pub(crate) health: DynProp<S>,
 
     /// 替身 护盾 受伤害系统控制
-    pub(super) shield_substitute: DynProp<S>,
+    pub(crate) shield_substitute: DynProp<S>,
     /// 防护 护盾 受伤害系统控制
-    pub(super) shield_defence: DynProp<S>,
+    pub(crate) shield_defence: DynProp<S>,
     /// 奥术 护盾 受伤害系统控制
-    pub(super) shield_arcane: DynProp<S>,
+    pub(crate) shield_arcane: DynProp<S>,
 }
 
 impl<S: FixedName> DamageComponent<S> {
