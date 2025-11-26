@@ -1,5 +1,9 @@
 // Trait Alias 简化复杂的 trait 约束，提高代码可读性和一致性
-pub trait FixedName: Eq + std::hash::Hash + Clone + std::fmt::Debug {}
+pub trait FixedName: Eq + std::hash::Hash + Clone + std::fmt::Debug {
+    fn from_str(_: &str) -> Self {
+        panic!("not impl FixedName::from_str")
+    }
+}
 
 pub trait FixedString: Eq + std::hash::Hash + Clone + std::fmt::Debug + Default {
     fn is_legal(&self) -> bool {
@@ -8,7 +12,11 @@ pub trait FixedString: Eq + std::hash::Hash + Clone + std::fmt::Debug + Default 
 }
 
 // 当使用 godot-rust 时，若在一个封闭系统中（仅初始化时涉及字符串输入，运行时字符串不与外部交互），也可以直接将 GString 转换为 String 使用
-impl FixedName for String {}
+impl FixedName for String {
+    fn from_str(s: &str) -> Self {
+        s.to_string()
+    }
+}
 impl FixedName for &str {}
 impl FixedString for String {}
 impl FixedString for &str {}

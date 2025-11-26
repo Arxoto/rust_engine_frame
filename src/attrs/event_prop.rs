@@ -10,9 +10,9 @@ use crate::{cores::unify_type::FixedName, effects::native_effect::Effect};
 #[derive(Debug, Default)]
 pub struct DynPropAlterResult {
     /// 效果值 在扣血等场景下 效果值可能大于实际修改值
-    pub(crate) value: f64,
+    pub value: f64, // pub-external
     /// 效果实际修改值
-    pub(crate) delta: f64,
+    pub delta: f64, // pub-external
 }
 
 impl DynPropAlterResult {
@@ -29,5 +29,5 @@ impl DynPropAlterResult {
 
 pub struct DynPropProcessResult<S: FixedName> {
     /// 被哪个效果作用后达到最小值
-    pub(crate) to_min_by: Option<Effect<S>>,
+    pub to_min_by: Option<Effect<S>>, // pub-external
 }

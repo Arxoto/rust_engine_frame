@@ -72,10 +72,10 @@
 //!   - 魔法奥术
 //!     - `1/攻击次数 = 【 我方信念 】/【 替身护盾（敌方信念有关） + 血量（敌方气力有关） 】`
 
+pub mod combat_inherents;
+
+pub mod combat_additions;
+
 pub mod combat_units;
 
 pub mod damages;
-
-pub mod equipments;
-
-pub mod combat_entities;

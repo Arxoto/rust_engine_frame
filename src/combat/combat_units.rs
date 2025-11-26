@@ -1,18 +1,154 @@
-use crate::{attrs::dyn_attr::DynAttr, cores::unify_type::FixedName};
+use std::ops::Not;
 
-/// 内禀属性
-pub struct CombatUnit<S: FixedName = String> {
-    /// 气力
-    pub(crate) strength: DynAttr<S>,
-    /// 信念
-    pub(crate) belief: DynAttr<S>,
+use crate::{
+    attrs::{dyn_prop::DynProp, dyn_prop_inst_effect::DynPropInstEffect},
+    combat::{
+        combat_additions::CombatAdditionAttr,
+        combat_inherents::CombatInerentAttr,
+        damages::{DamageInfo, DamageSystem, DamageType},
+    },
+    cores::unify_type::FixedName,
+    effects::native_effect::{Effect, ProxyEffect},
+};
+
+/// 战斗属性
+///
+/// 参考经典三维：
+/// - health 血量
+/// - stamina 耐力，这里置换为平衡
+/// - magicka/mana 法力，这里置换为能量（气势）
+pub struct CombatUnit<S: FixedName> {
+    /// 血量和护盾
+    pub(crate) health_shields: CombatHealthShield<S>,
+
+    /// 能量（气势）
+    pub(crate) magicka: DynProp<S>,
+
+    /// 平衡 战时动态值 变化由冲击韧性系统控制
+    ///
+    /// 基础值和最大值固定 清空时触发倒地
+    pub(crate) stamina: DynProp<S>,
+
+    /// 熵（炎热寒冷） 累积进度条 受元素系统控制
+    ///
+    /// 为统一区分增益效果的，编码时统一规定所有属性条满时正常，归零异常，满时异常的累积进度条仅体现在视觉表达上
+    pub(crate) bar_entropy: DynProp<S>,
+    /// 电势能 累积进度条 受元素系统控制
+    ///
+    /// 为统一区分增益效果的，编码时统一规定所有属性条满时正常，归零异常，满时异常的累积进度条仅体现在视觉表达上
+    pub(crate) bar_electric: DynProp<S>,
+
+    /// 内禀属性
+    pub(crate) inherent_attr: CombatInerentAttr<S>,
+    /// 外赋属性
+    pub(crate) addition_attr: CombatAdditionAttr<S>,
 }
 
 impl<S: FixedName> CombatUnit<S> {
-    pub fn new(strength: f64, belief: f64) -> CombatUnit<S> {
+    pub fn new(
+        magicka_base: f64,
+        magicka_scale: f64,
+        health_base: f64,
+        health_scale: f64,
+        inherent_attr: CombatInerentAttr<S>,
+        addition_attr: CombatAdditionAttr<S>,
+    ) -> CombatUnit<S> {
+        let magicka_max = magicka_base + magicka_scale * inherent_attr.belief.get_origin();
+        let health_value = health_base + health_scale * inherent_attr.belief.get_origin();
         CombatUnit {
-            strength: DynAttr::new(strength),
-            belief: DynAttr::new(belief),
+            health_shields: CombatHealthShield {
+                health: DynProp::new_by_max(health_value),
+                shield_substitute: DynProp::new_by_max(0.0),
+                shield_defence: DynProp::new_by_max(0.0),
+                shield_arcane: DynProp::new_by_max(0.0),
+            },
+
+            magicka: DynProp::new(0.0, magicka_max, 0.0),
+            stamina: DynProp::new_by_max(100.0),
+
+            bar_entropy: DynProp::new_by_max(100.0),
+            bar_electric: DynProp::new_by_max(100.0),
+
+            inherent_attr,
+            addition_attr,
         }
+    }
+
+    pub fn init_addition_eff(&mut self, from_name: S, effect_name: S) {
+        let eff = DamageSystem::gen_defence_shield(from_name, effect_name, &self.addition_attr);
+        self.health_shields.shield_defence.put_dur_effect(eff);
+    }
+}
+
+pub(crate) struct CombatHealthShield<S: FixedName> {
+    /// 血量 战时动态值 变化由伤害系统控制
+    ///
+    /// 基础值受气力的基础值影响
+    pub(crate) health: DynProp<S>,
+
+    /// 替身 护盾 受伤害系统控制
+    pub(crate) shield_substitute: DynProp<S>,
+    /// 防护 护盾 受伤害系统控制
+    pub(crate) shield_defence: DynProp<S>,
+    /// 奥术 护盾 受伤害系统控制
+    pub(crate) shield_arcane: DynProp<S>,
+}
+
+impl<S: FixedName> CombatHealthShield<S> {
+    /// 注意：返回值仅表示所有的属性均被清空，当传入的参数中没有血量时，不代表血量为空
+    fn hurt_internal(mut eff: Effect<S>, props: &mut [&mut DynProp<S>]) -> DamageInfo {
+        let mut dead_info = DamageInfo {
+            broken: false,
+            damage: eff.value,
+        };
+
+        for prop in props {
+            let alter_result = prop.alter_current_value(&eff);
+            let dead = prop.alter_to_min(&alter_result);
+
+            dead_info.broken = dead;
+            if dead_info.broken.not() {
+                break;
+            }
+            eff.set_value(eff.get_value() - alter_result.delta);
+        }
+
+        dead_info
+    }
+
+    pub(crate) fn hurt_external(
+        &mut self,
+        damage_type: DamageType,
+        damage_eff: DynPropInstEffect<S>,
+        damage_scale: f64,
+    ) -> DamageInfo {
+        let base_prop = match damage_type {
+            DamageType::KarmaTruth => &self.health,
+            DamageType::PhysicsShear => &self.health,
+            DamageType::PhysicsImpact => &self.health,
+            DamageType::MagickaArcane => &self.health,
+            DamageType::BrokeShieldDefence => &self.shield_defence,
+            DamageType::BrokeShieldArcane => &self.shield_arcane,
+        };
+        let mut eff = damage_eff.convert_real_effect(base_prop);
+        eff.value = eff.value * damage_scale;
+
+        let ll: &mut [&mut DynProp<S>] = match damage_type {
+            DamageType::KarmaTruth => &mut [&mut self.health],
+            DamageType::PhysicsShear => &mut [
+                &mut self.shield_defence,
+                &mut self.shield_substitute,
+                &mut self.health,
+            ],
+            DamageType::PhysicsImpact => &mut [&mut self.shield_substitute, &mut self.health],
+            DamageType::MagickaArcane => &mut [
+                &mut self.shield_arcane,
+                &mut self.shield_substitute,
+                &mut self.health,
+            ],
+            DamageType::BrokeShieldDefence => &mut [&mut self.shield_defence],
+            DamageType::BrokeShieldArcane => &mut [&mut self.shield_arcane],
+        };
+        Self::hurt_internal(eff, ll)
     }
 }

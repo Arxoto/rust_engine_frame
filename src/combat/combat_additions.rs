@@ -8,7 +8,7 @@ use crate::{
 };
 
 /// 外赋属性
-pub struct EquipUnit<S: FixedName = String> {
+pub struct CombatAdditionAttr<S: FixedName> {
     /// 武器锋利度
     pub(crate) weapon_sharp: DynAttr<S>,
     /// 武器质量
@@ -21,9 +21,9 @@ pub struct EquipUnit<S: FixedName = String> {
     pub(crate) armor_mass: DynAttr<S>,
 }
 
-impl<S: FixedName> EquipUnit<S> {
-    pub fn new() -> EquipUnit<S> {
-        EquipUnit {
+impl<S: FixedName> CombatAdditionAttr<S> {
+    pub fn new() -> CombatAdditionAttr<S> {
+        CombatAdditionAttr {
             weapon_sharp: DynAttr::new(0.0),
             weapon_mass: DynAttr::new(0.0),
             armor_hard: DynAttr::new(0.0),
@@ -45,7 +45,14 @@ impl<S: FixedName> EquipUnit<S> {
     }
 
     /// 注意函数内创建的效果默认是不允许堆叠的，因此想要实现部位装备时，需要给予不同的效果名称以防止覆盖
-    pub fn apply_armor(&mut self, effect_name: &S, weapon_name: &S, hard: f64, soft: f64, mass: f64) {
+    pub fn apply_armor(
+        &mut self,
+        effect_name: &S,
+        weapon_name: &S,
+        hard: f64,
+        soft: f64,
+        mass: f64,
+    ) {
         self.armor_hard.put_or_stack_effect(DynAttrEffect::new(
             DynAttrEffectType::BasicAdd,
             EffectBuilder::new_infinite(weapon_name.clone(), effect_name.clone(), hard),
