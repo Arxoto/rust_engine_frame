@@ -1,8 +1,6 @@
 // Trait Alias 简化复杂的 trait 约束，提高代码可读性和一致性
 pub trait FixedName: Eq + std::hash::Hash + Clone + std::fmt::Debug {
-    fn from_str(_: &str) -> Self {
-        panic!("not impl FixedName::from_str")
-    }
+    fn from_str(s: &str) -> Self;
 }
 
 pub trait FixedString: Eq + std::hash::Hash + Clone + std::fmt::Debug + Default {
@@ -17,12 +15,24 @@ impl FixedName for String {
         s.to_string()
     }
 }
-impl FixedName for &str {}
+impl FixedName for &str {
+    fn from_str(_: &str) -> Self {
+        panic!("not impl for str")
+    }
+}
 impl FixedString for String {}
 impl FixedString for &str {}
 // 支持用 id 代替字符串作为标识
-impl FixedName for usize {}
-impl FixedName for i64 {}
+impl FixedName for usize {
+    fn from_str(s: &str) -> Self {
+        s.parse().unwrap()
+    }
+}
+impl FixedName for i64 {
+    fn from_str(s: &str) -> Self {
+        s.parse().unwrap()
+    }
+}
 impl FixedString for usize {}
 impl FixedString for i64 {}
 
@@ -74,7 +84,11 @@ mod tests {
         }
     }
 
-    impl FixedName for FixedNameWrapper {}
+    impl FixedName for FixedNameWrapper {
+        fn from_str(s: &str) -> Self {
+            FixedNameWrapper(s.to_string())
+        }
+    }
 
     // use in project
 

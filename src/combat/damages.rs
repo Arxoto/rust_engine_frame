@@ -40,9 +40,9 @@ impl DamageType {
 #[derive(Debug)]
 pub struct DamageInfo {
     /// 伤害类型为“伤害”时表示是否致死，伤害类型为破盾时表示是否成功击穿防御
-    pub(crate) broken: bool,
+    pub broken: bool, // pub-external
     /// 造成的伤害（致死时伤害可能大于实际扣血值）
-    pub(crate) damage: f64,
+    pub damage: f64, // pub-external
 }
 
 impl DamageInfo {

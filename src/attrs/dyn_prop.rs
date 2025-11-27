@@ -69,6 +69,14 @@ impl<S: FixedName> DynProp<S> {
         self.get_current() == self.get_min()
     }
 
+    pub fn current_ge_min(&self, offset: f64) -> bool {
+        self.get_current() + offset >= self.get_min()
+    }
+
+    pub fn current_le_max(&self, offset: f64) -> bool {
+        self.get_current() + offset <= self.get_max()
+    }
+
     fn fix_current(&mut self) {
         self.current = self.current.min(self.get_max());
         self.current = self.current.max(self.get_min());
@@ -81,6 +89,19 @@ impl<S: FixedName> DynProp<S> {
     pub fn use_inst_effect(&mut self, e: DynPropInstEffect<S>) -> DynPropAlterResult {
         let real_eff = e.convert_real_effect(self);
         self.alter_current_value(&real_eff)
+    }
+
+    // todo test
+    pub fn use_inst_effect_if_ge_min(
+        &mut self,
+        e: DynPropInstEffect<S>,
+    ) -> Option<DynPropAlterResult> {
+        let real_eff = e.convert_real_effect(self);
+        if self.current_ge_min(real_eff.get_value()) {
+            Some(self.alter_current_value(&real_eff))
+        } else {
+            None
+        }
     }
 
     /// 对 max 或 min 装载了效果后 需要刷新以应用
@@ -244,6 +265,7 @@ impl<S: FixedName> DynProp<S> {
     pub(crate) fn alter_current_value(&mut self, e: &Effect<S>) -> DynPropAlterResult {
         let the_old = self.get_current();
         self.current += e.get_value();
+        // let the_new_unfix = self.get_current();
         self.fix_current();
         let the_new = self.get_current();
         let the_delta = the_new - the_old;
@@ -251,6 +273,8 @@ impl<S: FixedName> DynProp<S> {
         DynPropAlterResult {
             delta: the_delta,
             value: e.value,
+            // force_to_max: the_new_unfix != the_new && the_new == self.get_max(),
+            // force_to_min: the_new_unfix != the_new && the_new == self.get_min(),
         }
     }
 

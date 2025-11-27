@@ -18,7 +18,11 @@ impl Into<StringName> for &FixedNameWrapper {
     }
 }
 
-impl FixedName for FixedNameWrapper {}
+impl FixedName for FixedNameWrapper {
+    fn from_str(s: &str) -> Self {
+        FixedNameWrapper(s.into())
+    }
+}
 
 /// same as [`FixedString`]
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Default)]

@@ -1,7 +1,9 @@
 use std::ops::Not;
 
 use crate::{
-    attrs::{dyn_prop::DynProp, dyn_prop_inst_effect::DynPropInstEffect},
+    attrs::{
+        dyn_prop::DynProp, dyn_prop_inst_effect::DynPropInstEffect, event_prop::DynPropAlterResult,
+    },
     combat::{
         combat_additions::CombatAdditionAttr,
         combat_inherents::CombatInerentAttr,
@@ -77,6 +79,41 @@ impl<S: FixedName> CombatUnit<S> {
     pub fn init_addition_eff(&mut self, from_name: S, effect_name: S) {
         let eff = DamageSystem::gen_defence_shield(from_name, effect_name, &self.addition_attr);
         self.health_shields.shield_defence.put_dur_effect(eff);
+    }
+
+    /// 造成伤害
+    pub fn hurt_health(
+        &mut self,
+        from_unit: &CombatUnit<S>,
+        damage_type: DamageType,
+        damage_eff: DynPropInstEffect<S>,
+    ) -> DamageInfo {
+        let damage_scale = DamageSystem::calc_damage_scale(&damage_type, from_unit, &self);
+        self.health_shields
+            .hurt_external(damage_type, damage_eff, damage_scale)
+    }
+
+    /// 花费能量
+    pub fn cost_magicka(&mut self, eff: DynPropInstEffect<S>) -> DynPropAlterResult {
+        self.magicka.use_inst_effect(eff)
+    }
+
+    /// 尝试花费能量
+    pub fn try_cost_magicka(&mut self, eff: DynPropInstEffect<S>) -> Option<DynPropAlterResult> {
+        self.magicka.use_inst_effect_if_ge_min(eff)
+    }
+
+    /// 削韧 冲击-平衡
+    pub fn cut_stamina(&mut self, eff: DynPropInstEffect<S>) -> DynPropAlterResult {
+        self.stamina.use_inst_effect(eff)
+    }
+
+    pub fn give_entropy(&mut self, eff: DynPropInstEffect<S>) -> DynPropAlterResult {
+        self.bar_entropy.use_inst_effect(eff)
+    }
+
+    pub fn give_electric(&mut self, eff: DynPropInstEffect<S>) -> DynPropAlterResult {
+        self.bar_electric.use_inst_effect(eff)
     }
 }
 
