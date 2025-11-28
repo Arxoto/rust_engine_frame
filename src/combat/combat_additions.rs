@@ -21,6 +21,12 @@ pub struct CombatAdditionAttr<S: FixedName> {
     pub(crate) armor_mass: DynAttr<S>,
 }
 
+impl<S: FixedName> Default for CombatAdditionAttr<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<S: FixedName> CombatAdditionAttr<S> {
     pub fn new() -> CombatAdditionAttr<S> {
         CombatAdditionAttr {
@@ -33,7 +39,7 @@ impl<S: FixedName> CombatAdditionAttr<S> {
     }
 
     /// 注意函数内创建的效果默认是不允许堆叠的，因此想要实现双持武器时，需要给予不同的效果名称以防止覆盖
-    pub fn apply_weapon(&mut self, effect_name: &S, weapon_name: &S, sharp: f64, mass: f64) {
+    pub(crate) fn apply_weapon(&mut self, effect_name: &S, weapon_name: &S, sharp: f64, mass: f64) {
         self.weapon_sharp.put_or_stack_effect(DynAttrEffect::new(
             DynAttrEffectType::BasicAdd,
             EffectBuilder::new_infinite(weapon_name.clone(), effect_name.clone(), sharp),
@@ -45,31 +51,90 @@ impl<S: FixedName> CombatAdditionAttr<S> {
     }
 
     /// 注意函数内创建的效果默认是不允许堆叠的，因此想要实现部位装备时，需要给予不同的效果名称以防止覆盖
-    pub fn apply_armor(
+    pub(crate) fn apply_armor(
         &mut self,
         effect_name: &S,
-        weapon_name: &S,
+        armor_name: &S,
         hard: f64,
         soft: f64,
         mass: f64,
     ) {
         self.armor_hard.put_or_stack_effect(DynAttrEffect::new(
             DynAttrEffectType::BasicAdd,
-            EffectBuilder::new_infinite(weapon_name.clone(), effect_name.clone(), hard),
+            EffectBuilder::new_infinite(armor_name.clone(), effect_name.clone(), hard),
         ));
         self.armor_soft.put_or_stack_effect(DynAttrEffect::new(
             DynAttrEffectType::BasicAdd,
-            EffectBuilder::new_infinite(weapon_name.clone(), effect_name.clone(), soft),
+            EffectBuilder::new_infinite(armor_name.clone(), effect_name.clone(), soft),
         ));
         self.armor_mass.put_or_stack_effect(DynAttrEffect::new(
             DynAttrEffectType::BasicAdd,
-            EffectBuilder::new_infinite(weapon_name.clone(), effect_name.clone(), mass),
+            EffectBuilder::new_infinite(armor_name.clone(), effect_name.clone(), mass),
         ));
+    }
+
+    /// 注意函数内创建的效果默认是不允许堆叠的，因此想要实现双持武器时，需要给予不同的效果名称以防止覆盖
+    pub fn apply_equip_weapon(&mut self, effect_name: &S, equip_weapon: CombatEquipWeapon<S>) {
+        self.apply_weapon(
+            effect_name,
+            &equip_weapon.weapon_name,
+            equip_weapon.weapon_sharp,
+            equip_weapon.weapon_mass,
+        );
+    }
+
+    /// 注意函数内创建的效果默认是不允许堆叠的，因此想要实现部位装备时，需要给予不同的效果名称以防止覆盖
+    pub fn apply_equip_armor(&mut self, effect_name: &S, equip_armor: &CombatEquipArmor<S>) {
+        self.apply_armor(
+            effect_name,
+            &equip_armor.armor_name,
+            equip_armor.armor_hard,
+            equip_armor.armor_soft,
+            equip_armor.armor_mass,
+        );
     }
 }
 
-impl<S: FixedName> Default for CombatAdditionAttr<S> {
-    fn default() -> Self {
-        Self::new()
+pub struct CombatEquipWeapon<S: FixedName> {
+    pub(crate) weapon_name: S,
+    /// 武器锋利度
+    pub(crate) weapon_sharp: f64,
+    /// 武器质量
+    pub(crate) weapon_mass: f64,
+}
+
+impl<S: FixedName> CombatEquipWeapon<S> {
+    pub fn new(weapon_name: S, weapon_sharp: f64, weapon_mass: f64) -> CombatEquipWeapon<S> {
+        CombatEquipWeapon {
+            weapon_name,
+            weapon_sharp,
+            weapon_mass,
+        }
+    }
+}
+
+pub struct CombatEquipArmor<S: FixedName> {
+    pub(crate) armor_name: S,
+    /// 盔甲坚韧
+    pub(crate) armor_hard: f64,
+    /// 盔甲柔韧
+    pub(crate) armor_soft: f64,
+    /// 盔甲质量
+    pub(crate) armor_mass: f64,
+}
+
+impl<S: FixedName> CombatEquipArmor<S> {
+    pub fn new(
+        armor_name: S,
+        armor_hard: f64,
+        armor_soft: f64,
+        armor_mass: f64,
+    ) -> CombatEquipArmor<S> {
+        CombatEquipArmor {
+            armor_name,
+            armor_hard,
+            armor_soft,
+            armor_mass,
+        }
     }
 }

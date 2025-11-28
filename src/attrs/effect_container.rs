@@ -37,9 +37,9 @@ where
     /// 更新排序
     ///
     /// 至少需要定时刷新（否则会有内存泄漏问题），不刷新也不会有逻辑问题
-    pub fn refresh_capacity(&mut self) {
-        // 提前确定容量
-        let min_cap = self.effects.iter().filter(|e| e.is_some()).count();
+    pub fn refresh_list(&mut self) {
+        // 提前确定容量 .iter().filter(|e| e.is_some()).count(); 不缩容防止频繁扩容
+        let min_cap = self.effects.capacity();
         let mut new_effects = Vec::with_capacity(min_cap.next_power_of_two());
 
         std::mem::swap(&mut new_effects, &mut self.effects); // 先交换，因为后面会获取所有权
@@ -139,19 +139,22 @@ mod tests {
 
         // 以上 不使用 refresh_capacity 逻辑上也不会出错
         // 下面 验证刷新的准确性
-        container.refresh_capacity();
+        container.refresh_list();
         assert_eq!(container.keys(), ["2", "a", "1", "b"]);
-        assert_eq!(container.effects.capacity(), 4);
+        // assert_eq!(container.effects.capacity(), 4); // 若内存优先 则会缩容
+        assert_eq!(container.effects.capacity(), 8); // 若性能优先 容量没变
 
         // 卸载效果
         container.del_effect(&"2");
         container.del_effect(&"1");
         assert_eq!(container.keys(), ["a", "b"]);
-        assert_eq!(container.effects.capacity(), 4); // 容量没变
+        // assert_eq!(container.effects.capacity(), 4); // 若内存优先 仅删除 容量不变
+        assert_eq!(container.effects.capacity(), 8); // 若性能优先  容量没变
 
-        container.refresh_capacity();
+        container.refresh_list();
         assert_eq!(container.keys(), ["a", "b"]);
-        assert_eq!(container.effects.capacity(), 2);
+        // assert_eq!(container.effects.capacity(), 2); // 若内存优先 刷新容量后才会改变
+        assert_eq!(container.effects.capacity(), 8); // 若性能优先  容量没变
     }
 
     #[test]
@@ -163,14 +166,14 @@ mod tests {
         effect_container.put_or_stack_effect(EffectBuilder::new_infinite("aaa", "1", 1.0));
         effect_container.put_or_stack_effect(EffectBuilder::new_infinite("aaa", "2", 1.0));
         effect_container.put_or_stack_effect(EffectBuilder::new_infinite("aaa", "3", 1.0));
-        effect_container.refresh_capacity();
+        effect_container.refresh_list();
         let mut effect_names = effect_container.keys();
         effect_names.sort();
         assert_eq!(effect_names, ["1", "2", "3"]);
 
         // del
         effect_container.del_effect(&"2");
-        effect_container.refresh_capacity();
+        effect_container.refresh_list();
         let mut effect_names = effect_container.keys();
         effect_names.sort();
         assert_eq!(effect_names, ["1", "3"]);
@@ -184,7 +187,7 @@ mod tests {
 
         // stack
         effect_container.put_or_stack_effect(EffectBuilder::new_infinite("bbb", "1", 2.0));
-        effect_container.refresh_capacity();
+        effect_container.refresh_list();
 
         let effect = effect_container.get_effect_mut(&"1").unwrap();
         assert_eq!(effect.get_from_name(), &"bbb");

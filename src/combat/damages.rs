@@ -90,3 +90,17 @@ impl DamageSystem {
         ))
     }
 }
+
+pub struct EnergyLevel(f64, f64, f64);
+
+impl EnergyLevel {
+    pub fn max_energy(&self, v: f64) -> f64 {
+        if v <= self.0 {
+            self.0
+        } else if v <= self.1 {
+            self.1
+        } else {
+            self.2
+        }
+    }
+}

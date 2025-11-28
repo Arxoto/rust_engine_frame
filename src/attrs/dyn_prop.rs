@@ -165,7 +165,7 @@ impl<S: FixedName> DynProp<S> {
 
     /// 刷新周期效果的优先级列表
     pub fn refresh_period_effect(&mut self) {
-        self.period_effects.refresh_capacity();
+        self.period_effects.refresh_list();
     }
 
     /// 周期效果 可外部调用

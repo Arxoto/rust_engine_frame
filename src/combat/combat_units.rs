@@ -2,15 +2,20 @@ use std::ops::Not;
 
 use crate::{
     attrs::{
-        dyn_prop::DynProp, dyn_prop_inst_effect::DynPropInstEffect, event_prop::DynPropAlterResult,
+        dyn_prop::DynProp, dyn_prop_inst_effect::DynPropInstEffect,
+        dyn_prop_period_effect::DynPropPeriodEffect, event_prop::DynPropAlterResult,
     },
     combat::{
         combat_additions::CombatAdditionAttr,
         combat_inherents::CombatInerentAttr,
-        damages::{DamageInfo, DamageSystem, DamageType},
+        damages::{DamageInfo, DamageSystem, DamageType, EnergyLevel},
     },
     cores::unify_type::FixedName,
-    effects::native_effect::{Effect, ProxyEffect},
+    effects::{
+        duration_effect::EffectBuilder,
+        native_duration::ProxyDuration,
+        native_effect::{Effect, ProxyEffect},
+    },
 };
 
 /// 战斗属性
@@ -47,6 +52,7 @@ pub struct CombatUnit<S: FixedName> {
 }
 
 impl<S: FixedName> CombatUnit<S> {
+    // todo test
     pub fn new(
         magicka_base: f64,
         magicka_scale: f64,
@@ -54,9 +60,13 @@ impl<S: FixedName> CombatUnit<S> {
         health_scale: f64,
         inherent_attr: CombatInerentAttr<S>,
         addition_attr: CombatAdditionAttr<S>,
+        energy_level: &EnergyLevel,
     ) -> CombatUnit<S> {
-        let magicka_max = magicka_base + magicka_scale * inherent_attr.belief.get_origin();
         let health_value = health_base + health_scale * inherent_attr.belief.get_origin();
+
+        let magicka_max = magicka_base + magicka_scale * inherent_attr.belief.get_origin();
+        let magicka_max = energy_level.max_energy(magicka_max);
+
         CombatUnit {
             health_shields: CombatHealthShield {
                 health: DynProp::new_by_max(health_value),
@@ -76,9 +86,64 @@ impl<S: FixedName> CombatUnit<S> {
         }
     }
 
+    // todo test
+    /// 生命值以最大值的百分比进行恢复
+    pub fn init_health_eff<T: Into<S>>(
+        &mut self,
+        from_name: T,
+        health_recover_name: T,
+        health_recover_ratio: f64,
+        health_recover_period: f64,
+    ) {
+        let e = DynPropPeriodEffect::new_max_per(
+            EffectBuilder::new_infinite(from_name, health_recover_name, health_recover_ratio),
+            health_recover_period,
+        );
+        self.health_shields.health.put_period_effect(e);
+        self.health_shields.health.refresh_period_effect();
+    }
+
+    /// 平衡以固定值进行恢复 具有延迟时间
+    pub fn init_stamina_eff<T: Into<S>>(
+        &mut self,
+        from_name: T,
+        stamina_recover_name: T,
+        stamina_recover_value: f64,
+        stamina_recover_period: f64,
+        stamina_recover_wait: f64,
+    ) {
+        let mut e = DynPropPeriodEffect::new_val(
+            EffectBuilder::new_infinite(from_name, stamina_recover_name, stamina_recover_value),
+            stamina_recover_period,
+        );
+        e.set_wait_time(stamina_recover_wait);
+        self.stamina.put_period_effect(e);
+        self.stamina.refresh_period_effect();
+    }
+
+    /// 能量以固定值削减 具有延迟时间
+    pub fn init_magicka_eff<T: Into<S>>(
+        &mut self,
+        from_name: T,
+        magicka_decline_name: T,
+        magicka_decline_value: f64,
+        magicka_decline_period: f64,
+        magicka_decline_wait: f64,
+    ) {
+        let mut e = DynPropPeriodEffect::new_val(
+            EffectBuilder::new_infinite(from_name, magicka_decline_name, magicka_decline_value),
+            magicka_decline_period,
+        );
+        e.set_wait_time(magicka_decline_wait);
+        self.magicka.put_period_effect(e);
+        self.magicka.refresh_period_effect();
+    }
+
+    // todo test
     pub fn init_addition_eff<T: Into<S>>(&mut self, from_name: T, effect_name: T) {
         let eff = DamageSystem::gen_defence_shield(from_name, effect_name, &self.addition_attr);
         self.health_shields.shield_defence.put_dur_effect(eff);
+        self.health_shields.shield_defence.refresh_period_effect();
     }
 
     /// 造成伤害
@@ -132,7 +197,6 @@ pub(crate) struct CombatHealthShield<S: FixedName> {
 }
 
 impl<S: FixedName> CombatHealthShield<S> {
-    /// 注意：返回值仅表示所有的属性均被清空，当传入的参数中没有血量时，不代表血量为空
     fn hurt_internal(mut eff: Effect<S>, props: &mut [&mut DynProp<S>]) -> DamageInfo {
         let mut dead_info = DamageInfo {
             broken: false,
@@ -153,6 +217,7 @@ impl<S: FixedName> CombatHealthShield<S> {
         dead_info
     }
 
+    // todo test
     pub(crate) fn hurt_external(
         &mut self,
         damage_type: DamageType,
