@@ -12,17 +12,13 @@ impl From<StringName> for FixedNameWrapper {
     }
 }
 
-impl Into<StringName> for &FixedNameWrapper {
-    fn into(self) -> StringName {
-        self.0.clone()
+impl From<&FixedNameWrapper> for StringName {
+    fn from(val: &FixedNameWrapper) -> Self {
+        val.0.clone()
     }
 }
 
-impl FixedName for FixedNameWrapper {
-    fn from_str(s: &str) -> Self {
-        FixedNameWrapper(s.into())
-    }
-}
+impl FixedName for FixedNameWrapper {}
 
 /// same as [`FixedString`]
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Default)]
@@ -34,9 +30,9 @@ impl From<GString> for FixedStringWrapper {
     }
 }
 
-impl Into<GString> for &FixedStringWrapper {
-    fn into(self) -> GString {
-        self.0.clone()
+impl From<&FixedStringWrapper> for GString {
+    fn from(val: &FixedStringWrapper) -> Self {
+        val.0.clone()
     }
 }
 

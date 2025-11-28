@@ -67,3 +67,9 @@ impl<S: FixedName> CombatAdditionAttr<S> {
         ));
     }
 }
+
+impl<S: FixedName> Default for CombatAdditionAttr<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}

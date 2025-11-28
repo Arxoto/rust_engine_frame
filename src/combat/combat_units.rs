@@ -76,7 +76,7 @@ impl<S: FixedName> CombatUnit<S> {
         }
     }
 
-    pub fn init_addition_eff(&mut self, from_name: S, effect_name: S) {
+    pub fn init_addition_eff<T: Into<S>>(&mut self, from_name: T, effect_name: T) {
         let eff = DamageSystem::gen_defence_shield(from_name, effect_name, &self.addition_attr);
         self.health_shields.shield_defence.put_dur_effect(eff);
     }
@@ -88,7 +88,7 @@ impl<S: FixedName> CombatUnit<S> {
         damage_type: DamageType,
         damage_eff: DynPropInstEffect<S>,
     ) -> DamageInfo {
-        let damage_scale = DamageSystem::calc_damage_scale(&damage_type, from_unit, &self);
+        let damage_scale = DamageSystem::calc_damage_scale(&damage_type, from_unit, self);
         self.health_shields
             .hurt_external(damage_type, damage_eff, damage_scale)
     }
@@ -168,7 +168,7 @@ impl<S: FixedName> CombatHealthShield<S> {
             DamageType::BrokeShieldArcane => &self.shield_arcane,
         };
         let mut eff = damage_eff.convert_real_effect(base_prop);
-        eff.value = eff.value * damage_scale;
+        eff.value *= damage_scale;
 
         let ll: &mut [&mut DynProp<S>] = match damage_type {
             DamageType::KarmaTruth => &mut [&mut self.health],

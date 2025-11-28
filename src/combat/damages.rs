@@ -77,9 +77,9 @@ impl DamageSystem {
         }
     }
 
-    pub fn gen_defence_shield<S: FixedName>(
-        from_name: S,
-        effect_name: S,
+    pub fn gen_defence_shield<S: FixedName, T: Into<S>>(
+        from_name: T,
+        effect_name: T,
         addition_attr: &CombatAdditionAttr<S>,
     ) -> DynPropDurEffect<S> {
         let armor_hard = addition_attr.armor_hard.get_current();
