@@ -31,7 +31,13 @@ pub enum DynPropDurEffectType {
     MinVal,
 }
 
-/// prop属性持久效果 包括直接作用于最大最小值的效果 还有特殊效果如持续流血回蓝等
+/// prop属性持久效果 仅直接作用于最大最小值的效果
+///
+/// 不修改当前值 [`DynProp::put_dur_effect`]
+///
+/// 同步修改当前值 [`DynProp::put_and_do_dur_effect`]
+///
+/// 特殊效果如持续流血回蓝等 见周期性效果 [`DynPropPeriodEffect`]
 #[derive(Clone, Debug)]
 pub struct DynPropDurEffect<S = String> {
     pub(crate) the_type: DynPropDurEffectType,

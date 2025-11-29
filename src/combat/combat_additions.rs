@@ -44,10 +44,13 @@ impl<S: FixedName> CombatAdditionAttr<S> {
             DynAttrEffectType::BasicAdd,
             EffectBuilder::new_infinite(weapon_name.clone(), effect_name.clone(), sharp),
         ));
+        self.weapon_sharp.refresh_value();
+
         self.weapon_mass.put_or_stack_effect(DynAttrEffect::new(
             DynAttrEffectType::BasicAdd,
             EffectBuilder::new_infinite(weapon_name.clone(), effect_name.clone(), mass),
         ));
+        self.weapon_mass.refresh_value();
     }
 
     /// 注意函数内创建的效果默认是不允许堆叠的，因此想要实现部位装备时，需要给予不同的效果名称以防止覆盖
@@ -63,20 +66,29 @@ impl<S: FixedName> CombatAdditionAttr<S> {
             DynAttrEffectType::BasicAdd,
             EffectBuilder::new_infinite(armor_name.clone(), effect_name.clone(), hard),
         ));
+        self.armor_hard.refresh_value();
+
         self.armor_soft.put_or_stack_effect(DynAttrEffect::new(
             DynAttrEffectType::BasicAdd,
             EffectBuilder::new_infinite(armor_name.clone(), effect_name.clone(), soft),
         ));
+        self.armor_soft.refresh_value();
+
         self.armor_mass.put_or_stack_effect(DynAttrEffect::new(
             DynAttrEffectType::BasicAdd,
             EffectBuilder::new_infinite(armor_name.clone(), effect_name.clone(), mass),
         ));
+        self.armor_mass.refresh_value();
     }
 
     /// 注意函数内创建的效果默认是不允许堆叠的，因此想要实现双持武器时，需要给予不同的效果名称以防止覆盖
-    pub fn apply_equip_weapon(&mut self, effect_name: &S, equip_weapon: CombatEquipWeapon<S>) {
+    pub fn apply_equip_weapon<T: Into<S>>(
+        &mut self,
+        effect_name: T,
+        equip_weapon: &CombatEquipWeapon<S>,
+    ) {
         self.apply_weapon(
-            effect_name,
+            &effect_name.into(),
             &equip_weapon.weapon_name,
             equip_weapon.weapon_sharp,
             equip_weapon.weapon_mass,
@@ -84,9 +96,13 @@ impl<S: FixedName> CombatAdditionAttr<S> {
     }
 
     /// 注意函数内创建的效果默认是不允许堆叠的，因此想要实现部位装备时，需要给予不同的效果名称以防止覆盖
-    pub fn apply_equip_armor(&mut self, effect_name: &S, equip_armor: &CombatEquipArmor<S>) {
+    pub fn apply_equip_armor<T: Into<S>>(
+        &mut self,
+        effect_name: T,
+        equip_armor: &CombatEquipArmor<S>,
+    ) {
         self.apply_armor(
-            effect_name,
+            &effect_name.into(),
             &equip_armor.armor_name,
             equip_armor.armor_hard,
             equip_armor.armor_soft,
@@ -104,7 +120,12 @@ pub struct CombatEquipWeapon<S: FixedName> {
 }
 
 impl<S: FixedName> CombatEquipWeapon<S> {
-    pub fn new(weapon_name: S, weapon_sharp: f64, weapon_mass: f64) -> CombatEquipWeapon<S> {
+    pub fn new<T: Into<S>>(
+        weapon_name: T,
+        weapon_sharp: f64,
+        weapon_mass: f64,
+    ) -> CombatEquipWeapon<S> {
+        let weapon_name: S = weapon_name.into();
         CombatEquipWeapon {
             weapon_name,
             weapon_sharp,
@@ -124,12 +145,13 @@ pub struct CombatEquipArmor<S: FixedName> {
 }
 
 impl<S: FixedName> CombatEquipArmor<S> {
-    pub fn new(
-        armor_name: S,
+    pub fn new<T: Into<S>>(
+        armor_name: T,
         armor_hard: f64,
         armor_soft: f64,
         armor_mass: f64,
     ) -> CombatEquipArmor<S> {
+        let armor_name: S = armor_name.into();
         CombatEquipArmor {
             armor_name,
             armor_hard,

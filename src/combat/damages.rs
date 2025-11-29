@@ -1,8 +1,9 @@
 use crate::{
-    attrs::dyn_prop_dur_effect::DynPropDurEffect,
-    combat::{combat_additions::CombatAdditionAttr, combat_units::CombatUnit},
+    combat::{
+        combat_additions::CombatAdditionAttr, combat_inherents::CombatInherentAttr,
+        combat_units::CombatUnit,
+    },
     cores::unify_type::FixedName,
-    effects::duration_effect::EffectBuilder,
 };
 
 #[derive(Debug)]
@@ -52,15 +53,15 @@ impl DamageInfo {
     }
 }
 
-pub struct DamageSystem;
+pub struct NumericalBalancer;
 
-impl DamageSystem {
+impl NumericalBalancer {
     pub fn calc_damage_scale<S: FixedName>(
         damage_type: &DamageType,
         source_combat: &CombatUnit<S>,
         target_combat: &CombatUnit<S>,
     ) -> f64 {
-        match damage_type {
+        let damage_scale = match damage_type {
             DamageType::KarmaTruth => 1.0,
             DamageType::PhysicsShear | DamageType::BrokeShieldDefence => {
                 source_combat.inherent_attr.strength.get_current()
@@ -74,26 +75,49 @@ impl DamageSystem {
             DamageType::MagickaArcane | DamageType::BrokeShieldArcane => {
                 source_combat.inherent_attr.belief.get_current()
             }
-        }
+        };
+
+        let base_add = (source_combat.magicka.get_current() - target_combat.magicka.get_current())
+            / NumericalBalancer::get_default_prop_value();
+        let base_scale = 1.0 + base_add.min(-1.0);
+
+        damage_scale * base_scale
     }
 
-    pub fn gen_defence_shield<S: FixedName, T: Into<S>>(
-        from_name: T,
-        effect_name: T,
-        addition_attr: &CombatAdditionAttr<S>,
-    ) -> DynPropDurEffect<S> {
-        let armor_hard = addition_attr.armor_hard.get_current();
-        DynPropDurEffect::new_max_val(EffectBuilder::new_infinite(
-            from_name,
-            effect_name,
-            armor_hard,
-        ))
+    pub const fn get_default_prop_value() -> f64 {
+        100.0
+    }
+
+    pub fn calc_health_max<S: FixedName>(
+        health_base: f64,
+        health_scale: f64,
+        inherent_attr: &CombatInherentAttr<S>,
+    ) -> f64 {
+        health_base + health_scale * inherent_attr.belief.get_origin()
+    }
+
+    pub fn calc_magicka_max<S: FixedName>(
+        magicka_base: f64,
+        magicka_scale: f64,
+        inherent_attr: &CombatInherentAttr<S>,
+        magicka_energy_level: &MagickaEnergyLevel,
+    ) -> f64 {
+        let magicka_value = magicka_base + magicka_scale * inherent_attr.belief.get_origin();
+        magicka_energy_level.max_energy(magicka_value)
+    }
+
+    pub fn calc_defence_shield<S: FixedName>(addition_attr: &CombatAdditionAttr<S>) -> f64 {
+        addition_attr.armor_hard.get_current()
     }
 }
 
-pub struct EnergyLevel(f64, f64, f64);
+pub struct MagickaEnergyLevel(f64, f64, f64);
 
-impl EnergyLevel {
+impl MagickaEnergyLevel {
+    pub fn new(l0: f64, l1: f64, l2: f64) -> MagickaEnergyLevel {
+        MagickaEnergyLevel(l0, l1, l2)
+    }
+
     pub fn max_energy(&self, v: f64) -> f64 {
         if v <= self.0 {
             self.0

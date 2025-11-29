@@ -69,14 +69,6 @@ impl<S: FixedName> DynProp<S> {
         self.get_current() == self.get_min()
     }
 
-    pub fn current_ge_min(&self, offset: f64) -> bool {
-        self.get_current() + offset >= self.get_min()
-    }
-
-    pub fn current_le_max(&self, offset: f64) -> bool {
-        self.get_current() + offset <= self.get_max()
-    }
-
     fn fix_current(&mut self) {
         self.current = self.current.min(self.get_max());
         self.current = self.current.max(self.get_min());
@@ -91,13 +83,16 @@ impl<S: FixedName> DynProp<S> {
         self.alter_current_value(&real_eff)
     }
 
-    // todo test
-    pub fn use_inst_effect_if_ge_min(
+    /// 瞬时效果（保证不会小于最小值） 返回空表示失败（会小于最小值） 返回非空成功（带修改值）
+    ///
+    /// 无需手动修正属性值
+    pub fn use_inst_effect_if_enough(
         &mut self,
         e: DynPropInstEffect<S>,
+        target_min: f64,
     ) -> Option<DynPropAlterResult> {
         let real_eff = e.convert_real_effect(self);
-        if self.current_ge_min(real_eff.get_value()) {
+        if self.get_current() + real_eff.get_value() >= target_min {
             Some(self.alter_current_value(&real_eff))
         } else {
             None
@@ -111,7 +106,7 @@ impl<S: FixedName> DynProp<S> {
         self.fix_current();
     }
 
-    /// 持久效果 可外部调用
+    /// 持久效果 **不会修改当前值** 可外部调用
     ///
     /// 而后需 **手动调用** 刷新属性值 [`Self::refresh_value`]
     pub fn put_dur_effect(&mut self, e: DynPropDurEffect<S>) {
@@ -155,7 +150,7 @@ impl<S: FixedName> DynProp<S> {
     /// 注意【仅增益效果会修改当前值（如提升最大生命值）】
     ///
     /// 无需手动调用刷新属性值
-    pub fn do_put_dur_effect(&mut self, e: DynPropDurEffect<S>) {
+    pub fn put_and_do_dur_effect(&mut self, e: DynPropDurEffect<S>) {
         self.put_dur_effect(e.clone());
         self.refresh_value();
         if let Some(real_eff) = e.convert_real_effect_for_max_buff(self) {
@@ -200,11 +195,6 @@ impl<S: FixedName> DynProp<S> {
     pub fn get_period_effect_by_name(&self, s: &S) -> Option<DynPropPeriodEffect<S>> {
         self.period_effects.get_effect(s).cloned()
     }
-
-    // todo 是否应该将多个prop聚合成一个 如血量和护盾的关系
-    // 优点 能在框架内进行测试验证
-    // 优点 做触发效果时较为内聚（思考如何实现，是否基于游戏引擎去解耦开，传入或返回一个闭包）
-    // 缺点 不同类型的伤害护盾计算逻辑可能需要在框架写死（致命）
 
     /// 无需手动刷新属性值
     pub fn process_time(&mut self, delta: f64) -> DynPropProcessResult<S> {
@@ -378,14 +368,48 @@ mod tests {
     }
 
     #[test]
-    fn do_put_dur_effect() {
+    fn use_inst_effect_if_ge_min() {
+        let mut prop: DynProp = DynProp::new_by_max(100.0);
+        assert_eq!(prop.get_current(), 100.0);
+
+        let opt_result = prop.use_inst_effect_if_enough(
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("someone", "effect_name", -50.0)),
+            0.0,
+        );
+        assert_eq!(opt_result.unwrap().delta, -50.0);
+        assert_eq!(prop.get_current(), 50.0);
+
+        let opt_result = prop.use_inst_effect_if_enough(
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("someone", "effect_name", -20.0)),
+            50.0,
+        );
+        assert!(opt_result.is_none());
+        assert_eq!(prop.get_current(), 50.0);
+
+        let opt_result = prop.use_inst_effect_if_enough(
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("someone", "effect_name", -20.0)),
+            10.0,
+        );
+        assert_eq!(opt_result.unwrap().delta, -20.0);
+        assert_eq!(prop.get_current(), 30.0);
+
+        let opt_result = prop.use_inst_effect_if_enough(
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("someone", "effect_name", -50.0)),
+            0.0,
+        );
+        assert!(opt_result.is_none());
+        assert_eq!(prop.get_current(), 30.0);
+    }
+
+    #[test]
+    fn put_and_do_dur_effect() {
         let mut prop: DynProp = DynProp::new_by_max(50.0);
         let eff = DynPropDurEffect::new_max_per(EffectBuilder::new_infinite(
             "from_name",
             "effect_name1",
             0.2,
         ));
-        prop.do_put_dur_effect(eff);
+        prop.put_and_do_dur_effect(eff);
         assert_eq!(prop.get_current(), 60.0);
 
         prop.current = 20.0;
@@ -394,7 +418,7 @@ mod tests {
             "effect_name2",
             10.0,
         ));
-        prop.do_put_dur_effect(eff);
+        prop.put_and_do_dur_effect(eff);
         assert_eq!(prop.get_current(), 30.0);
         assert_eq!(prop.get_max(), 70.0);
     }

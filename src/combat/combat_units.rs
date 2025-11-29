@@ -2,13 +2,14 @@ use std::ops::Not;
 
 use crate::{
     attrs::{
-        dyn_prop::DynProp, dyn_prop_inst_effect::DynPropInstEffect,
-        dyn_prop_period_effect::DynPropPeriodEffect, event_prop::DynPropAlterResult,
+        dyn_prop::DynProp, dyn_prop_dur_effect::DynPropDurEffect,
+        dyn_prop_inst_effect::DynPropInstEffect, dyn_prop_period_effect::DynPropPeriodEffect,
+        event_prop::DynPropAlterResult,
     },
     combat::{
         combat_additions::CombatAdditionAttr,
-        combat_inherents::CombatInerentAttr,
-        damages::{DamageInfo, DamageSystem, DamageType, EnergyLevel},
+        combat_inherents::CombatInherentAttr,
+        damages::{DamageInfo, DamageType, MagickaEnergyLevel, NumericalBalancer},
     },
     cores::unify_type::FixedName,
     effects::{
@@ -46,26 +47,30 @@ pub struct CombatUnit<S: FixedName> {
     pub(crate) bar_electric: DynProp<S>,
 
     /// 内禀属性
-    pub(crate) inherent_attr: CombatInerentAttr<S>,
+    pub(crate) inherent_attr: CombatInherentAttr<S>,
     /// 外赋属性
     pub(crate) addition_attr: CombatAdditionAttr<S>,
 }
 
 impl<S: FixedName> CombatUnit<S> {
-    // todo test
     pub fn new(
-        magicka_base: f64,
-        magicka_scale: f64,
         health_base: f64,
         health_scale: f64,
-        inherent_attr: CombatInerentAttr<S>,
+        magicka_base: f64,
+        magicka_scale: f64,
+        inherent_attr: CombatInherentAttr<S>,
         addition_attr: CombatAdditionAttr<S>,
-        energy_level: &EnergyLevel,
+        magicka_energy_level: &MagickaEnergyLevel,
     ) -> CombatUnit<S> {
-        let health_value = health_base + health_scale * inherent_attr.belief.get_origin();
+        let health_value =
+            NumericalBalancer::calc_health_max(health_base, health_scale, &inherent_attr);
 
-        let magicka_max = magicka_base + magicka_scale * inherent_attr.belief.get_origin();
-        let magicka_max = energy_level.max_energy(magicka_max);
+        let magicka_max = NumericalBalancer::calc_magicka_max(
+            magicka_base,
+            magicka_scale,
+            &inherent_attr,
+            &magicka_energy_level,
+        );
 
         CombatUnit {
             health_shields: CombatHealthShield {
@@ -76,10 +81,10 @@ impl<S: FixedName> CombatUnit<S> {
             },
 
             magicka: DynProp::new(0.0, magicka_max, 0.0),
-            stamina: DynProp::new_by_max(100.0),
+            stamina: DynProp::new_by_max(NumericalBalancer::get_default_prop_value()),
 
-            bar_entropy: DynProp::new_by_max(100.0),
-            bar_electric: DynProp::new_by_max(100.0),
+            bar_entropy: DynProp::new_by_max(NumericalBalancer::get_default_prop_value()),
+            bar_electric: DynProp::new_by_max(NumericalBalancer::get_default_prop_value()),
 
             inherent_attr,
             addition_attr,
@@ -139,11 +144,17 @@ impl<S: FixedName> CombatUnit<S> {
         self.magicka.refresh_period_effect();
     }
 
-    // todo test
+    /// 根据外赋属性生成护盾
     pub fn init_addition_eff<T: Into<S>>(&mut self, from_name: T, effect_name: T) {
-        let eff = DamageSystem::gen_defence_shield(from_name, effect_name, &self.addition_attr);
-        self.health_shields.shield_defence.put_dur_effect(eff);
-        self.health_shields.shield_defence.refresh_period_effect();
+        let defence_shield_value = NumericalBalancer::calc_defence_shield(&self.addition_attr);
+        let eff = DynPropDurEffect::new_max_val(EffectBuilder::new_infinite(
+            from_name,
+            effect_name,
+            defence_shield_value,
+        ));
+        self.health_shields
+            .shield_defence
+            .put_and_do_dur_effect(eff);
     }
 
     /// 造成伤害
@@ -153,7 +164,7 @@ impl<S: FixedName> CombatUnit<S> {
         damage_type: DamageType,
         damage_eff: DynPropInstEffect<S>,
     ) -> DamageInfo {
-        let damage_scale = DamageSystem::calc_damage_scale(&damage_type, from_unit, self);
+        let damage_scale = NumericalBalancer::calc_damage_scale(&damage_type, from_unit, self);
         self.health_shields
             .hurt_external(damage_type, damage_eff, damage_scale)
     }
@@ -165,7 +176,7 @@ impl<S: FixedName> CombatUnit<S> {
 
     /// 尝试花费能量
     pub fn try_cost_magicka(&mut self, eff: DynPropInstEffect<S>) -> Option<DynPropAlterResult> {
-        self.magicka.use_inst_effect_if_ge_min(eff)
+        self.magicka.use_inst_effect_if_enough(eff, 0.0)
     }
 
     /// 削韧 冲击-平衡
@@ -252,5 +263,100 @@ impl<S: FixedName> CombatHealthShield<S> {
             DamageType::BrokeShieldArcane => &mut [&mut self.shield_arcane],
         };
         Self::hurt_internal(eff, ll)
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use crate::combat::combat_additions::{CombatEquipArmor, CombatEquipWeapon};
+
+    use super::*;
+
+    #[test]
+    fn combat_unit_new_and_init_addition_eff() {
+        let strength = 60.0;
+        let belief = 80.0;
+        let magicka_energy_level = &MagickaEnergyLevel::new(100.0, 200.0, 300.0);
+
+        let health_base = 20.0;
+        let health_scale = 1.0;
+        let magicka_base = 50.0;
+        let magicka_scale = 3.0;
+
+        let armor_hard = 10.0;
+        let armor_soft = 10.0;
+        let armor_mass = 10.0;
+
+        let weapon_sharp = 1.0;
+        let weapon_mass = 5.0;
+
+        let combat_inherent_attr = CombatInherentAttr::new(strength, belief);
+        assert_eq!(combat_inherent_attr.strength.get_current(), strength);
+        assert_eq!(combat_inherent_attr.belief.get_current(), belief);
+
+        let combat_addition_attr = {
+            let mut combat_addition_attr = CombatAdditionAttr::new();
+            combat_addition_attr.apply_equip_armor(
+                "armor_eff",
+                &CombatEquipArmor::new("armor_name", armor_hard, armor_soft, armor_mass),
+            );
+            combat_addition_attr.apply_equip_weapon(
+                "weapon_eff",
+                &CombatEquipWeapon::new("weapon_name", weapon_sharp, weapon_mass),
+            );
+            combat_addition_attr
+        };
+        assert_eq!(combat_addition_attr.armor_hard.get_current(), armor_hard);
+        assert_eq!(combat_addition_attr.armor_soft.get_current(), armor_soft);
+        assert_eq!(combat_addition_attr.armor_mass.get_current(), armor_mass);
+        assert_eq!(
+            combat_addition_attr.weapon_sharp.get_current(),
+            weapon_sharp
+        );
+        assert_eq!(combat_addition_attr.weapon_mass.get_current(), weapon_mass);
+
+        let combat_unit = {
+            let mut combat_unit: CombatUnit<&'static str> = CombatUnit::new(
+                health_base,
+                health_scale,
+                magicka_base,
+                magicka_scale,
+                combat_inherent_attr,
+                combat_addition_attr,
+                magicka_energy_level,
+            );
+            combat_unit.init_addition_eff("from_name", "effect_name");
+            combat_unit
+        };
+
+        assert_eq!(
+            combat_unit.health_shields.health.get_current(),
+            NumericalBalancer::calc_health_max(
+                health_base,
+                health_scale,
+                &combat_unit.inherent_attr
+            )
+        );
+
+        assert_eq!(
+            combat_unit.health_shields.shield_defence.get_current(),
+            NumericalBalancer::calc_defence_shield(&combat_unit.addition_attr)
+        );
+
+        assert_eq!(combat_unit.magicka.get_current(), 0.0);
+        assert_eq!(
+            combat_unit.magicka.get_max(),
+            NumericalBalancer::calc_magicka_max(
+                magicka_base,
+                magicka_scale,
+                &combat_unit.inherent_attr,
+                magicka_energy_level
+            )
+        );
+
+        assert_eq!(
+            combat_unit.stamina.get_current(),
+            NumericalBalancer::get_default_prop_value()
+        );
     }
 }
