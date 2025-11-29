@@ -105,7 +105,6 @@ impl<S: FixedName> CombatUnit<S> {
             health_recover_period,
         );
         self.health_shields.health.put_period_effect(e);
-        self.health_shields.health.refresh_period_effect();
     }
 
     /// 平衡以固定值进行恢复 具有延迟时间
@@ -123,7 +122,6 @@ impl<S: FixedName> CombatUnit<S> {
         );
         e.set_wait_time(stamina_recover_wait);
         self.stamina.put_period_effect(e);
-        self.stamina.refresh_period_effect();
     }
 
     /// 能量以固定值削减 具有延迟时间
@@ -141,7 +139,6 @@ impl<S: FixedName> CombatUnit<S> {
         );
         e.set_wait_time(magicka_decline_wait);
         self.magicka.put_period_effect(e);
-        self.magicka.refresh_period_effect();
     }
 
     /// 根据外赋属性生成护盾

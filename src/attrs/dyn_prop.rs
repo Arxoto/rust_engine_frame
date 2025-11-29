@@ -33,6 +33,8 @@ pub struct DynProp<S: FixedName = String> {
     ///
     /// 需要注意 由于堆叠时直接覆盖来源 因此统计伤害时可能会不准确 根据游戏性自行调整
     period_effects: EffectContainer<S, DynPropPeriodEffect<S>>,
+
+    refresh_time: f64,
 }
 
 impl<S: FixedName> DynProp<S> {
@@ -42,6 +44,7 @@ impl<S: FixedName> DynProp<S> {
             the_max: DynAttr::new(the_max),
             current: v,
             period_effects: EffectContainer::new(),
+            refresh_time: 0.0,
         }
     }
 
@@ -158,21 +161,12 @@ impl<S: FixedName> DynProp<S> {
         }
     }
 
-    /// 刷新周期效果的优先级列表
-    pub fn refresh_period_effect(&mut self) {
-        self.period_effects.refresh_list();
-    }
-
     /// 周期效果 可外部调用
-    ///
-    /// 而后需 **手动调用** 刷新属性值 [`Self::refresh_period_effect`]
     pub fn put_period_effect(&mut self, e: DynPropPeriodEffect<S>) {
         self.period_effects.put_or_stack_effect(e);
     }
 
     /// 移除周期效果 可外部调用
-    ///
-    /// 而后需 **手动调用** 刷新属性值 [`Self::refresh_period_effect`]
     pub fn del_period_effect(&mut self, s: &S) {
         self.period_effects.del_effect(s);
     }
@@ -198,11 +192,19 @@ impl<S: FixedName> DynProp<S> {
 
     /// 无需手动刷新属性值
     pub fn process_time(&mut self, delta: f64) -> DynPropProcessResult<S> {
+        // 定时刷新
+        self.refresh_time += delta;
+        if self.refresh_time
+            >= EffectContainer::<S, DynPropPeriodEffect<S>>::get_default_refresh_time()
+        {
+            self.refresh_time = 0.0;
+            self.period_effects.refresh_list();
+        }
+
         self.the_max.process_time(delta);
         self.the_min.process_time(delta);
         self.fix_current();
 
-        let mut period_changed = false;
         let mut to_min_by: Option<Effect<S>> = None;
         for ele in self.period_effects.keys() {
             let Some(eff) = self.period_effects.get_effect_mut(&ele) else {
@@ -214,7 +216,6 @@ impl<S: FixedName> DynProp<S> {
 
             if eff.is_expired() {
                 self.period_effects.del_effect(&ele);
-                period_changed = true;
             } else if periods > 0 {
                 let inst_eff = eff.convert_prop_inst_effect(self);
                 let mut real_eff = inst_eff.convert_real_effect(self);
@@ -226,10 +227,6 @@ impl<S: FixedName> DynProp<S> {
                     to_min_by = Some(real_eff);
                 }
             }
-        }
-
-        if period_changed {
-            self.refresh_period_effect();
         }
 
         if self.current_is_min() {
@@ -431,7 +428,6 @@ mod tests {
             1.0,
         );
         prop.put_period_effect(eff);
-        prop.refresh_period_effect();
         assert_eq!(prop.get_period_effect_names().iter().count(), 1);
         assert_eq!(prop.get_current(), 100.0);
         prop.process_time(0.5);
@@ -447,7 +443,6 @@ mod tests {
             1.0,
         );
         prop.put_period_effect(eff);
-        prop.refresh_period_effect();
         assert_eq!(prop.get_current(), 100.0);
         prop.process_time(0.5);
         assert_eq!(prop.get_current(), 100.0);
@@ -462,7 +457,6 @@ mod tests {
             1.0,
         );
         prop.put_period_effect(eff);
-        prop.refresh_period_effect();
         assert_eq!(prop.get_current(), 100.0);
         prop.process_time(0.5);
         assert_eq!(prop.get_current(), 100.0);
@@ -483,7 +477,6 @@ mod tests {
         eff.set_max_stack(2);
         eff.set_stack(2);
         prop.put_period_effect(eff);
-        prop.refresh_period_effect();
 
         // 持续逼近
         prop.process_time(1.0);
@@ -517,7 +510,6 @@ mod tests {
             1.0,
         );
         prop.put_period_effect(eff);
-        prop.refresh_period_effect();
 
         // 持续逼近
         prop.process_time(1.0);
@@ -556,7 +548,6 @@ mod tests {
             1.0,
         );
         prop.put_period_effect(eff);
-        prop.refresh_period_effect();
 
         prop.process_time(1.0);
         assert_eq!(prop.get_current(), 100.0 - 3.0 * 1.0 - 20.0 * 0.0);
@@ -610,7 +601,6 @@ mod tests {
         );
         eff.set_wait_time(5.0);
         prop.put_period_effect(eff);
-        prop.refresh_period_effect();
 
         prop.process_time(1.0);
         assert_eq!(prop.get_current(), 100.0);
@@ -642,7 +632,6 @@ mod tests {
         );
         eff.set_wait_time(2.0);
         prop.put_period_effect(eff);
-        prop.refresh_period_effect();
 
         // restart_for_wait_time
         prop.process_time(1.0);
@@ -676,7 +665,6 @@ mod tests {
             DynPropPeriodEffect::new_val(EffectBuilder::new_infinite("from_name", "1", -1.0), 1.0);
         eff.set_max_stack(3);
         prop.put_period_effect(eff);
-        prop.refresh_period_effect();
 
         prop.process_time(1.0);
         assert_eq!(prop.get_current(), 99.0); // -1
@@ -685,7 +673,6 @@ mod tests {
             EffectBuilder::new_infinite("from_name", "1", -1.0),
             1.0,
         ));
-        prop.refresh_period_effect();
         prop.process_time(1.0);
         assert_eq!(prop.get_current(), 97.0); // -2
 
@@ -693,7 +680,6 @@ mod tests {
             EffectBuilder::new_infinite("from_name", "1", -1.0),
             1.0,
         ));
-        prop.refresh_period_effect();
         prop.process_time(1.0);
         assert_eq!(prop.get_current(), 94.0); // -3
 
@@ -701,7 +687,6 @@ mod tests {
             EffectBuilder::new_infinite("from_name", "1", -1.0),
             1.0,
         ));
-        prop.refresh_period_effect();
         prop.process_time(1.0);
         assert_eq!(prop.get_current(), 91.0); // -3 max
     }
@@ -770,7 +755,6 @@ mod tests {
             0.1,
         );
         prop.put_period_effect(eff);
-        prop.refresh_period_effect();
 
         let precess_result = prop.process_time(7.5);
         assert_eq!(prop.get_current(), 25.0); // -75

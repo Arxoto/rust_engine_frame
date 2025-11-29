@@ -1,5 +1,20 @@
 use crate::{cores::unify_type::FixedName, effects::duration_effect::ProxyDurationEffect};
 
+fn compact_in_place<T>(ll: &mut Vec<Option<T>>) {
+    let mut write_idx: usize = 0;
+    for read_idx in 0..ll.len() {
+        // 获取所有权并替换为默认值 None
+        let current_element = std::mem::take(&mut ll[read_idx]);
+        if current_element.is_some() {
+            // 赋值 数据前移
+            ll[write_idx] = current_element;
+            write_idx += 1;
+        }
+    }
+    // 截断 vec 逻辑上移除末尾的 None
+    ll.truncate(write_idx);
+}
+
 /// 持久效果的容器
 /// - 保证顺序，后插入的在后面
 #[derive(Debug)]
@@ -34,22 +49,29 @@ where
         Default::default()
     }
 
+    pub const fn get_default_refresh_time() -> f64 {
+        5.0
+    }
+
     /// 更新排序
     ///
     /// 至少需要定时刷新（否则会有内存泄漏问题），不刷新也不会有逻辑问题
     pub fn refresh_list(&mut self) {
-        // 提前确定容量 .iter().filter(|e| e.is_some()).count(); 不缩容防止频繁扩容
-        let min_cap = self.effects.capacity();
-        let mut new_effects = Vec::with_capacity(min_cap.next_power_of_two());
+        // // 提前确定容量 .iter().filter(|e| e.is_some()).count(); 不缩容防止频繁扩容
+        // let min_cap = self.effects.capacity();
+        // let mut new_effects = Vec::with_capacity(min_cap.next_power_of_two());
 
-        std::mem::swap(&mut new_effects, &mut self.effects); // 先交换，因为后面会获取所有权
-        let old_effects = new_effects; // 修正名称符合语义
+        // std::mem::swap(&mut new_effects, &mut self.effects); // 先交换，因为后面会获取所有权
+        // let old_effects = new_effects; // 修正名称符合语义
 
-        for ele in old_effects.into_iter() {
-            if ele.is_some() {
-                self.effects.push(ele);
-            }
-        }
+        // for ele in old_effects.into_iter() {
+        //     if ele.is_some() {
+        //         self.effects.push(ele);
+        //     }
+        // }
+
+        // 目前策略是 不缩容以防止频繁扩容 同样也需要定时刷新防止没必要的扩容
+        compact_in_place(&mut self.effects);
     }
 
     /// 返回效果名称数组 根据刷新时间排序 新装载的在后面

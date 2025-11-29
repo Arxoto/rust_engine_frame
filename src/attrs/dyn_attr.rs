@@ -13,6 +13,7 @@ pub struct DynAttr<S: FixedName = String> {
     origin: f64,
     current: f64,
     effects: EffectContainer<S, DynAttrEffect<S>>,
+    refresh_time: f64,
 }
 
 impl<S: FixedName> DynAttr<S> {
@@ -21,6 +22,7 @@ impl<S: FixedName> DynAttr<S> {
             origin: v,
             current: v,
             effects: EffectContainer::new(),
+            refresh_time: 0.0,
         }
     }
 
@@ -34,8 +36,6 @@ impl<S: FixedName> DynAttr<S> {
 
     /// 效果更新后刷新属性
     pub fn refresh_value(&mut self) {
-        self.effects.refresh_list();
-
         let mut dyn_attr_modifier = DynAttrModifier::default();
         for ele in self.effects.keys() {
             if let Some(eff) = self.effects.get_effect(&ele) {
@@ -71,6 +71,13 @@ impl<S: FixedName> DynAttr<S> {
 
     /// 无需手动刷新属性
     pub fn process_time(&mut self, delta: f64) {
+        // 定时刷新
+        self.refresh_time += delta;
+        if self.refresh_time >= EffectContainer::<S, DynAttrEffect<S>>::get_default_refresh_time() {
+            self.refresh_time = 0.0;
+            self.effects.refresh_list();
+        }
+
         let mut changed = false;
         for ele in self.effects.keys() {
             let Some(eff) = self.effects.get_effect_mut(&ele) else {
