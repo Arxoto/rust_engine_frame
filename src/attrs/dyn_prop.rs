@@ -266,7 +266,7 @@ impl<S: FixedName> DynProp<S> {
     }
 
     /// 是否被修改至最小值
-    pub fn alter_to_min(&self, alter_result: &DynPropAlterResult) -> bool {
+    pub fn alter_to_min_by(&self, alter_result: &DynPropAlterResult) -> bool {
         alter_result.is_harmful() && self.current_is_min()
     }
 }
@@ -700,7 +700,7 @@ mod tests {
         for i in 0..5 {
             let eff = Effect::new(format!("killed_by_{}", i), "effect_name".to_string(), -4.6);
             let alter_result = prop.alter_current_value(&eff);
-            if prop.alter_to_min(&alter_result) {
+            if prop.alter_to_min_by(&alter_result) {
                 from_name = eff.from_name;
             }
         }

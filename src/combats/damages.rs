@@ -77,8 +77,9 @@ impl NumericalBalancer {
             }
         };
 
-        let base_add = (source_combat.magicka.get_current() - target_combat.magicka.get_current())
-            / NumericalBalancer::get_default_prop_value();
+        // 能量越高伤害越高 不使用能量差是因为防止后期堆怪没威胁
+        let base_add =
+            source_combat.magicka.get_current() / NumericalBalancer::get_default_prop_value();
         let base_scale = 1.0 + base_add.min(-1.0);
 
         damage_scale * base_scale

@@ -13,9 +13,7 @@ use crate::{
     },
     cores::unify_type::FixedName,
     effects::{
-        duration_effect::EffectBuilder,
-        native_duration::ProxyDuration,
-        native_effect::{Effect, ProxyEffect},
+        duration_effect::EffectBuilder, native_duration::ProxyDuration, native_effect::Effect,
     },
 };
 
@@ -213,13 +211,13 @@ impl<S: FixedName> CombatHealthShield<S> {
 
         for prop in props {
             let alter_result = prop.alter_current_value(&eff);
-            let dead = prop.alter_to_min(&alter_result);
+            let broken = prop.alter_to_min_by(&alter_result);
 
-            dead_info.broken = dead;
+            dead_info.broken = broken;
             if dead_info.broken.not() {
                 break;
             }
-            eff.set_value(eff.get_value() - alter_result.delta);
+            eff.value -= alter_result.delta;
         }
 
         dead_info
