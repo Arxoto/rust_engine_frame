@@ -57,7 +57,7 @@ pub mod motions;
 
 // Combat System Component
 #[cfg(feature = "commonimpl")]
-pub mod combat;
+pub mod combats;
 
 #[cfg(feature = "godotext")]
 pub mod godot_ext_impl;
