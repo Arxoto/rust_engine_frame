@@ -1,5 +1,5 @@
 use crate::{
-    combat::{
+    combats::{
         combat_additions::CombatAdditionAttr, combat_inherents::CombatInherentAttr,
         combat_units::CombatUnit,
     },

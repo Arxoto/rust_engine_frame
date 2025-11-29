@@ -6,7 +6,7 @@ use crate::{
         dyn_prop_inst_effect::DynPropInstEffect, dyn_prop_period_effect::DynPropPeriodEffect,
         event_prop::DynPropAlterResult,
     },
-    combat::{
+    combats::{
         combat_additions::CombatAdditionAttr,
         combat_inherents::CombatInherentAttr,
         damages::{DamageInfo, DamageType, MagickaEnergyLevel, NumericalBalancer},
@@ -265,7 +265,7 @@ impl<S: FixedName> CombatHealthShield<S> {
 
 #[cfg(test)]
 mod unit_tests {
-    use crate::combat::combat_additions::{CombatEquipArmor, CombatEquipWeapon};
+    use crate::combats::combat_additions::{CombatEquipArmor, CombatEquipWeapon};
 
     use super::*;
 
