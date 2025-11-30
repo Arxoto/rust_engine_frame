@@ -266,6 +266,8 @@ impl<S: FixedName> DynProp<S> {
     }
 
     /// 是否被修改至最小值
+    ///
+    /// 注意若本来就已经是最小值了那么同样也会返回真
     pub fn alter_to_min_by(&self, alter_result: &DynPropAlterResult) -> bool {
         alter_result.is_harmful() && self.current_is_min()
     }

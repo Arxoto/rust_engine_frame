@@ -1,5 +1,3 @@
-use std::ops::Not;
-
 use crate::{
     attrs::{
         dyn_prop::DynProp, dyn_prop_dur_effect::DynPropDurEffect,
@@ -67,7 +65,7 @@ impl<S: FixedName> CombatUnit<S> {
             magicka_base,
             magicka_scale,
             &inherent_attr,
-            &magicka_energy_level,
+            magicka_energy_level,
         );
 
         CombatUnit {
@@ -89,7 +87,6 @@ impl<S: FixedName> CombatUnit<S> {
         }
     }
 
-    // todo test
     /// 生命值以最大值的百分比进行恢复
     pub fn init_health_eff<T: Into<S>>(
         &mut self,
@@ -152,6 +149,16 @@ impl<S: FixedName> CombatUnit<S> {
             .put_and_do_dur_effect(eff);
     }
 
+    pub fn add_arcane_shield_eff(&mut self, eff: DynPropDurEffect<S>) {
+        self.health_shields.shield_arcane.put_and_do_dur_effect(eff);
+    }
+
+    pub fn add_substitute_shield_eff(&mut self, eff: DynPropDurEffect<S>) {
+        self.health_shields
+            .shield_substitute
+            .put_and_do_dur_effect(eff);
+    }
+
     /// 造成伤害
     pub fn hurt_health(
         &mut self,
@@ -186,6 +193,18 @@ impl<S: FixedName> CombatUnit<S> {
     pub fn give_electric(&mut self, eff: DynPropInstEffect<S>) -> DynPropAlterResult {
         self.bar_electric.use_inst_effect(eff)
     }
+
+    pub fn process_time(&mut self, delta: f64) {
+        self.health_shields.process_time(delta);
+        self.magicka.process_time(delta);
+        self.stamina.process_time(delta);
+
+        self.bar_entropy.process_time(delta);
+        self.bar_electric.process_time(delta);
+
+        self.inherent_attr.process_time(delta);
+        self.addition_attr.process_time(delta);
+    }
 }
 
 pub(crate) struct CombatHealthShield<S: FixedName> {
@@ -203,6 +222,13 @@ pub(crate) struct CombatHealthShield<S: FixedName> {
 }
 
 impl<S: FixedName> CombatHealthShield<S> {
+    pub fn process_time(&mut self, delta: f64) {
+        self.health.process_time(delta);
+        self.shield_substitute.process_time(delta);
+        self.shield_defence.process_time(delta);
+        self.shield_arcane.process_time(delta);
+    }
+
     fn hurt_internal(mut eff: Effect<S>, props: &mut [&mut DynProp<S>]) -> DamageInfo {
         let mut dead_info = DamageInfo {
             broken: false,
@@ -214,16 +240,12 @@ impl<S: FixedName> CombatHealthShield<S> {
             let broken = prop.alter_to_min_by(&alter_result);
 
             dead_info.broken = broken;
-            if dead_info.broken.not() {
-                break;
-            }
             eff.value -= alter_result.delta;
         }
 
         dead_info
     }
 
-    // todo test
     pub(crate) fn hurt_external(
         &mut self,
         damage_type: DamageType,
@@ -267,91 +289,416 @@ mod unit_tests {
 
     use super::*;
 
+    struct CombatUnitData {
+        strength: f64,
+        belief: f64,
+
+        health_base: f64,
+        health_scale: f64,
+        magicka_base: f64,
+        magicka_scale: f64,
+
+        armor_hard: f64,
+        armor_soft: f64,
+        armor_mass: f64,
+
+        weapon_sharp: f64,
+        weapon_mass: f64,
+
+        shield_substitute: f64,
+        shield_arcane: f64,
+
+        health_recover_ratio: f64,
+        health_recover_period: f64,
+    }
+
+    const COMBAT_UNIT_DATA: CombatUnitData = CombatUnitData {
+        strength: 60.0,
+        belief: 80.0,
+
+        health_base: 20.0,
+        health_scale: 1.0,
+        magicka_base: 50.0,
+        magicka_scale: 3.0,
+
+        armor_hard: 12.0,
+        armor_soft: 13.0,
+        armor_mass: 17.0,
+
+        weapon_sharp: 1.0,
+        weapon_mass: 5.0,
+
+        shield_substitute: 19.0,
+        shield_arcane: 6.0,
+
+        health_recover_ratio: 0.001,
+        health_recover_period: 1.0,
+    };
+
+    const MAGICKA_ENERGY_LEVEL: MagickaEnergyLevel = MagickaEnergyLevel::new(100.0, 200.0, 300.0);
+
+    fn gen_combat_inherent_attr() -> CombatInherentAttr<&'static str> {
+        CombatInherentAttr::new(COMBAT_UNIT_DATA.strength, COMBAT_UNIT_DATA.belief)
+    }
+
+    fn gen_combat_addition_attr() -> CombatAdditionAttr<&'static str> {
+        let mut combat_addition_attr = CombatAdditionAttr::new();
+        combat_addition_attr.apply_equip_armor(
+            "armor_eff",
+            &CombatEquipArmor::new(
+                "armor_name",
+                COMBAT_UNIT_DATA.armor_hard,
+                COMBAT_UNIT_DATA.armor_soft,
+                COMBAT_UNIT_DATA.armor_mass,
+            ),
+        );
+        combat_addition_attr.apply_equip_weapon(
+            "weapon_eff",
+            &CombatEquipWeapon::new(
+                "weapon_name",
+                COMBAT_UNIT_DATA.weapon_sharp,
+                COMBAT_UNIT_DATA.weapon_mass,
+            ),
+        );
+        combat_addition_attr
+    }
+
+    fn gen_combat_unit(
+        combat_inherent_attr: CombatInherentAttr<&'static str>,
+        combat_addition_attr: CombatAdditionAttr<&'static str>,
+    ) -> CombatUnit<&'static str> {
+        let mut combat_unit = CombatUnit::new(
+            COMBAT_UNIT_DATA.health_base,
+            COMBAT_UNIT_DATA.health_scale,
+            COMBAT_UNIT_DATA.magicka_base,
+            COMBAT_UNIT_DATA.magicka_scale,
+            combat_inherent_attr,
+            combat_addition_attr,
+            &MAGICKA_ENERGY_LEVEL,
+        );
+
+        combat_unit.init_health_eff(
+            "from_name",
+            "health_recover_name",
+            COMBAT_UNIT_DATA.health_recover_ratio,
+            COMBAT_UNIT_DATA.health_recover_period,
+        );
+
+        combat_unit.init_addition_eff("from_name", "effect_name");
+
+        // 手动添加护盾
+        combat_unit.add_arcane_shield_eff(DynPropDurEffect::new_max_val(
+            EffectBuilder::new_infinite("from_name", "effect_name", COMBAT_UNIT_DATA.shield_arcane),
+        ));
+        combat_unit.add_substitute_shield_eff(DynPropDurEffect::new_max_val(
+            EffectBuilder::new_infinite(
+                "from_name",
+                "effect_name",
+                COMBAT_UNIT_DATA.shield_substitute,
+            ),
+        ));
+
+        combat_unit
+    }
+
     #[test]
     fn combat_unit_new_and_init_addition_eff() {
-        let strength = 60.0;
-        let belief = 80.0;
-        let magicka_energy_level = &MagickaEnergyLevel::new(100.0, 200.0, 300.0);
+        // inherent_attr
+        let combat_inherent_attr = gen_combat_inherent_attr();
+        assert_eq!(
+            combat_inherent_attr.strength.get_current(),
+            COMBAT_UNIT_DATA.strength
+        );
+        assert_eq!(
+            combat_inherent_attr.belief.get_current(),
+            COMBAT_UNIT_DATA.belief
+        );
 
-        let health_base = 20.0;
-        let health_scale = 1.0;
-        let magicka_base = 50.0;
-        let magicka_scale = 3.0;
-
-        let armor_hard = 10.0;
-        let armor_soft = 10.0;
-        let armor_mass = 10.0;
-
-        let weapon_sharp = 1.0;
-        let weapon_mass = 5.0;
-
-        let combat_inherent_attr = CombatInherentAttr::new(strength, belief);
-        assert_eq!(combat_inherent_attr.strength.get_current(), strength);
-        assert_eq!(combat_inherent_attr.belief.get_current(), belief);
-
-        let combat_addition_attr = {
-            let mut combat_addition_attr = CombatAdditionAttr::new();
-            combat_addition_attr.apply_equip_armor(
-                "armor_eff",
-                &CombatEquipArmor::new("armor_name", armor_hard, armor_soft, armor_mass),
-            );
-            combat_addition_attr.apply_equip_weapon(
-                "weapon_eff",
-                &CombatEquipWeapon::new("weapon_name", weapon_sharp, weapon_mass),
-            );
-            combat_addition_attr
-        };
-        assert_eq!(combat_addition_attr.armor_hard.get_current(), armor_hard);
-        assert_eq!(combat_addition_attr.armor_soft.get_current(), armor_soft);
-        assert_eq!(combat_addition_attr.armor_mass.get_current(), armor_mass);
+        // addition_attr
+        let combat_addition_attr = gen_combat_addition_attr();
+        assert_eq!(
+            combat_addition_attr.armor_hard.get_current(),
+            COMBAT_UNIT_DATA.armor_hard
+        );
+        assert_eq!(
+            combat_addition_attr.armor_soft.get_current(),
+            COMBAT_UNIT_DATA.armor_soft
+        );
+        assert_eq!(
+            combat_addition_attr.armor_mass.get_current(),
+            COMBAT_UNIT_DATA.armor_mass
+        );
         assert_eq!(
             combat_addition_attr.weapon_sharp.get_current(),
-            weapon_sharp
+            COMBAT_UNIT_DATA.weapon_sharp
         );
-        assert_eq!(combat_addition_attr.weapon_mass.get_current(), weapon_mass);
+        assert_eq!(
+            combat_addition_attr.weapon_mass.get_current(),
+            COMBAT_UNIT_DATA.weapon_mass
+        );
 
-        let combat_unit = {
-            let mut combat_unit: CombatUnit<&'static str> = CombatUnit::new(
-                health_base,
-                health_scale,
-                magicka_base,
-                magicka_scale,
-                combat_inherent_attr,
-                combat_addition_attr,
-                magicka_energy_level,
-            );
-            combat_unit.init_addition_eff("from_name", "effect_name");
-            combat_unit
-        };
+        // combat_unit
+        let combat_unit = gen_combat_unit(combat_inherent_attr, combat_addition_attr);
 
+        // health
+        let health_value = NumericalBalancer::calc_health_max(
+            COMBAT_UNIT_DATA.health_base,
+            COMBAT_UNIT_DATA.health_scale,
+            &combat_unit.inherent_attr,
+        );
+        assert_eq!(health_value, 20.0 + 1.0 * 60.0);
+        assert_eq!(health_value, 80.0);
         assert_eq!(
             combat_unit.health_shields.health.get_current(),
-            NumericalBalancer::calc_health_max(
-                health_base,
-                health_scale,
-                &combat_unit.inherent_attr
-            )
+            health_value
         );
 
+        // shield_value
+        let shield_defence_value =
+            NumericalBalancer::calc_defence_shield(&combat_unit.addition_attr);
+        assert_eq!(shield_defence_value, 12.0);
         assert_eq!(
             combat_unit.health_shields.shield_defence.get_current(),
-            NumericalBalancer::calc_defence_shield(&combat_unit.addition_attr)
+            shield_defence_value
         );
-
-        assert_eq!(combat_unit.magicka.get_current(), 0.0);
+        let shield_arcane_value = COMBAT_UNIT_DATA.shield_arcane;
+        assert_eq!(shield_arcane_value, 6.0);
         assert_eq!(
-            combat_unit.magicka.get_max(),
-            NumericalBalancer::calc_magicka_max(
-                magicka_base,
-                magicka_scale,
-                &combat_unit.inherent_attr,
-                magicka_energy_level
-            )
+            combat_unit.health_shields.shield_arcane.get_current(),
+            shield_arcane_value
+        );
+        let shield_substitute_value = COMBAT_UNIT_DATA.shield_substitute;
+        assert_eq!(shield_substitute_value, 19.0);
+        assert_eq!(
+            combat_unit.health_shields.shield_substitute.get_current(),
+            shield_substitute_value
         );
 
+        // magicka
+        let magicka_value = NumericalBalancer::calc_magicka_value(
+            COMBAT_UNIT_DATA.magicka_base,
+            COMBAT_UNIT_DATA.magicka_scale,
+            &combat_unit.inherent_attr,
+        );
+        assert_eq!(magicka_value, 50.0 + 3.0 * 80.0);
+        assert_eq!(magicka_value, 290.0);
+        let magicka_max = NumericalBalancer::calc_magicka_max(
+            COMBAT_UNIT_DATA.magicka_base,
+            COMBAT_UNIT_DATA.magicka_scale,
+            &combat_unit.inherent_attr,
+            &MAGICKA_ENERGY_LEVEL,
+        );
+        assert_eq!(magicka_max, MAGICKA_ENERGY_LEVEL.max_energy(magicka_value));
+        assert_eq!(magicka_max, 300.0);
+        assert_eq!(combat_unit.magicka.get_current(), 0.0);
+        assert_eq!(combat_unit.magicka.get_max(), magicka_max);
+
+        // stamina
         assert_eq!(
             combat_unit.stamina.get_current(),
             NumericalBalancer::get_default_prop_value()
         );
+    }
+
+    #[test]
+    fn hurt_and_recover() {
+        let combat_inherent_attr = gen_combat_inherent_attr();
+        let combat_addition_attr = gen_combat_addition_attr();
+        let mut combat_unit = gen_combat_unit(combat_inherent_attr, combat_addition_attr);
+
+        // 确认前提条件 若有不符自行修正
+        let mut health_value = 80.0;
+        assert_eq!(
+            health_value,
+            combat_unit.health_shields.health.get_current()
+        );
+        let mut shield_defence_value = 12.0;
+        assert_eq!(
+            shield_defence_value,
+            combat_unit.health_shields.shield_defence.get_current()
+        );
+        let mut shield_arcane_value = 6.0;
+        assert_eq!(
+            shield_arcane_value,
+            combat_unit.health_shields.shield_arcane.get_current()
+        );
+        let mut shield_substitute_value = 19.0;
+        assert_eq!(
+            shield_substitute_value,
+            combat_unit.health_shields.shield_substitute.get_current()
+        );
+
+        // hurt
+        combat_unit.health_shields.hurt_external(
+            DamageType::KarmaTruth,
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("fff", "eee", -1.0)),
+            1.0,
+        );
+        health_value -= 1.0;
+        assert_eq!(
+            health_value,
+            combat_unit.health_shields.health.get_current()
+        );
+
+        combat_unit.health_shields.hurt_external(
+            DamageType::PhysicsImpact,
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("fff", "eee", -1.0)),
+            1.0,
+        );
+        shield_substitute_value -= 1.0;
+        assert_eq!(
+            shield_substitute_value,
+            combat_unit.health_shields.shield_substitute.get_current()
+        );
+
+        combat_unit.health_shields.hurt_external(
+            DamageType::PhysicsShear,
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("fff", "eee", -1.0)),
+            1.0,
+        );
+        shield_defence_value -= 1.0;
+        assert_eq!(
+            shield_defence_value,
+            combat_unit.health_shields.shield_defence.get_current()
+        );
+
+        combat_unit.health_shields.hurt_external(
+            DamageType::MagickaArcane,
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("fff", "eee", -1.0)),
+            1.0,
+        );
+        shield_arcane_value -= 1.0;
+        assert_eq!(
+            shield_arcane_value,
+            combat_unit.health_shields.shield_arcane.get_current()
+        );
+
+        assert_eq!(health_value, 79.0);
+        assert_eq!(shield_substitute_value, 18.0);
+        assert_eq!(shield_defence_value, 11.0);
+        assert_eq!(shield_arcane_value, 5.0);
+
+        combat_unit.health_shields.hurt_external(
+            DamageType::MagickaArcane,
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("fff", "eee", -6.0)),
+            1.0,
+        );
+        shield_arcane_value -= 5.0;
+        shield_substitute_value -= 1.0;
+        assert_eq!(health_value, 79.0);
+        assert_eq!(shield_substitute_value, 17.0);
+        assert_eq!(shield_defence_value, 11.0);
+        assert_eq!(shield_arcane_value, 0.0);
+        assert_eq!(
+            health_value,
+            combat_unit.health_shields.health.get_current()
+        );
+        assert_eq!(
+            shield_substitute_value,
+            combat_unit.health_shields.shield_substitute.get_current()
+        );
+        assert_eq!(
+            shield_defence_value,
+            combat_unit.health_shields.shield_defence.get_current()
+        );
+        assert_eq!(
+            shield_arcane_value,
+            combat_unit.health_shields.shield_arcane.get_current()
+        );
+
+        combat_unit.health_shields.hurt_external(
+            DamageType::PhysicsImpact,
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("fff", "eee", -20.0)),
+            1.0,
+        );
+        shield_substitute_value -= 17.0;
+        health_value -= 3.0;
+        assert_eq!(health_value, 76.0);
+        assert_eq!(shield_substitute_value, 0.0);
+        assert_eq!(shield_defence_value, 11.0);
+        assert_eq!(shield_arcane_value, 0.0);
+        assert_eq!(
+            health_value,
+            combat_unit.health_shields.health.get_current()
+        );
+        assert_eq!(
+            shield_substitute_value,
+            combat_unit.health_shields.shield_substitute.get_current()
+        );
+        assert_eq!(
+            shield_defence_value,
+            combat_unit.health_shields.shield_defence.get_current()
+        );
+        assert_eq!(
+            shield_arcane_value,
+            combat_unit.health_shields.shield_arcane.get_current()
+        );
+
+        combat_unit.health_shields.hurt_external(
+            DamageType::PhysicsShear,
+            DynPropInstEffect::new_val(EffectBuilder::new_instant("fff", "eee", -15.0)),
+            1.0,
+        );
+        shield_defence_value -= 11.0;
+        health_value -= 4.0;
+        assert_eq!(health_value, 72.0);
+        assert_eq!(shield_substitute_value, 0.0);
+        assert_eq!(shield_defence_value, 0.0);
+        assert_eq!(shield_arcane_value, 0.0);
+        assert_eq!(
+            health_value,
+            combat_unit.health_shields.health.get_current()
+        );
+        assert_eq!(
+            shield_substitute_value,
+            combat_unit.health_shields.shield_substitute.get_current()
+        );
+        assert_eq!(
+            shield_defence_value,
+            combat_unit.health_shields.shield_defence.get_current()
+        );
+        assert_eq!(
+            shield_arcane_value,
+            combat_unit.health_shields.shield_arcane.get_current()
+        );
+
+        // recover
+        // 每秒恢复 0.8
+        assert_eq!(combat_unit.health_shields.health.get_max(), 80.0);
+        assert_eq!(COMBAT_UNIT_DATA.health_recover_ratio, 0.001);
+        assert_eq!(COMBAT_UNIT_DATA.health_recover_period, 1.0);
+        let mut the_time = 0.0;
+        let mut the_delta = 0.0;
+        assert_eq!(the_delta, 0.0);
+
+        the_delta = 0.5;
+        the_time += the_delta;
+        assert_eq!(the_time, 0.5);
+        combat_unit.process_time(the_delta);
+        assert_eq!(combat_unit.health_shields.health.get_current(), 72.0);
+
+        the_delta = 0.6;
+        the_time += the_delta;
+        assert_eq!(the_time, 1.1);
+        combat_unit.process_time(the_delta);
+        assert_eq!(combat_unit.health_shields.health.get_current(), 72.08);
+
+        the_delta = 0.9;
+        the_time += the_delta;
+        assert_eq!(the_time, 2.0);
+        combat_unit.process_time(the_delta);
+        assert_eq!(combat_unit.health_shields.health.get_current(), 72.16);
+
+        the_delta = 2.3;
+        the_time += the_delta;
+        assert_eq!(the_time, 4.3);
+        combat_unit.process_time(the_delta);
+        assert_eq!(combat_unit.health_shields.health.get_current(), 72.32);
+
+        the_delta = 5.4;
+        the_time += the_delta;
+        assert_eq!(the_time, 9.7);
+        combat_unit.process_time(the_delta);
+        assert_eq!(combat_unit.health_shields.health.get_current(), 72.72);
     }
 }

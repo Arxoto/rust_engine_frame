@@ -15,4 +15,9 @@ impl<S: FixedName> CombatInherentAttr<S> {
             belief: DynAttr::new(belief),
         }
     }
+
+    pub fn process_time(&mut self, delta: f64) {
+        self.strength.process_time(delta);
+        self.belief.process_time(delta);
+    }
 }

@@ -78,8 +78,7 @@ impl NumericalBalancer {
         };
 
         // 能量越高伤害越高 不使用能量差是因为防止后期堆怪没威胁
-        let base_add =
-            source_combat.magicka.get_current() / NumericalBalancer::get_default_prop_value();
+        let base_add = source_combat.magicka.get_current() / Self::get_default_prop_value();
         let base_scale = 1.0 + base_add.min(-1.0);
 
         damage_scale * base_scale
@@ -94,7 +93,15 @@ impl NumericalBalancer {
         health_scale: f64,
         inherent_attr: &CombatInherentAttr<S>,
     ) -> f64 {
-        health_base + health_scale * inherent_attr.belief.get_origin()
+        health_base + health_scale * inherent_attr.strength.get_origin()
+    }
+
+    pub fn calc_magicka_value<S: FixedName>(
+        magicka_base: f64,
+        magicka_scale: f64,
+        inherent_attr: &CombatInherentAttr<S>,
+    ) -> f64 {
+        magicka_base + magicka_scale * inherent_attr.belief.get_origin()
     }
 
     pub fn calc_magicka_max<S: FixedName>(
@@ -103,7 +110,7 @@ impl NumericalBalancer {
         inherent_attr: &CombatInherentAttr<S>,
         magicka_energy_level: &MagickaEnergyLevel,
     ) -> f64 {
-        let magicka_value = magicka_base + magicka_scale * inherent_attr.belief.get_origin();
+        let magicka_value = Self::calc_magicka_value(magicka_base, magicka_scale, inherent_attr);
         magicka_energy_level.max_energy(magicka_value)
     }
 
@@ -115,7 +122,7 @@ impl NumericalBalancer {
 pub struct MagickaEnergyLevel(f64, f64, f64);
 
 impl MagickaEnergyLevel {
-    pub fn new(l0: f64, l1: f64, l2: f64) -> MagickaEnergyLevel {
+    pub const fn new(l0: f64, l1: f64, l2: f64) -> MagickaEnergyLevel {
         MagickaEnergyLevel(l0, l1, l2)
     }
 

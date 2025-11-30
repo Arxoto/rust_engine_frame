@@ -38,6 +38,14 @@ impl<S: FixedName> CombatAdditionAttr<S> {
         }
     }
 
+    pub fn process_time(&mut self, delta: f64) {
+        self.weapon_sharp.process_time(delta);
+        self.weapon_mass.process_time(delta);
+        self.armor_hard.process_time(delta);
+        self.armor_soft.process_time(delta);
+        self.armor_mass.process_time(delta);
+    }
+
     /// 注意函数内创建的效果默认是不允许堆叠的，因此想要实现双持武器时，需要给予不同的效果名称以防止覆盖
     pub(crate) fn apply_weapon(&mut self, effect_name: &S, weapon_name: &S, sharp: f64, mass: f64) {
         self.weapon_sharp.put_or_stack_effect(DynAttrEffect::new(
