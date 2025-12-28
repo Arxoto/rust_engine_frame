@@ -95,7 +95,7 @@ impl<S: FixedString>
     for InAirBehaviour<S>
 {
     fn will_enter(&self, p: &PhyParam<S>) -> bool {
-        match p.inner_param.motion_changed {
+        match p.inner_param.motion_state {
             Some((_, mode)) => mode == SELF_MOTION_MODE,
             None => false,
         }

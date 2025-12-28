@@ -8,6 +8,8 @@ use crate::{
 };
 
 /// dynamic_attribute 属性 一般用作角色属性值 可被效果影响
+///
+/// 另一种风格是将所有基础属性平铺，每个效果在对应属性上加减，优点是更灵活，缺点是无法感知效果来源： 最终攻击力=((原始攻击力+攻击力加成)*攻击力百分比+额外攻击力加成)*额外攻击力百分比
 #[derive(Debug, Default)]
 pub struct DynAttr<S: FixedName = String> {
     origin: f64,

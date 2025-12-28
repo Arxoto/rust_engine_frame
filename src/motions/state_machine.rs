@@ -68,15 +68,16 @@ where
         &mut self,
         phy_param: &mut PhyParam<S>,
     ) -> PE {
-        // 内部维护状态的参数
-        // 考虑到一致性 应仅对参数赋初始值 而不做修改，但实际上随着动作的改变修改了 action_duration
+        // phy_param 可变
+        // 会修改内部维护状态的参数 inner_param
+        // 会修改消费动作指令（仅 behaviour_machine ）
 
         // porcess self
         // ===========================
         // 运动状态刷新
         let new_motion_mode = MotionMode::from(phy_param as &PhyParam<S>);
         let old_motion_mode = std::mem::replace(&mut self.motion_mode, new_motion_mode);
-        phy_param.inner_param.motion_changed = Some((old_motion_mode, new_motion_mode));
+        phy_param.inner_param.motion_state = Some((old_motion_mode, new_motion_mode));
         // 动作持续时间
         self.action_duration += phy_param.delta;
         phy_param.inner_param.action_duration = Some(self.action_duration);

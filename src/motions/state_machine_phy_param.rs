@@ -52,6 +52,17 @@ impl<S: FixedString> PhyParam<S> {
         self.character_x_velocity.abs() >= velocity_threshold
             && self.character_x_velocity * self.instructions.move_direction.0 < 0.0
     }
+
+    pub(crate) fn anim_name_is(&self, anim_name: &S) -> bool {
+        self.anim_name == *anim_name
+    }
+
+    pub(crate) fn action_duration_great_than(&self, the_time: f64) -> bool {
+        self.inner_param
+            .action_duration
+            .map(|duration_time| duration_time > the_time)
+            .unwrap_or(false)
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -80,7 +91,7 @@ pub struct PhyInnerParam {
     /// - `None` 表示内部框架还未进行判断
     /// - `Some((old, new))` 中的 old 表示旧状态 new 表示新状态
     /// - 若 old 和 new 相等，则表示状态未切换
-    pub(crate) motion_changed: Option<(MotionMode, MotionMode)>,
+    pub(crate) motion_state: Option<(MotionMode, MotionMode)>,
     pub(crate) action_duration: Option<f64>,
 }
 

@@ -214,7 +214,7 @@ where
         }
 
         // get mode
-        let Some((_, mode)) = phy_param.inner_param.motion_changed else {
+        let Some((_, mode)) = phy_param.inner_param.motion_state else {
             return false;
         };
         // each event try update
@@ -229,7 +229,7 @@ where
 
     /// 合并帧处理和状态更新
     ///
-    /// 注意动作系统不会消费任何一个指令（不好实现且经评估影响不大，只有跳跃闪避有预输入） 因此入参为只读
+    /// 注意动作系统不会消费任何一个指令（不好实现（动作有优先级无法直接尝试消费）且经评估影响不大，只有跳跃闪避有预输入） 因此入参为只读
     pub(crate) fn tick_and_update(&mut self, phy_param: &PhyParam<S>) -> (Option<PhyEff>, bool) {
         // 帧处理
         let phy_eff = self.tick_physics(phy_param);
@@ -866,7 +866,7 @@ mod unit_tests {
                 ..Default::default()
             },
             inner_param: PhyInnerParam {
-                motion_changed: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
+                motion_state: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
                 ..Default::default()
             },
             ..Default::default()
@@ -881,7 +881,7 @@ mod unit_tests {
                 ..Default::default()
             },
             inner_param: PhyInnerParam {
-                motion_changed: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
+                motion_state: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
                 ..Default::default()
             },
             ..Default::default()
@@ -896,7 +896,7 @@ mod unit_tests {
                 ..Default::default()
             },
             inner_param: PhyInnerParam {
-                motion_changed: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
+                motion_state: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
                 ..Default::default()
             },
             ..Default::default()
@@ -911,7 +911,7 @@ mod unit_tests {
                 ..Default::default()
             },
             inner_param: PhyInnerParam {
-                motion_changed: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
+                motion_state: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
                 ..Default::default()
             },
             ..Default::default()
@@ -943,7 +943,7 @@ mod unit_tests {
                 ..Default::default()
             },
             inner_param: PhyInnerParam {
-                motion_changed: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
+                motion_state: Some((MotionMode::OnFloor, MotionMode::OnFloor)),
                 ..Default::default()
             },
             ..Default::default()
@@ -979,7 +979,7 @@ mod unit_tests {
                 ..Default::default()
             },
             inner_param: PhyInnerParam {
-                motion_changed: Some((MotionMode::InAir, MotionMode::OnFloor)),
+                motion_state: Some((MotionMode::InAir, MotionMode::OnFloor)),
                 ..Default::default()
             },
             ..Default::default()

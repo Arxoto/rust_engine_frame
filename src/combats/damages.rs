@@ -56,6 +56,7 @@ impl DamageInfo {
 pub struct NumericalBalancer;
 
 impl NumericalBalancer {
+    /// 伤害公式
     pub fn calc_damage_scale<S: FixedName>(
         damage_type: &DamageType,
         source_combat: &CombatUnit<S>,
@@ -77,9 +78,9 @@ impl NumericalBalancer {
             }
         };
 
-        // 能量越高伤害越高 不使用能量差是因为防止后期堆怪没威胁
-        let base_add = source_combat.magicka.get_current() / Self::get_default_prop_value();
-        let base_scale = 1.0 + base_add.min(-1.0);
+        // 能量越高伤害越高 不使用双方能量差是为了防止在高能量状态下，小怪低能量形成的碾压，导致堆怪没威胁
+        let base_scale = 1.0 + source_combat.magicka.get_current() / Self::get_default_prop_value();
+        let base_scale = base_scale.max(0.0);
 
         damage_scale * base_scale
     }
@@ -88,6 +89,7 @@ impl NumericalBalancer {
         100.0
     }
 
+    /// 血量计算
     pub fn calc_health_max<S: FixedName>(
         health_base: f64,
         health_scale: f64,
@@ -96,6 +98,7 @@ impl NumericalBalancer {
         health_base + health_scale * inherent_attr.strength.get_origin()
     }
 
+    /// 原始能量计算
     pub fn calc_magicka_value<S: FixedName>(
         magicka_base: f64,
         magicka_scale: f64,
@@ -104,6 +107,7 @@ impl NumericalBalancer {
         magicka_base + magicka_scale * inherent_attr.belief.get_origin()
     }
 
+    /// 能量能级计算
     pub fn calc_magicka_max<S: FixedName>(
         magicka_base: f64,
         magicka_scale: f64,
@@ -114,6 +118,7 @@ impl NumericalBalancer {
         magicka_energy_level.max_energy(magicka_value)
     }
 
+    /// 护盾值计算
     pub fn calc_defence_shield<S: FixedName>(addition_attr: &CombatAdditionAttr<S>) -> f64 {
         addition_attr.armor_hard.get_current()
     }

@@ -74,6 +74,9 @@ impl MotionActionEvent {
 pub enum ActionBaseExitLogic<S: FixedString> {
     /// 动画结束播放
     AnimFinished(S),
+    // =======================================
+    // 这里内部变量无论是f64还是S都是简单的举例，后面根据业务逻辑进行调整
+    // =======================================
     /// 多长时间后，移动可取消后摇
     MoveAfter(f64),
     /// 多长时间后，跳跃可打断
@@ -88,26 +91,18 @@ impl<S: FixedString> ActionBaseExitLogic<S> {
     pub(crate) fn should_exit_by_logic(&self, param: &PhyParam<S>) -> bool {
         match self {
             ActionBaseExitLogic::AnimFinished(anim_name) => {
-                param.anim_finished && param.anim_name == *anim_name
+                param.anim_finished && param.anim_name_is(anim_name)
             }
             ActionBaseExitLogic::MoveAfter(the_time) => {
                 param.instructions.move_direction.op_active()
-                    && param
-                        .inner_param
-                        .action_duration
-                        .map(|duration_time| duration_time > *the_time)
-                        .unwrap_or(false)
+                    && param.action_duration_great_than(*the_time)
             }
             ActionBaseExitLogic::JumpAfter(the_time) => {
                 param.instructions.jump_once.op_active()
-                    && param
-                        .inner_param
-                        .action_duration
-                        .map(|duration_time| duration_time > *the_time)
-                        .unwrap_or(false)
+                    && param.action_duration_great_than(*the_time)
             }
             ActionBaseExitLogic::AttackWhen(anim_name) => {
-                param.instructions.attack_once.op_active() && param.anim_name == *anim_name
+                param.instructions.attack_once.op_active() && param.anim_name_is(anim_name)
             }
         }
     }
@@ -131,7 +126,7 @@ impl<S: FixedString> ActionExitLogic<PhyParam<S>> for MotionActionExitLogic<S> {
                 exit_logic.should_exit_by_logic(exit_param)
             }
             MotionActionExitLogic::MotionOnlyAllowed(allowed_motion) => {
-                match exit_param.inner_param.motion_changed {
+                match exit_param.inner_param.motion_state {
                     Some((_, current_motion)) => current_motion != *allowed_motion,
                     None => false,
                 }
