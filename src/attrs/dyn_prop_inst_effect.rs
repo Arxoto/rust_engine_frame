@@ -13,9 +13,6 @@ pub enum DynPropInstEffectType {
     CurPer,
     /// 根据最大值的百分比 修改当前值
     MaxPer,
-    // todo
-    // /// 根据差值的百分比 修改当前值 （最大值越多修改越明显）
-    // DeltaPer,
 }
 
 /// prop属性瞬时效果 一般用作扣血蓝耗等

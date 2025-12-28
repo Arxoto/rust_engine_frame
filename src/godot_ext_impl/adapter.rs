@@ -18,9 +18,9 @@ impl From<StringName> for FixedNameWrapper {
     }
 }
 
-impl From<&FixedNameWrapper> for StringName {
-    fn from(val: &FixedNameWrapper) -> Self {
-        val.0.clone()
+impl From<FixedNameWrapper> for StringName {
+    fn from(value: FixedNameWrapper) -> Self {
+        value.0
     }
 }
 
@@ -42,9 +42,9 @@ impl From<GString> for FixedStringWrapper {
     }
 }
 
-impl From<&FixedStringWrapper> for GString {
-    fn from(val: &FixedStringWrapper) -> Self {
-        val.0.clone()
+impl From<FixedStringWrapper> for GString {
+    fn from(value: FixedStringWrapper) -> Self {
+        value.0
     }
 }
 

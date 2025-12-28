@@ -24,7 +24,7 @@ pub struct ActionMachine<S, PhyEff>
 where
     S: FixedString,
 {
-    // todo test_performance for Vec HashMap FxHashMap
+    // maybe test_performance for Vec HashMap FxHashMap
     // 预期内动作数量较多 所以使用 FxHashMap 而不是 Vec
     pub(crate) actions: FxHashMap<S, MotionAction<S, PhyEff>>,
     pub(crate) current_action_name: S,
