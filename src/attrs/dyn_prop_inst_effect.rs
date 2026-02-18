@@ -4,7 +4,7 @@ use crate::{
     effects::native_effect::{Effect, ProxyEffect},
 };
 
-/// prop属性瞬时效果的类型
+/// prop 属性瞬时效果的类型
 #[derive(Clone, Copy, Debug)]
 pub enum DynPropInstEffectType {
     /// 直接修改当前值
@@ -15,7 +15,7 @@ pub enum DynPropInstEffectType {
     MaxPer,
 }
 
-/// prop属性瞬时效果 一般用作扣血蓝耗等
+/// prop 属性瞬时效果 一般用作扣血蓝耗等
 #[derive(Clone, Debug)]
 pub struct DynPropInstEffect<S = String> {
     pub(crate) the_type: DynPropInstEffectType,
@@ -67,7 +67,7 @@ mod tests {
 
         use super::*;
 
-        /// 提醒：每当增加类型时，判断其是否符合 [`DynPropInstEffect::which_nature`]
+        /// 提醒：每当增加类型时，判断其是否符合 [`ProxyEffect::which_nature`]
         #[test]
         fn test_nature_tips() {
             let types = vec![

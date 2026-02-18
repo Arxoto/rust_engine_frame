@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-/// prop属性持久效果的生效对象
+/// prop 属性持久效果的生效对象
 #[derive(Clone, Copy)]
 pub(crate) enum DynPropDurEffectTarget {
     /// 修改最大值
@@ -17,7 +17,7 @@ pub(crate) enum DynPropDurEffectTarget {
     ForMin,
 }
 
-/// prop属性持久效果的类型
+/// prop 属性持久效果的类型
 ///
 /// 若想修改最大值的同时修改当前值，同时赋予持久和瞬时效果即可；
 /// 因为最大值的修改仅限于基础值，与其他效果互不影响，因此修改的值是绝对的。
@@ -31,13 +31,13 @@ pub enum DynPropDurEffectType {
     MinVal,
 }
 
-/// prop属性持久效果 仅直接作用于最大最小值的效果
+/// prop 属性持久效果 仅直接作用于最大最小值的效果
 ///
 /// 不修改当前值 [`DynProp::put_dur_effect`]
 ///
 /// 同步修改当前值 [`DynProp::put_and_do_dur_effect`]
 ///
-/// 特殊效果如持续流血回蓝等 见周期性效果 [`DynPropPeriodEffect`]
+/// 特殊效果如持续流血回蓝等 见周期性效果 [`crate::attrs::dyn_prop_period_effect::DynPropPeriodEffect`]
 #[derive(Clone, Debug)]
 pub struct DynPropDurEffect<S = String> {
     pub(crate) the_type: DynPropDurEffectType,
@@ -119,7 +119,7 @@ mod tests {
 
     use super::*;
 
-    /// 提醒：每当增加类型时，判断其是否符合 [`DynPropDurEffect::which_nature`]
+    /// 提醒：每当增加类型时，判断其是否符合 [`ProxyEffect::which_nature`]
     #[test]
     fn test_nature_tips() {
         let types = vec![

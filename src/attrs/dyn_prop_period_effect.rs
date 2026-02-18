@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-/// prop属性周期效果的类型
+/// prop 属性周期效果的类型
 #[derive(Clone, Copy, Debug)]
 pub enum DynPropPeriodEffectType {
     /// 持续修改当前值
@@ -25,6 +25,7 @@ pub enum DynPropPeriodEffectType {
     CurValToVal(f64),
 }
 
+/// prop 属性周期效果 一般用作持续流血回蓝等特殊效果
 #[derive(Clone, Debug)]
 pub struct DynPropPeriodEffect<S = String> {
     pub(crate) the_type: DynPropPeriodEffectType,
@@ -163,7 +164,7 @@ mod tests {
         assert_eq!(move_toward_delta(50.0, 50.0, 100.0), 0.0);
     }
 
-    /// 提醒：每当增加类型时，判断其是否符合 [`DynPropPeriodEffect::which_nature`]
+    /// 提醒：每当增加类型时，判断其是否符合 [`ProxyEffect::which_nature`]
     #[test]
     fn test_nature_tips() {
         let types = vec![

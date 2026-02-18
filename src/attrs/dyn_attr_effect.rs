@@ -7,7 +7,7 @@ use crate::{
     },
 };
 
-/// Attr属性效果的类型
+/// Attr 属性效果的类型
 #[derive(Clone, Copy, Debug)]
 pub enum DynAttrEffectType {
     /// 基础加法（描述参考：基础伤害增加xx）
@@ -21,7 +21,7 @@ pub enum DynAttrEffectType {
     FinalPercent,
 }
 
-/// Attr属性效果（周期性触发时堆叠效果）
+/// Attr 属性效果（周期性触发时堆叠效果）
 #[derive(Clone, Debug)]
 pub struct DynAttrEffect<S = String> {
     pub(crate) the_type: DynAttrEffectType,
@@ -302,7 +302,7 @@ mod tests {
         assert!(matches!(eff.which_nature(), EffectNature::Buff));
     }
 
-    /// 提醒：每当增加类型时，判断其是否符合 [`DynAttrEffect::which_nature`]
+    /// 提醒：每当增加类型时，判断其是否符合 [`ProxyEffect::which_nature`] 的预期逻辑
     #[test]
     fn test_nature_tips() {
         let types = vec![

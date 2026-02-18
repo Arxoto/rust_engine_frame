@@ -121,7 +121,7 @@ impl<S: FixedString>
             }
         }
         if self.ready_jump_timer.is_end() {
-            p.instructions.jump_once.op_echo();
+            p.instructions.jump_once.op_do_deactivate();
             return PhyEff::create_jump(data, p.instructions.move_direction.0);
         }
         PhyEff::create_run(data, p.instructions.move_direction.0)

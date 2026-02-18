@@ -12,7 +12,8 @@ use crate::{
         abstracts::{
             player_input::{PlayerInstruction, PlayerOperation},
             player_pre_input::{PreInputInstruction, PreInputOperation},
-        }, motion_action::ActionBaseEvent,
+        },
+        motion_action::ActionBaseEvent,
     },
 };
 
@@ -88,12 +89,12 @@ impl From<&PlayerController> for PlayerInstructionCollection {
 
 impl PlayerController {
     /// 对于 [`TinyTimer`] 类型的字段，由于其具备帧残留的副作用，因此需要手动回响关闭
-    pub fn op_echo_with(&mut self, other: &PlayerInstructionCollection) {
+    pub fn op_update(&mut self, other: &PlayerInstructionCollection) {
         *self = Self {
             move_direction: self.move_direction,
-            jump_once: self.jump_once.op_echo_with_pure(&other.jump_once),
+            jump_once: self.jump_once.op_cloned_update(&other.jump_once),
             jump_keep: self.jump_keep,
-            dodge_once: self.dodge_once.op_echo_with_pure(&other.dodge_once),
+            dodge_once: self.dodge_once.op_cloned_update(&other.dodge_once),
             block_hold: self.block_hold,
             attack_once: self.attack_once,
             attack_keep: self.attack_keep,
@@ -103,12 +104,12 @@ impl PlayerController {
 
 impl PlayerInstructionCollection {
     /// 对于 [`TinyTimer`] 类型的字段，由于其具备帧残留的副作用，因此需要手动回响关闭
-    pub fn op_echo_with(&mut self, other: &Self) {
+    pub fn op_update(&mut self, other: &Self) {
         *self = Self {
             move_direction: self.move_direction,
-            jump_once: self.jump_once.op_echo_with_pure(&other.jump_once),
+            jump_once: self.jump_once.op_cloned_update(&other.jump_once),
             jump_keep: self.jump_keep,
-            dodge_once: self.dodge_once.op_echo_with_pure(&other.dodge_once),
+            dodge_once: self.dodge_once.op_cloned_update(&other.dodge_once),
             block_hold: self.block_hold,
             attack_once: self.attack_once,
             attack_keep: self.attack_keep,

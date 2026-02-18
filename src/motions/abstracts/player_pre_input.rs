@@ -4,20 +4,20 @@ use crate::{cores::tiny_timer::TinyTimer, motions::abstracts::player_input::Play
 ///
 /// 该类型属性一般持久化存在，根据玩家输入实时修改（因此也能实现预输入）
 pub trait PreInputOperation: PlayerOperation + Clone + Sized {
-    /// 操作成功时触发回显 取消对应操作（预输入时用）
-    fn op_echo(&mut self);
+    /// 操作成功时 取消对应操作（预输入时用）
+    fn op_do_deactivate(&mut self);
 
     /// 若映射属性已触发回显 则也取消对应操作
-    fn op_echo_with<T: PreInputOperation>(&mut self, value: &T) {
+    fn op_update<T: PreInputOperation>(&mut self, value: &T) {
         if !value.op_active() {
-            self.op_echo();
+            self.op_do_deactivate();
         }
     }
 
-    /// 纯函数实现 [`PreInputOperation::op_echo_with`]
-    fn op_echo_with_pure<T: PreInputOperation>(&self, value: &T) -> Self {
+    /// 不改变自身状态，返回一个克隆值，对应实现 [`Self::op_update`]
+    fn op_cloned_update<T: PreInputOperation>(&self, value: &T) -> Self {
         let mut a = self.clone();
-        a.op_echo_with(value);
+        a.op_update(value);
         a
     }
 
@@ -28,7 +28,7 @@ pub trait PreInputOperation: PlayerOperation + Clone + Sized {
     /// 在行为系统中主要用到
     fn op_consume_active(&mut self) -> bool {
         let b = self.op_active();
-        self.op_echo();
+        self.op_do_deactivate();
         b
     }
 }
@@ -49,7 +49,7 @@ impl<T: PreInputOperation> PlayerOperation for PreInputInstruction<T> {
 }
 
 impl<T: PreInputOperation> PreInputOperation for PreInputInstruction<T> {
-    fn op_echo(&mut self) {
+    fn op_do_deactivate(&mut self) {
         self.0 = false;
     }
 }
@@ -72,7 +72,7 @@ impl PlayerOperation for TinyTimer {
 }
 
 impl PreInputOperation for TinyTimer {
-    fn op_echo(&mut self) {
+    fn op_do_deactivate(&mut self) {
         self.final_time();
     }
 }
@@ -110,7 +110,7 @@ mod unit_tests {
         assert!(timer.op_active());
         timer.add_time(0.5);
         assert!(timer.op_active());
-        timer.op_echo();
+        timer.op_do_deactivate();
         assert!(!timer.op_active());
     }
 
@@ -126,7 +126,7 @@ mod unit_tests {
         assert!(timer_ins.op_active());
         assert!(timer_ins.op_consume_active()); // 消费完成后 激活态改变
         assert!(!timer_ins.op_active());
-        timer.op_echo_with(&timer_ins);
+        timer.op_update(&timer_ins);
         assert!(!timer.op_active());
     }
 }

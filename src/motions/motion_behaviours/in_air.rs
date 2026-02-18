@@ -165,7 +165,7 @@ impl<S: FixedString>
             };
 
             if should_jump_once {
-                p.instructions.jump_once.op_echo();
+                p.instructions.jump_once.op_do_deactivate();
                 self.jump_higher_timer.start_time();
                 return PhyEff::create_jump(data, p.instructions.move_direction.0);
             }
