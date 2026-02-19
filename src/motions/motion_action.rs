@@ -21,14 +21,22 @@ pub enum ActionBaseEvent {
     JumpInstruction,
     /// 跳跃指令（长摁跳更高）
     JumpHigherInstruction,
+    /// 飞行指令（摁住跳跃）
+    JumpFlyInstruction,
     /// 闪避指令
     DodgeInstruction,
-    /// 防御指令
-    BlockInstruction,
+    /// 冲刺指令（长摁闪避）
+    DodgeDashInstruction,
+    /// 防御指令（短摁） 无防御动作时也可用作第二个攻击指令
+    BlockOnceInstruction,
+    /// 防御指令（摁住）
+    BlockHoldInstruction,
     /// 攻击指令
     AttackInstruction,
     /// 攻击指令（长摁重击）
     AttackHeavierInstruction,
+    /// 攻击指令（摁住蓄力） 若攻击动作为持续攻击的使用该指令
+    AttackChargeInstruction,
 
     /// 命中对方
     ///

@@ -25,8 +25,11 @@
 //!     - 仅当 key 为纯数字时， 斟酌选用 nohash-hasher 库，键本身即是哈希值，非极端场景一般用 rustc-hash 也足够了
 //!     - 通用解 ahash 库，较高的安全性和优秀的性能，大结构体时也会使用 SIMD 指令进行性能优化
 //!   - 另一方面，预分配容量也是一个优化点 `Vec::with_capacity(capacity.next_power_of_two())` ，避免重新分配和重新哈希
-//!     - 注意处于内存对齐的目的，初始化时 capacity 尽量做 2 的幂次优化（因为后续扩容也是翻倍扩容的）
+//!     - 注意出于内存对齐的目的，初始化时 capacity 尽量做 2 的幂次优化（因为后续扩容也是翻倍扩容的）
 //!     - 使用命令进行检查 `grep -r 'with_capacity' . | grep -v 'next_power_of_two' | grep -v EVENT_LIST_CAPACITY`
+//!   - 另一种数据结构 Slab/SlotMap ，其 key 由库生成、适用于可以不自由指定 key 的场景，其底层是 Vec 具有极高的性能，但大量删除不新增会导致内存碎片化
+//!     - Slab 简单高效，但没有版本号机制，删除后 key 可能被重用，存在 ABA 问题
+//!     - SlotMap 具有版本号机制，删除后 key 不会被重用
 //! - 编译优化选项 (in Cargo.toml, see <https://doc.rust-lang.org/cargo/reference/profiles.html>)
 //!   - 构建命令 `cargo build --release`
 //!   - 编译优化等级 `opt-level = 3`
@@ -54,6 +57,7 @@ pub mod motions;
 // todo 修改的代码格式化
 // todo `cargo test`
 // todo `cargo clippy`
+// todo 部分单元测试搬到集成测试
 
 // Combat System Component
 #[cfg(feature = "commonimpl")]

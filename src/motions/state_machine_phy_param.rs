@@ -95,10 +95,26 @@ pub struct PhyInnerParam {
     pub(crate) action_duration: Option<f64>,
 }
 
-/// just for test
-pub fn signals_all_active() -> GameSignalCollection {
-    GameSignalCollection {
-        hit_signal: true,
-        behit_signal: true,
+#[cfg(test)]
+pub(crate) mod unit_tests {
+    use crate::motions::state_machine_phy_param::GameSignalCollection;
+
+    /// just for test
+    pub(crate) fn signals_all_active() -> (GameSignalCollection, u32) {
+        let line_start = line!();
+        let gsc = GameSignalCollection {
+            hit_signal: true,
+            behit_signal: true,
+        };
+        let line_final = line!();
+        (gsc, line_final - line_start - 3) // 3 是正常语句占用
+    }
+
+    #[test]
+    fn push_instruction() {
+        let (signals, member_num) = signals_all_active();
+        let mut list = Vec::new();
+        signals.push_instruction(&mut list);
+        assert_eq!(list.len(), member_num.try_into().unwrap());
     }
 }

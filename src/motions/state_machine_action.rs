@@ -14,7 +14,7 @@ use crate::{
     },
 };
 
-const EVENT_LIST_CAPACITY: usize = 8;
+const EVENT_LIST_CAPACITY: usize = 16;
 
 /// 动作状态机
 ///
@@ -30,8 +30,6 @@ where
     pub(crate) current_action_name: S,
     pub(crate) current_anim_name: S,
     pub(crate) event_to_actions: FxHashMap<MotionActionEvent, Vec<S>>,
-    /// 用于指令生成
-    instructions: Option<PlayerInstructionCollection>,
 }
 
 impl<S, PhyEff> ActionMachine<S, PhyEff>
@@ -56,7 +54,6 @@ where
     fn do_update_action(&mut self, next_action_name: S) {
         self.current_action_name = next_action_name;
         self.do_update_anim_first_time();
-        self.instructions = None;
     }
 
     /// 只有与当前动作不一致 且实际存在的动作才允许切换
@@ -193,32 +190,25 @@ where
 
     fn gen_events(
         signals: &GameSignalCollection,
-        instructions_opt: &Option<PlayerInstructionCollection>,
+        instructions: &PlayerInstructionCollection,
     ) -> Vec<ActionBaseEvent> {
         // 为性能考虑给予必要的空间防止后续扩容
         let mut list = Vec::with_capacity(EVENT_LIST_CAPACITY);
         // 确认是否排序 大部分指令都不应该在信号之前
         signals.push_instruction(&mut list);
-        if let Some(instructions) = instructions_opt {
-            instructions.push_instruction(&mut list);
-        }
+        instructions.push_instruction(&mut list);
         list
     }
 
     /// 在帧处理中根据参数自动生成事件并尝试触发
     fn try_update_action_by_event(&mut self, phy_param: &PhyParam<S>) -> bool {
-        // update instructions
-        match &mut self.instructions {
-            Some(ins) => ins.overwrite_with(&phy_param.instructions),
-            None => self.instructions = Some(phy_param.instructions.clone()),
-        }
-
         // get mode
         let Some((_, mode)) = phy_param.inner_param.motion_state else {
+            // 内部框架还未进行判断 无法获取运动状态 也就无法生成事件 直接返回不更新
             return false;
         };
         // each event try update
-        for event in Self::gen_events(&phy_param.signals, &self.instructions) {
+        for event in Self::gen_events(&phy_param.signals, &phy_param.instructions) {
             let updated = self.update_action_by_event(&MotionActionEvent::new(event, mode));
             if updated {
                 return true;
@@ -288,11 +278,13 @@ where
 #[cfg(test)]
 mod unit_tests {
     use crate::motions::{
-        abstracts::{action::Action, player_input::PlayerInstruction},
+        abstracts::{
+            action::Action, player_input::PlayerInstruction, player_pre_input::PreInputInstruction,
+        },
         motion_action::{ActionBaseEvent, ActionBaseExitLogic, MotionActionExitLogic},
         motion_mode::MotionMode,
-        player_controller::{PlayerInstructionCollection, instructions_all_active},
-        state_machine_phy_param::{PhyInnerParam, signals_all_active},
+        player_controller::{PlayerInstructionCollection, unit_tests::instructions_all_active},
+        state_machine_phy_param::{PhyInnerParam, unit_tests::signals_all_active},
     };
 
     use super::*;
@@ -311,14 +303,14 @@ mod unit_tests {
         action
             .event_enter
             .append(&mut MotionActionEvent::new_each_motion(
-                ActionBaseEvent::BlockInstruction,
+                ActionBaseEvent::BlockHoldInstruction,
             ));
 
         action_machine.add_action(action);
 
         // test event map
         for ele in MotionMode::each_mode() {
-            let event = MotionActionEvent::new(ActionBaseEvent::BlockInstruction, *ele);
+            let event = MotionActionEvent::new(ActionBaseEvent::BlockHoldInstruction, *ele);
             let action_names = action_machine.event_to_actions.get(&event).unwrap();
             assert_eq!(action_names, &vec!["defence_action"]);
         }
@@ -334,14 +326,15 @@ mod unit_tests {
             Action::new_empty("defence_action_2", "defence_anim_2");
         // 仅地面状态下的【防御指令】
         action.event_enter.push(MotionActionEvent::new(
-            ActionBaseEvent::BlockInstruction,
+            ActionBaseEvent::BlockHoldInstruction,
             MotionMode::OnFloor,
         ));
 
         action_machine.add_action(action);
 
         // test event map
-        let event = MotionActionEvent::new(ActionBaseEvent::BlockInstruction, MotionMode::OnFloor);
+        let event =
+            MotionActionEvent::new(ActionBaseEvent::BlockHoldInstruction, MotionMode::OnFloor);
         let action_names = action_machine.event_to_actions.get(&event).unwrap();
         assert_eq!(action_names, &vec!["defence_action", "defence_action_2"]);
 
@@ -415,7 +408,10 @@ mod unit_tests {
                     "0",
                 ),
                 (
-                    MotionActionEvent::new(ActionBaseEvent::BlockInstruction, MotionMode::OnFloor),
+                    MotionActionEvent::new(
+                        ActionBaseEvent::BlockHoldInstruction,
+                        MotionMode::OnFloor,
+                    ),
                     "1",
                 ),
                 (
@@ -435,7 +431,7 @@ mod unit_tests {
         assert_eq!(next_anim_name, None); // because action is current
 
         let next_anim_name = action_machine.fetch_next_action_name_by_event_local(
-            &MotionActionEvent::new(ActionBaseEvent::BlockInstruction, MotionMode::OnFloor),
+            &MotionActionEvent::new(ActionBaseEvent::BlockHoldInstruction, MotionMode::OnFloor),
         );
         assert_eq!(next_anim_name, None); // because action is not exist
 
@@ -457,7 +453,7 @@ mod unit_tests {
         });
         action_machine.add_action(Action {
             event_enter: vec![MotionActionEvent::new(
-                ActionBaseEvent::BlockInstruction,
+                ActionBaseEvent::BlockHoldInstruction,
                 MotionMode::OnFloor,
             )],
             ..Action::new_empty("2", "")
@@ -489,7 +485,7 @@ mod unit_tests {
 
         // 当前动作非空时 允许动作切换
         let next_anim_name = action_machine.fetch_next_action_name_by_event_global(
-            &MotionActionEvent::new(ActionBaseEvent::BlockInstruction, MotionMode::OnFloor),
+            &MotionActionEvent::new(ActionBaseEvent::BlockHoldInstruction, MotionMode::OnFloor),
         );
         assert_eq!(next_anim_name, Some("2"));
     }
@@ -670,7 +666,10 @@ mod unit_tests {
                     "1",
                 ),
                 (
-                    MotionActionEvent::new(ActionBaseEvent::BlockInstruction, MotionMode::OnFloor),
+                    MotionActionEvent::new(
+                        ActionBaseEvent::BlockHoldInstruction,
+                        MotionMode::OnFloor,
+                    ),
                     "9",
                 ),
             ]),
@@ -698,7 +697,7 @@ mod unit_tests {
         assert_eq!(action_machine.current_action_name, "0");
 
         action_machine.update_action_by_event(&MotionActionEvent {
-            event: ActionBaseEvent::BlockInstruction,
+            event: ActionBaseEvent::BlockHoldInstruction,
             motion: MotionMode::OnFloor,
         });
         assert_eq!(action_machine.current_action_name, "0"); // because action 9 not exist
@@ -849,7 +848,7 @@ mod unit_tests {
                 MotionMode::OnFloor,
             )],
             event_exit: Vec::from([(
-                MotionActionEvent::new(ActionBaseEvent::BlockInstruction, MotionMode::OnFloor), // 动作2中接格挡进入动作3
+                MotionActionEvent::new(ActionBaseEvent::BlockHoldInstruction, MotionMode::OnFloor), // 动作2中接格挡进入动作3
                 "action_3", // 一个不存在的动作
             )]),
             ..Action::new_empty("action_2", "0")
@@ -877,7 +876,7 @@ mod unit_tests {
         // 轻击进入动作1
         let updated = action_machine.try_update_action_by_event(&PhyParam {
             instructions: PlayerInstructionCollection {
-                attack_once: PlayerInstruction::from(true),
+                attack_once: PreInputInstruction(true, std::marker::PhantomData),
                 ..Default::default()
             },
             inner_param: PhyInnerParam {
@@ -892,7 +891,7 @@ mod unit_tests {
         // 动作1中接轻击进入动作2
         let updated = action_machine.try_update_action_by_event(&PhyParam {
             instructions: PlayerInstructionCollection {
-                attack_once: PlayerInstruction::from(true),
+                attack_once: PreInputInstruction(true, std::marker::PhantomData),
                 ..Default::default()
             },
             inner_param: PhyInnerParam {
@@ -939,7 +938,7 @@ mod unit_tests {
 
         let phy_param = PhyParam {
             instructions: PlayerInstructionCollection {
-                attack_once: PlayerInstruction::from(true),
+                attack_once: PreInputInstruction(true, std::marker::PhantomData),
                 ..Default::default()
             },
             inner_param: PhyInnerParam {
@@ -975,7 +974,7 @@ mod unit_tests {
         // action_3 -> action_1
         let (_, updated) = action_machine.tick_and_update(&PhyParam {
             instructions: PlayerInstructionCollection {
-                attack_once: PlayerInstruction::from(true),
+                attack_once: PreInputInstruction(true, std::marker::PhantomData),
                 ..Default::default()
             },
             inner_param: PhyInnerParam {
@@ -997,14 +996,16 @@ mod unit_tests {
 
     #[test]
     fn test_event_list_capacity() {
-        let game_signal_collection = signals_all_active();
-        let player_instruction_collection = instructions_all_active();
+        let (game_signal_collection, _) = signals_all_active();
+        let (player_instruction_collection, _) = instructions_all_active();
 
         let ll = ActionMachine::<String, ()>::gen_events(
             &game_signal_collection,
-            &Some(player_instruction_collection),
+            &player_instruction_collection,
         );
-        assert_eq!(ll.capacity(), EVENT_LIST_CAPACITY);
-        // assert_eq!(EVENT_LIST_CAPACITY, EVENT_LIST_CAPACITY.next_power_of_two()); // 保证内存对齐
+        // 首先保证初始容量是内存对齐的
+        assert_eq!(EVENT_LIST_CAPACITY, EVENT_LIST_CAPACITY.next_power_of_two());
+        // 保证不扩容
+        assert!(ll.capacity() == EVENT_LIST_CAPACITY);
     }
 }

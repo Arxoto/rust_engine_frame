@@ -7,18 +7,14 @@ pub trait PreInputOperation: PlayerOperation + Clone + Sized {
     /// 操作成功时 取消对应操作（预输入时用）
     fn op_do_deactivate(&mut self);
 
+    /// 再次输入时 重新激活
+    fn op_do_reactivate(&mut self);
+
     /// 若映射属性已触发回显 则也取消对应操作
     fn op_update<T: PreInputOperation>(&mut self, value: &T) {
         if !value.op_active() {
             self.op_do_deactivate();
         }
-    }
-
-    /// 不改变自身状态，返回一个克隆值，对应实现 [`Self::op_update`]
-    fn op_cloned_update<T: PreInputOperation>(&self, value: &T) -> Self {
-        let mut a = self.clone();
-        a.op_update(value);
-        a
     }
 
     /// 集成方法 消费获得是否激活
@@ -52,6 +48,10 @@ impl<T: PreInputOperation> PreInputOperation for PreInputInstruction<T> {
     fn op_do_deactivate(&mut self) {
         self.0 = false;
     }
+
+    fn op_do_reactivate(&mut self) {
+        self.0 = true;
+    }
 }
 
 impl<T: PreInputOperation> From<&T> for PreInputInstruction<T> {
@@ -74,6 +74,10 @@ impl PlayerOperation for TinyTimer {
 impl PreInputOperation for TinyTimer {
     fn op_do_deactivate(&mut self) {
         self.final_time();
+    }
+
+    fn op_do_reactivate(&mut self) {
+        self.start_time();
     }
 }
 
