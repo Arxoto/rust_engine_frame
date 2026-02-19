@@ -49,26 +49,32 @@ pub trait ProxyEffect<S> {
     fn as_effect(&self) -> &Effect<S>;
     fn as_mut_effect(&mut self) -> &mut Effect<S>;
 
+    #[inline]
     fn get_effect_name(&self) -> &S {
         &self.as_effect().effect_name
     }
 
+    #[inline]
     fn set_effect_name(&mut self, v: S) {
         self.as_mut_effect().effect_name = v
     }
 
+    #[inline]
     fn get_from_name(&self) -> &S {
         &self.as_effect().from_name
     }
 
+    #[inline]
     fn set_from_name(&mut self, v: S) {
         self.as_mut_effect().from_name = v
     }
 
+    #[inline]
     fn get_value(&self) -> f64 {
         self.as_effect().value
     }
 
+    #[inline]
     fn set_value(&mut self, v: f64) {
         self.as_mut_effect().value = v
     }
@@ -80,18 +86,22 @@ pub trait ProxyEffect<S> {
     /// 判断效果为增益减益
     ///
     /// 默认通过值进行判断 参照物默认为 0.0 根据业务逻辑自行覆盖
+    #[inline]
     fn which_nature(&self) -> EffectNature {
         EffectNature::which_nature(self.get_value(), 0.0)
     }
 
+    #[inline]
     fn nature_is_buff(&self) -> bool {
         matches!(self.which_nature(), EffectNature::Buff)
     }
 
+    #[inline]
     fn nature_is_debuff(&self) -> bool {
         matches!(self.which_nature(), EffectNature::Debuff)
     }
 
+    #[inline]
     fn nature_is_neutral(&self) -> bool {
         matches!(self.which_nature(), EffectNature::Neutral)
     }

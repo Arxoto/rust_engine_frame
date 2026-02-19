@@ -10,8 +10,10 @@
 pub trait Behaviour<EnterParam, FrameParam, FrameEff, PhyParam, PhyEff> {
     fn will_enter(&self, p: &EnterParam) -> bool;
 
-    fn on_enter(&mut self, p: &EnterParam);
-    // fn on_exit(&mut self); // 若取消注释 记得在状态机中调用
+    #[inline]
+    fn on_enter(&mut self, _p: &EnterParam) {}
+    #[inline]
+    fn on_exit(&mut self, _p: &EnterParam) {}
 
     fn tick_frame(&mut self, p: &FrameParam) -> FrameEff;
     fn process_physics(&mut self, p: &mut PhyParam) -> PhyEff;

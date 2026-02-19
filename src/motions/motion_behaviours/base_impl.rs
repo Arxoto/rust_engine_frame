@@ -34,10 +34,6 @@ impl<S: FixedString>
         }
     }
 
-    fn on_enter(&mut self, _p: &PhyParam<S>) {
-        // do something
-    }
-
     fn tick_frame(&mut self, _p: &FrameParam<S>) -> FrameEff<S> {
         // 不对视觉效果做修改
         FrameEff::default()

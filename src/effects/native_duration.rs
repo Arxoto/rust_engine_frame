@@ -52,50 +52,62 @@ pub trait ProxyDuration {
     fn as_duration(&self) -> &Duration;
     fn as_mut_duration(&mut self) -> &mut Duration;
 
+    #[inline]
     fn get_life_time(&self) -> f64 {
         self.as_duration().life_time
     }
 
+    #[inline]
     fn set_life_time(&mut self, v: f64) {
         self.as_mut_duration().life_time = v
     }
 
+    #[inline]
     fn get_duration_time(&self) -> f64 {
         self.as_duration().duration_time
     }
 
+    #[inline]
     fn set_duration_time(&mut self, v: f64) {
         self.as_mut_duration().duration_time = v
     }
 
+    #[inline]
     fn get_period_time(&self) -> f64 {
         self.as_duration().period_time
     }
 
+    #[inline]
     fn set_period_time(&mut self, v: f64) {
         self.as_mut_duration().period_time = v
     }
 
+    #[inline]
     fn get_wait_time(&self) -> f64 {
         self.as_duration().wait_time
     }
 
+    #[inline]
     fn set_wait_time(&mut self, v: f64) {
         self.as_mut_duration().wait_time = v
     }
 
+    #[inline]
     fn get_stack(&self) -> i64 {
         self.as_duration().stack
     }
 
+    #[inline]
     fn set_stack(&mut self, v: i64) {
         self.as_mut_duration().stack = v
     }
 
+    #[inline]
     fn get_max_stack(&self) -> i64 {
         self.as_duration().max_stack
     }
 
+    #[inline]
     fn set_max_stack(&mut self, v: i64) {
         self.as_mut_duration().max_stack = v
     }
@@ -105,31 +117,37 @@ pub trait ProxyDuration {
     // ===========================
 
     /// 是否无限存在
+    #[inline]
     fn is_infinite(&self) -> bool {
         self.get_duration_time() <= 0.0
     }
 
     /// 是否持续一段时间
+    #[inline]
     fn is_duration(&self) -> bool {
         self.get_duration_time() > 0.0
     }
 
     /// 是否周期触发
+    #[inline]
     fn is_period(&self) -> bool {
         self.get_period_time() > 0.0
     }
 
     /// 是否限制堆叠层数
+    #[inline]
     fn is_limit_stack(&self) -> bool {
         self.get_max_stack() > 0
     }
 
     /// 重新开始计时
+    #[inline]
     fn restart_life(&mut self) {
         self.set_life_time(0.0);
     }
 
     /// 是否过期
+    #[inline]
     fn is_expired(&self) -> bool {
         if self.is_infinite() {
             false
@@ -139,6 +157,7 @@ pub trait ProxyDuration {
     }
 
     /// 获取存在时间（直接获取存在计时有可能略微超过持续时间）
+    #[inline]
     fn fetch_life_time(&self) -> f64 {
         if self.is_infinite() {
             self.get_life_time()

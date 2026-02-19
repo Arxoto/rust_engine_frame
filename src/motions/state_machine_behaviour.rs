@@ -55,9 +55,9 @@ impl<S: FixedString, FrameEff, PhyEff> BehaviourMachine<S, FrameEff, PhyEff> {
 
         // do update
 
-        // if let Some(stat) = self.stats.get_mut(self.current_id) {
-        //     stat.on_exit();
-        // }
+        if let Some(stat) = self.stats.get_mut(self.current_id) {
+            stat.on_exit(enter_param);
+        }
 
         self.current_id = next_stat_id;
 
