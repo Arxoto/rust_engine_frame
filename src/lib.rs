@@ -57,7 +57,6 @@ pub mod motions;
 // todo 修改的代码格式化
 // todo `cargo test`
 // todo `cargo clippy`
-// todo 部分单元测试搬到集成测试
 
 // Combat System Component
 #[cfg(feature = "commonimpl")]

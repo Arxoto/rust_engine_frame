@@ -36,7 +36,7 @@ pub struct PlayerController {
 ///
 /// 实例化后长期存在在【客户端】 每帧根据玩家控制器更新
 ///
-/// 其属性都是玩家操作 [`PlayerOperation`] 或 [`PreInputOperation`] todo 类型封装 不要直接实现
+/// 其属性都是玩家操作 [`PlayerOperation`] 或 [`PreInputOperation`] P.S. 可以选择进行类型封装，不要直接实现，但目前实现过于耦合了不好修改
 #[derive(Debug, Default)]
 pub struct PlayerOperationCollection {
     pub(crate) look_angle: f64,
