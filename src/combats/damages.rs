@@ -58,14 +58,14 @@ impl DamageInfo {
 }
 
 /// # 如何衡量伤害公式是否平衡
-/// 
+///
 /// - 单次伤害 应该与 受伤上限 成正比
 /// - 伤害公式中各个属性的根源属性应该合理分配，避免某一属性影响力过大
-/// 
+///
 /// ## 受伤上限
-/// 
+///
 /// 受伤上限 本质即 生命值和护盾值 [`CombatHealthShield`]
-/// 
+///
 /// - 生命值 [`CombatHealthShield::health`]
 ///   - 与 气力 [`CombatInherentAttr::strength`] 【呈正比】 公式 [`NumericalBalancer::calc_health_max`]
 /// - 替身护盾 [`CombatHealthShield::shield_substitute`]
@@ -75,9 +75,9 @@ impl DamageInfo {
 ///   - 与 气力 [`CombatInherentAttr::strength`] 【呈正比】 公式 todo 盔甲坚韧受气力影响
 /// - 奥术护盾 [`CombatHealthShield::shield_arcane`]
 ///   - 应该受某一属性的限制以防止数值膨胀 公式 todo
-/// 
+///
 /// 不同 伤害类型 [`DamageType`] 对应的 受伤上限 见 [`CombatHealthShield::hurt_external`]
-/// 
+///
 /// - 真实伤害 [`DamageType::KarmaTruth`]
 ///   - 应与 生命值 【呈正比】
 ///   - 应与 气力 【呈正比】
@@ -85,11 +85,11 @@ impl DamageInfo {
 ///   - 应与 生命值 + 替身 + 防护 【呈正比】
 ///   - todo
 /// - todo
-/// 
+///
 /// ## 单次伤害
-/// 
+///
 /// 不同 伤害类型 [`DamageType`] 对应的 伤害公式 见 [`NumericalBalancer::calc_damage_scale`]
-/// 
+///
 /// - 真实伤害 [`DamageType::KarmaTruth`]
 ///   - 为招式固有属性，与角色收获相关，使用 气力 代替
 ///   - 与 气力 [`CombatInherentAttr::strength`] 【呈正比】
@@ -98,9 +98,9 @@ impl DamageInfo {
 ///   - 武器锋利度 为武器固有属性，与角色收获相关，使用 气力 代替
 ///   - 与 气力 [`CombatInherentAttr::strength`] ^2 【呈正比】
 /// - todo
-/// 
+///
 /// 单次伤害 与 受伤上限 数值平衡分析
-/// 
+///
 /// - 真实伤害 [`DamageType::KarmaTruth`]
 ///   - 单次伤害 与 受伤上限 均与 气力 【呈正比】 符合平衡要求
 /// - todo

@@ -13,10 +13,10 @@ pub struct DynPropAlterResult {
     pub value: f64, // pub-external
     /// 效果实际修改值
     pub delta: f64, // pub-external
-    // /// 效果溢出
-    // pub force_to_max: bool, // pub-external
-    // /// 效果亏欠
-    // pub force_to_min: bool, // pub-external
+                    // /// 效果溢出
+                    // pub force_to_max: bool, // pub-external
+                    // /// 效果亏欠
+                    // pub force_to_min: bool, // pub-external
 }
 
 impl DynPropAlterResult {

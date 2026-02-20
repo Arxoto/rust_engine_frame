@@ -7,7 +7,7 @@ pub trait ActionEvent: Clone + std::fmt::Debug + Eq + PartialEq {}
 
 /// 动作关联的退出逻辑
 ///
-/// 
+///
 /// 能够实现较为复杂的逻辑判断
 pub trait ActionExitLogic<ExitParam>: Clone + std::fmt::Debug {
     fn should_exit(&self, exit_param: &ExitParam) -> bool;
