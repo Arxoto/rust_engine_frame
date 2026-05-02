@@ -2,15 +2,6 @@
 
 ## 编码规范
 
-为尽量保持项目纯净，尽量不对字段使用 `pub`
-
-使用命令检查是否有属性直接暴露给外部
-```shell
-grep -r 'pub ' . \
-| grep -v 'pub mod' | grep -v 'pub fn' | grep -v 'pub struct' | grep -v 'pub enum' | grep -v 'pub trait' | grep -v 'pub type' \
-| grep -v '// pub-external'
-```
-
 代码提交前使用工具化检查（或在 CI 持续集成流程中启用）：
 ```shell
 # todo

@@ -271,7 +271,7 @@ mod unit_tests {
                 ..Default::default()
             },
             instructions: PlayerInstructionCollection {
-                jump_once: PreInputInstruction(false, Default::default()),
+                jump_once: PreInputInstruction(false),
                 ..Default::default()
             },
             ..Default::default()
@@ -284,7 +284,7 @@ mod unit_tests {
                 ..Default::default()
             },
             instructions: PlayerInstructionCollection {
-                jump_once: PreInputInstruction(true, Default::default()),
+                jump_once: PreInputInstruction(true),
                 ..Default::default()
             },
             ..Default::default()

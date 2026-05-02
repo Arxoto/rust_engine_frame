@@ -876,7 +876,7 @@ mod unit_tests {
         // 轻击进入动作1
         let updated = action_machine.try_update_action_by_event(&PhyParam {
             instructions: PlayerInstructionCollection {
-                attack_once: PreInputInstruction(true, std::marker::PhantomData),
+                attack_once: PreInputInstruction(true),
                 ..Default::default()
             },
             inner_param: PhyInnerParam {
@@ -891,7 +891,7 @@ mod unit_tests {
         // 动作1中接轻击进入动作2
         let updated = action_machine.try_update_action_by_event(&PhyParam {
             instructions: PlayerInstructionCollection {
-                attack_once: PreInputInstruction(true, std::marker::PhantomData),
+                attack_once: PreInputInstruction(true),
                 ..Default::default()
             },
             inner_param: PhyInnerParam {
@@ -938,7 +938,7 @@ mod unit_tests {
 
         let phy_param = PhyParam {
             instructions: PlayerInstructionCollection {
-                attack_once: PreInputInstruction(true, std::marker::PhantomData),
+                attack_once: PreInputInstruction(true),
                 ..Default::default()
             },
             inner_param: PhyInnerParam {
@@ -974,7 +974,7 @@ mod unit_tests {
         // action_3 -> action_1
         let (_, updated) = action_machine.tick_and_update(&PhyParam {
             instructions: PlayerInstructionCollection {
-                attack_once: PreInputInstruction(true, std::marker::PhantomData),
+                attack_once: PreInputInstruction(true),
                 ..Default::default()
             },
             inner_param: PhyInnerParam {

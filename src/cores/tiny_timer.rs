@@ -1,4 +1,4 @@
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct TinyTimer {
     time_limit: f64,
     time: f64,
@@ -10,7 +10,8 @@ impl TinyTimer {
     pub fn new(limit: f64) -> Self {
         Self {
             time_limit: limit,
-            ..Default::default()
+            time: 0.0,
+            flow: false,
         }
     }
 

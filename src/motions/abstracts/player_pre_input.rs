@@ -33,18 +33,17 @@ pub trait PreInputOperation: PlayerOperation + Clone + Sized {
 ///
 /// 该类型属性生命周期在一帧内，每次根据玩家操作临时生成（指令响应后及时反馈给玩家操作）
 #[derive(Clone, Copy, Debug, Default)]
-pub struct PreInputInstruction<T: PreInputOperation>(
-    pub(crate) bool,
-    pub(crate) std::marker::PhantomData<T>,
+pub struct PreInputInstruction(
+    pub(crate) bool
 );
 
-impl<T: PreInputOperation> PlayerOperation for PreInputInstruction<T> {
+impl PlayerOperation for PreInputInstruction {
     fn op_active(&self) -> bool {
         self.0.op_active()
     }
 }
 
-impl<T: PreInputOperation> PreInputOperation for PreInputInstruction<T> {
+impl PreInputOperation for PreInputInstruction {
     fn op_do_deactivate(&mut self) {
         self.0 = false;
     }
@@ -54,9 +53,9 @@ impl<T: PreInputOperation> PreInputOperation for PreInputInstruction<T> {
     }
 }
 
-impl<T: PreInputOperation> From<&T> for PreInputInstruction<T> {
+impl<T: PreInputOperation> From<&T> for PreInputInstruction {
     fn from(value: &T) -> Self {
-        Self(value.op_active(), Default::default())
+        Self(value.op_active())
     }
 }
 
@@ -126,7 +125,7 @@ mod unit_tests {
         timer.add_time(0.5);
         assert!(timer.op_active());
 
-        let mut timer_ins: PreInputInstruction<TinyTimer> = (&timer).into();
+        let mut timer_ins: PreInputInstruction = (&timer).into();
         assert!(timer_ins.op_active());
         assert!(timer_ins.op_consume_active()); // 消费完成后 激活态改变
         assert!(!timer_ins.op_active());

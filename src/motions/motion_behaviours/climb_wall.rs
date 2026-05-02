@@ -15,7 +15,7 @@ const SELF_MOTION_MODE: MotionMode = MotionMode::ClimbWall;
 const CLIMB_BEGIN_TIME: f64 = 0.2;
 
 /// 攀爬（贴墙下滑）
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ClimbWallBehaviour<S: FixedString> {
     climb_begin_anim: S,
     climbing_anim: S,

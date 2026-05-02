@@ -37,7 +37,7 @@ pub struct PlayerController {
 /// 实例化后长期存在在【客户端】 每帧根据玩家控制器更新
 ///
 /// 其属性都是玩家操作 [`PlayerOperation`] 或 [`PreInputOperation`] P.S. 可以选择进行类型封装，不要直接实现，但目前实现过于耦合了不好修改
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct PlayerOperationCollection {
     pub(crate) look_angle: f64,
     pub(crate) move_direction: f64,
@@ -70,27 +70,27 @@ pub struct PlayerInstructionCollection {
     pub(crate) look_angle: PlayerInstruction<f64>,
     pub(crate) move_direction: PlayerInstruction<f64>,
 
-    pub(crate) jump_once: PreInputInstruction<TinyTimer>,
+    pub(crate) jump_once: PreInputInstruction,
     pub(crate) jump_keep: PlayerInstruction<bool>,
     pub(crate) jump_hold: PlayerInstruction<bool>,
 
-    pub(crate) dodge_once: PreInputInstruction<TinyTimer>,
+    pub(crate) dodge_once: PreInputInstruction,
     pub(crate) dodge_hold: PlayerInstruction<bool>,
 
-    pub(crate) block_once: PreInputInstruction<TinyTimer>,
+    pub(crate) block_once: PreInputInstruction,
     pub(crate) block_hold: PlayerInstruction<bool>,
 
-    pub(crate) attack_once: PreInputInstruction<TinyTimer>,
+    pub(crate) attack_once: PreInputInstruction,
     pub(crate) attack_keep: PlayerInstruction<bool>,
     pub(crate) attack_hold: PlayerInstruction<bool>,
 }
 
 /// 专门用于客户端到服务端传输的包装类型，表示中间态，借助强类型系统保证业务逻辑正确性
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct PlayerInstructionCollectionRaw(pub PlayerInstructionCollection);
 
 /// 专门用于服务端到客户端传输的包装类型，表示最终态，借助强类型系统保证业务逻辑正确性
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct PlayerInstructionCollectionFinal(pub PlayerInstructionCollection);
 
 impl From<PlayerInstructionCollection> for PlayerOperationCollection {
@@ -181,7 +181,7 @@ impl PlayerOperationCollection {
     }
 
     #[inline]
-    fn fix_once_by_inst<T>(mut once_value: T, instruction_value: PreInputInstruction<T>) -> T
+    fn fix_once_by_inst<T>(mut once_value: T, instruction_value: PreInputInstruction) -> T
     where
         T: PreInputOperation,
     {
@@ -293,17 +293,17 @@ pub(crate) mod unit_tests {
             look_angle: PlayerInstruction::from(1.0),
             move_direction: PlayerInstruction::from(1.0),
 
-            jump_once: PreInputInstruction(true, Default::default()),
+            jump_once: PreInputInstruction(true),
             jump_keep: PlayerInstruction::from(true),
             jump_hold: PlayerInstruction::from(true),
 
-            dodge_once: PreInputInstruction(true, Default::default()),
+            dodge_once: PreInputInstruction(true),
             dodge_hold: PlayerInstruction::from(true),
 
-            block_once: PreInputInstruction(true, Default::default()),
+            block_once: PreInputInstruction(true),
             block_hold: PlayerInstruction::from(true),
 
-            attack_once: PreInputInstruction(true, Default::default()),
+            attack_once: PreInputInstruction(true),
             attack_keep: PlayerInstruction::from(true),
             attack_hold: PlayerInstruction::from(true),
         };
@@ -317,17 +317,17 @@ pub(crate) mod unit_tests {
             look_angle: PlayerInstruction::from(1.0),
             move_direction: PlayerInstruction::from(1.0),
 
-            jump_once: PreInputInstruction(false, Default::default()),
+            jump_once: PreInputInstruction(false),
             jump_keep: PlayerInstruction::from(false),
             jump_hold: PlayerInstruction::from(false),
 
-            dodge_once: PreInputInstruction(false, Default::default()),
+            dodge_once: PreInputInstruction(false),
             dodge_hold: PlayerInstruction::from(false),
 
-            block_once: PreInputInstruction(false, Default::default()),
+            block_once: PreInputInstruction(false),
             block_hold: PlayerInstruction::from(false),
 
-            attack_once: PreInputInstruction(false, Default::default()),
+            attack_once: PreInputInstruction(false),
             attack_keep: PlayerInstruction::from(false),
             attack_hold: PlayerInstruction::from(false),
         };

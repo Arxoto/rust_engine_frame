@@ -32,7 +32,7 @@ impl Default for JumpSpecialEffect {
 }
 
 /// 空中行为
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct InAirBehaviour<S: FixedString> {
     jumping_anim: S,
     falling_anim: S,

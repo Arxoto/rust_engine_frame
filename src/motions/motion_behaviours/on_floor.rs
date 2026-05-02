@@ -19,7 +19,7 @@ const LANDING_DELAY: f64 = 0.1;
 const MOVEING_THRESHOLD: f64 = 0.1; // 视觉相关 没必要很小
 
 /// 地面
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct OnFloorBehaviour<S: FixedString> {
     run_anim: S,
     idle_anim: S,
