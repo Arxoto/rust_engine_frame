@@ -1,5 +1,7 @@
 # rust engine frame
 
+todo refactor 重构，兼容 ECS 思想
+
 ## 编码规范
 
 代码提交前使用工具化检查（或在 CI 持续集成流程中启用）：

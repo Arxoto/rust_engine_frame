@@ -33,9 +33,7 @@ pub trait PreInputOperation: PlayerOperation + Clone + Sized {
 ///
 /// 该类型属性生命周期在一帧内，每次根据玩家操作临时生成（指令响应后及时反馈给玩家操作）
 #[derive(Clone, Copy, Debug, Default)]
-pub struct PreInputInstruction(
-    pub(crate) bool
-);
+pub struct PreInputInstruction(pub(crate) bool);
 
 impl PlayerOperation for PreInputInstruction {
     fn op_active(&self) -> bool {

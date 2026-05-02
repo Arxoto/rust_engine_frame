@@ -115,6 +115,6 @@ pub(crate) mod unit_tests {
         let (signals, member_num) = signals_all_active();
         let mut list = Vec::new();
         signals.push_instruction(&mut list);
-        assert_eq!(list.len(), member_num.try_into().unwrap());
+        assert_eq!(list.len(), TryInto::<usize>::try_into(member_num).unwrap());
     }
 }

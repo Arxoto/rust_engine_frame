@@ -6,17 +6,23 @@ edition = "2024"
 [features]
 default = ["godotext"]
 baselib = []
-commonimpl = []
-godotext = ["commonimpl", "godot"] # 这里依赖子特性或者依赖包都可以
+commonimpl = ["baselib"]
+# 这里依赖子特性或者依赖包都可以
+godotext = ["commonimpl", "godot"]
+bevyproj = ["commonimpl", "bevy"]
 
 [dependencies]
 rustc-hash = "2.1.1"
 godot = { version = "0.4.2", optional = true }
+bevy = { version = "0.18.1", optional = true }
 
 [lib]
 crate-type = ["rlib", "cdylib"]  # Compile this crate to a dynamic C library.
 
+[profile.dev]
+opt-level = 1
+
 [profile.release]
 opt-level = 3
-lto = true
 codegen-units = 1
+lto = "thin" # lto = true 极端优化

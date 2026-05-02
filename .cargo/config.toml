@@ -1,0 +1,5 @@
+# see https://bevy.org/learn/quick-start/getting-started/setup/#alternative-linkers
+
+# for Windows
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"

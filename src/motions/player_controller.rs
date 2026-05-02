@@ -354,6 +354,9 @@ pub(crate) mod unit_tests {
         let mut list = Vec::new();
         instructions.push_instruction(&mut list);
         // 保证所有的指令都被转换成事件推入列表
-        assert_eq!(list.len() + 2, member_num.try_into().unwrap()); // 2 是 look_angle & move_direction 不参与事件因此手动补齐
+        assert_eq!(
+            list.len() + 2,
+            TryInto::<usize>::try_into(member_num).unwrap()
+        ); // 2 是 look_angle & move_direction 不参与事件因此手动补齐
     }
 }
