@@ -11,40 +11,143 @@ impl TinyTimer {
         Self {
             time_limit: limit,
             time: 0.0,
-            flow: false,
+            flow: true,
         }
     }
 
-    /// 开始计时
-    pub fn start_time(&mut self) {
+    /// 重新计时
+    /// 
+    /// ```
+    /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
+    /// let mut timer = TinyTimer::new(5.0);
+    /// timer.tick(3.0);
+    /// timer.restart();
+    /// timer.tick(2.0);
+    /// assert_eq!(timer.cost_time(), 2.0);
+    /// ```
+    pub fn restart(&mut self) {
         self.flow = true;
         self.time = 0.0;
     }
 
-    /// 强制结束 pause/freeze
-    pub fn final_time(&mut self) {
+    /// 暂停 pause/freeze
+    /// 
+    /// ```
+    /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
+    /// let mut timer = TinyTimer::new(5.0);
+    /// timer.tick(3.0);
+    /// timer.pause();
+    /// timer.tick(2.0);
+    /// assert_eq!(timer.cost_time(), 3.0);
+    /// ```
+    pub fn pause(&mut self) {
         self.flow = false;
     }
 
+    /// 继续计时
+    /// 
+    /// ```
+    /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
+    /// let mut timer = TinyTimer::new(5.0);
+    /// timer.tick(3.0);
+    /// timer.pause();
+    /// timer.tick(2.0);
+    /// assert_eq!(timer.cost_time(), 3.0);
+    /// timer.resume();
+    /// timer.tick(1.0);
+    /// assert_eq!(timer.cost_time(), 4.0);
+    /// ```
+    pub fn resume(&mut self) {
+        self.flow = true;
+    }
+
     /// 时间流逝
-    pub fn add_time(&mut self, delta: f64) {
+    /// 
+    /// ```
+    /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
+    /// let mut timer = TinyTimer::new(5.0);
+    /// timer.tick(3.0);
+    /// assert_eq!(timer.cost_time(), 3.0);
+    /// ```
+    pub fn tick(&mut self, delta: f64) {
         if self.flow {
             self.time = self.time_limit.min(self.time + delta);
         }
     }
 
+    /// 获得计时器经过了多少时间
+    pub fn cost_time(&self) -> f64 {
+        self.time
+    }
+
+    /// 计时器是否暂停
+    /// 
+    /// ```
+    /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
+    /// let mut timer = TinyTimer::new(5.0);
+    /// assert!(timer.is_not_paused());
+    /// timer.pause();
+    /// assert!(timer.is_paused());
+    /// ```
+    pub fn is_paused(&self) -> bool {
+        !self.flow
+    }
+
+    /// 计时器是否正在计时
+    /// 
+    /// ```
+    /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
+    /// let mut timer = TinyTimer::new(5.0);
+    /// assert!(timer.is_not_paused());
+    /// timer.pause();
+    /// assert!(timer.is_paused());
+    /// ```
+    pub fn is_not_paused(&self) -> bool {
+        self.flow
+    }
+
     /// 计时进行中 未结束
-    pub fn in_time(&self) -> bool {
+    /// 
+    /// ```
+    /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
+    /// let mut timer = TinyTimer::new(5.0);
+    /// timer.tick(1.0);
+    /// assert!(timer.is_timing());
+    /// timer.pause();
+    /// assert!(!timer.is_timing());
+    /// timer.resume();
+    /// timer.tick(5.0);
+    /// assert!(!timer.is_timing());
+    /// ```
+    pub fn is_timing(&self) -> bool {
         self.flow && self.time < self.time_limit
     }
 
-    /// 时间自然结束
-    pub fn is_end(&self) -> bool {
-        self.flow && self.time >= self.time_limit
+    /// 计时结束
+    /// 
+    /// ```
+    /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
+    /// let mut timer = TinyTimer::new(5.0);
+    /// timer.tick(1.0);
+    /// assert!(timer.is_not_finished());
+    /// timer.tick(5.0);
+    /// assert!(timer.is_finished());
+    /// ```
+    pub fn is_finished(&self) -> bool {
+        self.time >= self.time_limit
     }
 
-    /// 时间强制冻结
-    pub fn is_forced_final(&self) -> bool {
-        !self.flow
+    /// 计时未结束
+    /// 
+    /// ```
+    /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
+    /// let mut timer = TinyTimer::new(5.0);
+    /// timer.tick(1.0);
+    /// assert!(timer.is_not_finished());
+    /// timer.tick(5.0);
+    /// assert!(timer.is_finished());
+    /// ```
+    pub fn is_not_finished(&self) -> bool {
+        self.time < self.time_limit
     }
 }

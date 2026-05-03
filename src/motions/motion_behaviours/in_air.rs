@@ -105,11 +105,11 @@ impl<S: FixedString>
         self.start_double_jump_time();
 
         if p.character_y_fly_up {
-            self.coyote_timer.final_time();
-            self.jump_higher_timer.start_time();
+            self.coyote_timer.pause();
+            self.jump_higher_timer.restart();
         } else {
-            self.coyote_timer.start_time();
-            self.jump_higher_timer.final_time();
+            self.coyote_timer.restart();
+            self.jump_higher_timer.pause();
         }
     }
 
@@ -137,12 +137,12 @@ impl<S: FixedString>
     }
 
     fn process_physics(&mut self, (p, data): &mut (&mut PhyParam<S>, &MotionData)) -> PhyEff {
-        self.coyote_timer.add_time(p.delta);
+        self.coyote_timer.tick(p.delta);
         // 提示，从攀爬状态转换到空中状态时触发的是普通的郊狼时间
         if p.character_can_jump_on_wall {
-            self.coyote_timer.start_time();
+            self.coyote_timer.restart();
         }
-        self.jump_higher_timer.add_time(p.delta);
+        self.jump_higher_timer.tick(p.delta);
 
         // 处理跳跃下落逻辑
         if p.instructions.jump_once.op_active() {
@@ -153,8 +153,8 @@ impl<S: FixedString>
                 // P.S. 每个台阶二高度（允许脚部碰撞墙体）不依赖二段跳，一高度依赖二段跳（若蹬墙跳要求仅为身体与墙碰撞，则极限操作下也可以完成）
                 self.jump_special_effect = JumpSpecialEffect::JumpOnWall;
                 true
-            } else if self.coyote_timer.in_time() {
-                self.coyote_timer.final_time();
+            } else if self.coyote_timer.is_timing() {
+                self.coyote_timer.pause();
                 true
             } else if self.can_double_jump() {
                 self.jump_special_effect = JumpSpecialEffect::DoubleJump;
@@ -166,17 +166,17 @@ impl<S: FixedString>
 
             if should_jump_once {
                 p.instructions.jump_once.op_do_deactivate();
-                self.jump_higher_timer.start_time();
+                self.jump_higher_timer.restart();
                 return PhyEff::create_jump(data, p.instructions.move_direction.0);
             }
         } else if p.instructions.jump_keep.op_active() {
             // 尝试跳得更高
-            if self.jump_higher_timer.in_time() {
+            if self.jump_higher_timer.is_timing() {
                 return PhyEff::create_jump(data, p.instructions.move_direction.0);
             }
         } else {
             // 中断任何跳跃意图都会导致无法继续跳得更高
-            self.jump_higher_timer.final_time();
+            self.jump_higher_timer.pause();
         }
 
         if p.character_y_fly_up {

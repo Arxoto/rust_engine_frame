@@ -64,17 +64,17 @@ impl<T: PreInputOperation> From<&T> for PreInputInstruction {
 // 有容错时间的操作指令
 impl PlayerOperation for TinyTimer {
     fn op_active(&self) -> bool {
-        self.in_time()
+        self.is_timing()
     }
 }
 
 impl PreInputOperation for TinyTimer {
     fn op_do_deactivate(&mut self) {
-        self.final_time();
+        self.pause();
     }
 
     fn op_do_reactivate(&mut self) {
-        self.start_time();
+        self.restart();
     }
 }
 
@@ -89,27 +89,27 @@ mod unit_tests {
     #[test]
     fn test_timer() {
         let mut timer = TinyTimer::new(1.0);
-        timer.start_time();
+        timer.restart();
         assert!(timer.op_active());
-        timer.add_time(0.5);
+        timer.tick(0.5);
         assert!(timer.op_active());
-        timer.add_time(0.5);
+        timer.tick(0.5);
         assert!(!timer.op_active());
-        timer.add_time(0.5);
-        assert!(!timer.op_active());
-
-        let mut timer = TinyTimer::new(1.0);
-        timer.start_time();
-        assert!(timer.op_active());
-        timer.add_time(0.5);
-        assert!(timer.op_active());
-        timer.final_time();
+        timer.tick(0.5);
         assert!(!timer.op_active());
 
         let mut timer = TinyTimer::new(1.0);
-        timer.start_time();
+        timer.restart();
         assert!(timer.op_active());
-        timer.add_time(0.5);
+        timer.tick(0.5);
+        assert!(timer.op_active());
+        timer.pause();
+        assert!(!timer.op_active());
+
+        let mut timer = TinyTimer::new(1.0);
+        timer.restart();
+        assert!(timer.op_active());
+        timer.tick(0.5);
         assert!(timer.op_active());
         timer.op_do_deactivate();
         assert!(!timer.op_active());
@@ -118,9 +118,9 @@ mod unit_tests {
     #[test]
     fn test_timer_echo_with() {
         let mut timer = TinyTimer::new(1.0);
-        timer.start_time();
+        timer.restart();
         assert!(timer.op_active());
-        timer.add_time(0.5);
+        timer.tick(0.5);
         assert!(timer.op_active());
 
         let mut timer_ins: PreInputInstruction = (&timer).into();

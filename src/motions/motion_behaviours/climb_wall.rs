@@ -44,13 +44,13 @@ impl<S: FixedString>
     }
 
     fn on_enter(&mut self, _p: &PhyParam<S>) {
-        self.beginning.start_time();
+        self.beginning.restart();
     }
 
     fn tick_frame(&mut self, p: &FrameParam<S>) -> FrameEff<S> {
-        self.beginning.add_time(p.delta);
+        self.beginning.tick(p.delta);
         // 攀爬没有跳跃动画 因为预期内跳跃会切换至另一个行为
-        if self.beginning.in_time() {
+        if self.beginning.is_timing() {
             FrameEff::from(self.climb_begin_anim.clone())
         } else {
             FrameEff::from(self.climbing_anim.clone())
