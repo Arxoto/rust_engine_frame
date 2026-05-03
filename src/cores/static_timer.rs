@@ -1,7 +1,7 @@
 #[derive(Clone, Debug)]
 pub struct StaticTimer {
-    /// 存活时间
-    lifetime: f64,
+    /// 生命周期持续时间 固定值
+    duration: f64,
     /// 过期时间 静态记录
     expire_at: f64,
     /// 特殊的 为了内存优化 负数认为是没有暂停
@@ -11,7 +11,7 @@ pub struct StaticTimer {
 impl StaticTimer {
     pub fn new(current_time: f64, duration: f64) -> Self {
         Self {
-            lifetime: duration,
+            duration,
             expire_at: current_time + duration,
             pause_at: -1.0,
         }
@@ -27,7 +27,7 @@ impl StaticTimer {
     /// assert!(timer.is_expired(8.0));
     /// ```
     pub fn restart(&mut self, current_time: f64) {
-        self.expire_at = current_time + self.lifetime;
+        self.expire_at = current_time + self.duration;
         self.pause_at = -1.0;
     }
 
