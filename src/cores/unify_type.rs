@@ -22,10 +22,12 @@ impl FixedString for i64 {}
 mod tests {
     use super::*;
 
+    // New Type 创建有明确语义的新类型，增强类型安全性和封装性
+    // 这里使用 New Type 来为其他 crate 的类型实现 Trait Alias 绕过孤儿原则
+
     // define in lib
 
-    // New Type 创建有明确语义的新类型，增强类型安全性和封装性
-    // 这里使用 New Type 来为其他crate的类型实现 Trait Alias 绕过孤儿原则
+    // 要求类型为 FixedName
     pub struct FixedNameBox<S: FixedName> {
         the_name: S,
     }
@@ -42,6 +44,7 @@ mod tests {
 
     // adapter in project
 
+    // 假设其他包中定义了一个类型
     type AnyType = String;
     // type AnyType = i32;
     fn get_value_for_type() -> AnyType {
@@ -49,6 +52,7 @@ mod tests {
         // 123
     }
 
+    // 使用 New Type 来为 AnyType 实现 FixedName
     /// same as [`FixedName`]
     #[derive(PartialEq, Hash, Eq, Clone, Debug)]
     pub struct FixedNameWrapper(pub AnyType);
@@ -59,10 +63,9 @@ mod tests {
         }
     }
 
-    /// convert when return
-    impl Into<AnyType> for &FixedNameWrapper {
-        fn into(self) -> AnyType {
-            self.0.clone()
+    impl From<FixedNameWrapper> for AnyType {
+        fn from(value: FixedNameWrapper) -> Self {
+            value.0
         }
     }
 
@@ -74,7 +77,7 @@ mod tests {
     fn test_func() {
         let fixed_name_box: FixedNameBox<FixedNameWrapper> =
             FixedNameBox::new(get_value_for_type());
-        let real_name: AnyType = fixed_name_box.get_name().into();
+        let real_name: AnyType = fixed_name_box.get_name().clone().into();
         assert_eq!(real_name, get_value_for_type());
     }
 }
