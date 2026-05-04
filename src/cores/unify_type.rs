@@ -18,6 +18,9 @@ impl FixedName for i64 {}
 impl FixedString for usize {}
 impl FixedString for i64 {}
 
+// 也许可以抽象 AbstractTime 代替 f64 来直接表示时间，抽象后可支持其他类型，如 std::time::Duration 类型，目前 f64 基本满足需求
+// pub trait AbstractTime {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

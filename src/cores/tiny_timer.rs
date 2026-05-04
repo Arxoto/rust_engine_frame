@@ -1,3 +1,6 @@
+/// 基于增量累加时间实现的计时器
+/// - 每帧需要调用 `tick` 方法来更新计时器状态
+/// - 适用于需要知道进度（动画特效）、短生命周期、局部时间调速等场景
 #[derive(Clone, Debug)]
 pub struct TinyTimer {
     time_limit: f64,
