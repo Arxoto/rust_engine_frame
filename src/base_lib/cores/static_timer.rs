@@ -1,20 +1,23 @@
 //! 基于绝对时间戳实现的计时器
-//! - 【缺点】不支持循环触发，代码实现和使用复杂
+//! - 【缺点】不支持循环触发，需配合统一时间线一起使用
 //! - 高性能，无需每帧更新，仅需只读比较即可，需要传入当前时间
-//! - 适用于服务端验证、长期计时，注意需要修改时间类型为高精度类型，如 [`std::time::Duration`]
+//! - 适用于服务端验证、长期计时，静态时间戳可能需要更换非浮点类型防止误差累积，如 [`std::time::Duration`]
 //! - 数量规模庞大的场景，将大量的循环触发的 TickTimer 转换为 StaticTimer 表示状态和少量触发式 TickTimer 用于结算
 
-use crate::base_lib::cores::{design_patterns::ContextWrapper, tiny_timer::{FlowingTimer, FlowingTimerReadonly, TinyTimer}};
+use crate::base_lib::cores::{
+    design_patterns::ContextWrapper,
+    tick_timer_builders::FreezeTickTimer,
+    tiny_timer::{FlowingTimer, FlowingTimerReadonly, TinyTimer},
+};
 
-#[derive(Clone, Copy, Debug)]
-pub struct StaticTimeline(pub f64);
+/// 静态计时器的参考时间线，暂停等功能在时间线上实现
+#[derive(Clone, Debug)]
+pub struct StaticTimeline(pub FreezeTickTimer);
 
 impl StaticTimeline {
-    pub fn tick(&mut self, delta: f64) {
-        self.0 += delta;
+    pub fn current_time(&self) -> f64 {
+        self.0.get_time()
     }
-
-    // todo 暂停功能放这里
 }
 
 #[derive(Clone, Debug)]
@@ -26,10 +29,10 @@ pub struct StaticTimer {
 }
 
 impl StaticTimer {
-    pub fn new(timeline: StaticTimeline, duration: f64) -> Self {
+    pub fn new(timeline: &StaticTimeline, duration: f64) -> Self {
         Self {
             duration,
-            end_at: timeline.0 + duration,
+            end_at: timeline.current_time() + duration,
         }
     }
 }
@@ -40,7 +43,7 @@ impl TinyTimer for ContextWrapper<&StaticTimer, &StaticTimeline> {
     }
 
     fn get_time_left(&self) -> f64 {
-        (self.inner.end_at - self.ctx.0).min(0.0)
+        (self.inner.end_at - self.ctx.current_time()).min(0.0)
     }
 
     fn get_time_limit(&self) -> f64 {
@@ -56,22 +59,22 @@ impl TinyTimer for ContextWrapper<&StaticTimer, &StaticTimeline> {
 
 impl FlowingTimerReadonly for ContextWrapper<&StaticTimer, &StaticTimeline> {
     fn is_finished(&self) -> bool {
-        self.ctx.0 >= self.inner.end_at
+        self.ctx.current_time() >= self.inner.end_at
     }
 }
 
 impl FlowingTimerReadonly for ContextWrapper<&mut StaticTimer, &mut StaticTimeline> {
     fn is_finished(&self) -> bool {
-        self.ctx.0 >= self.inner.end_at
+        self.ctx.current_time() >= self.inner.end_at
     }
 }
 
 impl FlowingTimer for ContextWrapper<&mut StaticTimer, &mut StaticTimeline> {
     fn restart(&mut self) {
-        self.inner.end_at = self.ctx.0 + self.inner.duration;
+        self.inner.end_at = self.ctx.current_time() + self.inner.duration;
     }
 
     fn finish(&mut self) {
-        self.inner.end_at = self.ctx.0;
+        self.inner.end_at = self.ctx.current_time();
     }
 }

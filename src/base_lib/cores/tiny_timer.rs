@@ -11,48 +11,6 @@ use crate::base_lib::cores::design_patterns::ContextWrapper;
 
 // region: 抽象定义
 
-/// 有状态计时器
-pub trait FlowingTimer: FlowingTimerReadonly {
-    /// 重置时间
-    fn restart(&mut self);
-
-    /// 提前结束
-    fn finish(&mut self);
-}
-
-pub trait FlowingTimerReadonly {
-    /// 计时结束
-    fn is_finished(&self) -> bool;
-}
-
-/// 可被冻结的计时器
-pub trait FreezableTimer: FreezableTimerReadonly {
-    /// 冻结时间
-    fn freeze(&mut self);
-
-    /// 恢复计时
-    fn resume(&mut self);
-}
-
-pub trait FreezableTimerReadonly {
-    /// 是否被冻结
-    fn is_frozen(&self) -> bool;
-}
-
-/// 可循环触发的计时器
-pub trait CyclicalTimer {
-    /// 触发次数
-    fn try_trigger_once(&mut self) -> bool;
-}
-
-// endregion
-
-/// 基于增量累加时间实现的计时器
-pub trait TickTimer: TinyTimer {
-    /// 时间流逝
-    fn tick(&mut self, delta: f64);
-}
-
 /// Progress 进度计时器
 pub trait TinyTimer {
     /// 已经经过了多少时间
@@ -67,6 +25,48 @@ pub trait TinyTimer {
     /// 进度比例
     fn get_time_ratio(&self) -> f64;
 }
+
+/// 基于增量累加时间实现的计时器
+pub trait TickTimer: TinyTimer {
+    /// 时间流逝
+    fn tick(&mut self, delta: f64);
+}
+
+pub trait FlowingTimerReadonly {
+    /// 计时结束
+    fn is_finished(&self) -> bool;
+}
+
+/// 有状态计时器
+pub trait FlowingTimer: FlowingTimerReadonly {
+    /// 重置时间
+    fn restart(&mut self);
+
+    /// 提前结束
+    fn finish(&mut self);
+}
+
+pub trait FreezableTimerReadonly {
+    /// 是否被冻结
+    fn is_frozen(&self) -> bool;
+}
+
+/// 可被冻结的计时器
+pub trait FreezableTimer: FreezableTimerReadonly {
+    /// 冻结时间
+    fn freeze(&mut self);
+
+    /// 恢复计时
+    fn resume(&mut self);
+}
+
+/// 可循环触发的计时器
+pub trait CyclicalTimer {
+    /// 触发次数
+    fn try_trigger_once(&mut self) -> bool;
+}
+
+// endregion
 
 pub mod freezable_tick {
     use super::*;
