@@ -4,7 +4,7 @@
 //! - 适用于需要知道进度（动画特效）、短生命周期、局部时间调速等场景
 
 use crate::base_lib::cores::tiny_timer::{
-    CyclicalTimer, FlowingTimer, FlowingTimerReadonly, TickTimer, TickTimerReadonly,
+    CyclicalTimer, FlowingTimer, FlowingTimerReadonly, TickTimer, TinyTimer,
 };
 
 /// 有限增长的 [`TickTimer`] 默认实现 [`FlowingTimer`]
@@ -23,13 +23,21 @@ impl TickTimerFinite {
     }
 }
 
-impl TickTimerReadonly for TickTimerFinite {
+impl TinyTimer for TickTimerFinite {
     fn get_time(&self) -> f64 {
         self.time
     }
 
+    fn get_time_left(&self) -> f64 {
+        self.time_limit - self.time
+    }
+
     fn get_time_limit(&self) -> f64 {
         self.time_limit
+    }
+
+    fn get_time_ratio(&self) -> f64 {
+        self.time / self.time_limit
     }
 }
 
@@ -72,15 +80,23 @@ impl TickTimerInfinite {
     }
 }
 
-impl TickTimerReadonly for TickTimerInfinite {
+impl TinyTimer for TickTimerInfinite {
     fn get_time(&self) -> f64 {
         // when time is INF, return NAN
         // cause ratio to be NAN, left to be NAN
         self.time % self.time_limit
     }
 
+    fn get_time_left(&self) -> f64 {
+        self.time_limit - self.get_time()
+    }
+
     fn get_time_limit(&self) -> f64 {
         self.time_limit
+    }
+
+    fn get_time_ratio(&self) -> f64 {
+        self.get_time() / self.get_time_limit()
     }
 }
 

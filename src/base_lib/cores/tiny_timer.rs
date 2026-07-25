@@ -11,7 +11,7 @@ use crate::base_lib::cores::design_patterns::ContextWrapper;
 
 // region: 抽象定义
 
-/// 最简化的计时器
+/// 有状态计时器
 pub trait FlowingTimer: FlowingTimerReadonly {
     /// 重置时间
     fn restart(&mut self);
@@ -48,17 +48,24 @@ pub trait CyclicalTimer {
 // endregion
 
 /// 基于增量累加时间实现的计时器
-pub trait TickTimer: TickTimerReadonly {
+pub trait TickTimer: TinyTimer {
     /// 时间流逝
     fn tick(&mut self, delta: f64);
 }
 
-pub trait TickTimerReadonly {
+/// Progress 进度计时器
+pub trait TinyTimer {
     /// 已经经过了多少时间
     fn get_time(&self) -> f64;
 
+    /// 剩余时长
+    fn get_time_left(&self) -> f64;
+
     /// 计时上限
     fn get_time_limit(&self) -> f64;
+
+    /// 进度比例
+    fn get_time_ratio(&self) -> f64;
 }
 
 pub mod freezable_tick {
@@ -113,23 +120,39 @@ pub mod freezable_tick {
         }
     }
 
-    impl<T: TickTimer> TickTimerReadonly for ContextWrapper<&FreezableTickTag, &T> {
+    impl<T: TickTimer> TinyTimer for ContextWrapper<&FreezableTickTag, &T> {
         fn get_time(&self) -> f64 {
             self.ctx.get_time()
         }
 
+        fn get_time_left(&self) -> f64 {
+            self.ctx.get_time_left()
+        }
+
         fn get_time_limit(&self) -> f64 {
             self.ctx.get_time_limit()
+        }
+
+        fn get_time_ratio(&self) -> f64 {
+            self.ctx.get_time_ratio()
         }
     }
 
-    impl<T: TickTimer> TickTimerReadonly for ContextWrapper<&mut FreezableTickTag, &mut T> {
+    impl<T: TickTimer> TinyTimer for ContextWrapper<&mut FreezableTickTag, &mut T> {
         fn get_time(&self) -> f64 {
             self.ctx.get_time()
         }
 
+        fn get_time_left(&self) -> f64 {
+            self.ctx.get_time_left()
+        }
+
         fn get_time_limit(&self) -> f64 {
             self.ctx.get_time_limit()
+        }
+
+        fn get_time_ratio(&self) -> f64 {
+            self.ctx.get_time_ratio()
         }
     }
 
