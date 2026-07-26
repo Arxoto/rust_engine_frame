@@ -19,7 +19,7 @@ pub struct Effect<S> {
     /// 效果值，部分效果的生效不取决于该值，但仍可根据正负判断是否增益
     effect_value: f64,
     /// 堆叠层数，这里不持有上限信息
-    stack_value: u32,
+    stack_value: i32,
 }
 
 impl<S> Effect<S> {
@@ -27,7 +27,7 @@ impl<S> Effect<S> {
         from_name: T,
         effect_name: T,
         effect_value: f64,
-        stack_value: u32,
+        stack_value: i32,
     ) -> Self {
         Self {
             from_name: from_name.into(),
@@ -51,16 +51,11 @@ impl<S> Effect<S> {
         self.effect_value
     }
 
-    pub fn get_stack_value(&self) -> u32 {
+    pub fn get_stack_value(&self) -> i32 {
         self.stack_value
     }
 
     // endregion
-
-    /// 判断增益或减益效果
-    pub fn which_nature(&self, base_line: f64) -> EffectNature {
-        EffectNature::which_nature(self.effect_value, base_line)
-    }
 
     /// 设置来源名称，有时候可将效果来源从个人更新为团队
     /// 
@@ -80,14 +75,19 @@ impl<S> Effect<S> {
     }
 
     /// 累加堆叠层数
-    pub fn add_eff_stack_by(&mut self, other: &Self, stack_limit: u32) {
+    pub fn add_eff_stack_by(&mut self, other: &Self, stack_limit: i32) {
         self.stack_value = stack_limit.max(self.stack_value + other.stack_value)
     }
 }
 
+pub trait EffectMeaning {
+    /// 判断增益或减益效果
+    fn which_nature(&self) -> EffectMean;
+}
+
 /// 增益或减益效果标识
 #[derive(Clone, Copy, Debug)]
-pub enum EffectNature {
+pub enum EffectMean {
     /// 增益效果
     Buff,
     /// 减益效果
@@ -96,7 +96,7 @@ pub enum EffectNature {
     Neutral,
 }
 
-impl EffectNature {
+impl EffectMean {
     pub fn which_nature(value: f64, base_line: f64) -> Self {
         if value > base_line {
             Self::Buff
