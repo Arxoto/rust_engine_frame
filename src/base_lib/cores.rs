@@ -1,11 +1,16 @@
-mod design_patterns;
+//! 底层基建
+//! 
+//! - 抽象类型
+//! - 计时器
 
-mod unify_types;
+pub mod design_patterns;
 
-mod tiny_timer;
+pub mod unify_types;
 
-mod tick_timer;
+pub mod tiny_timer;
 
-mod tick_timer_builders;
+pub mod tick_timer;
 
-mod static_timer;
+pub mod tick_timer_builders;
+
+pub mod static_timer;
