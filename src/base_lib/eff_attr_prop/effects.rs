@@ -58,7 +58,7 @@ impl<S> Effect<S> {
     // endregion
 
     /// 设置来源名称，有时候可将效果来源从个人更新为团队
-    /// 
+    ///
     /// 注意，若 [`Effect::effect_name`] 和 [`Effect::from_name`] 一起用作索引哈希，那么就不应该修改
     pub fn set_from_name(&mut self, from_name: S) {
         self.from_name = from_name
@@ -80,6 +80,13 @@ impl<S> Effect<S> {
     }
 }
 
+/// 可堆叠的效果
+pub trait EffectStackable {
+    /// 进行堆叠
+    fn do_stack(&mut self, other: &Self);
+}
+
+/// 判断增益或减益效果
 pub trait EffectMeaning {
     /// 判断增益或减益效果
     fn which_nature(&self) -> EffectMean;

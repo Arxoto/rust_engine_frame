@@ -1,12 +1,15 @@
 use crate::base_lib::{
-    cores::design_patterns::ContextWrapper,
-    eff_attr_prop::effects::{Effect, EffectMean, EffectMeaning},
+    cores::unify_types::FixedName,
+    eff_attr_prop::{
+        eff_container::WithId,
+        effects::{Effect, EffectMean, EffectMeaning, EffectStackable},
+    },
 };
 
 /// Attr 属性效果的类型
 ///
 /// 计算公式见 [`AttrModifier::apply_modify`]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum AttrEffectType {
     /// 基础加法（描述参考：基础伤害增加xx），可安全使用
     BasicAdd,
@@ -22,16 +25,50 @@ pub enum AttrEffectType {
 ///
 /// 表示为：力量、攻击力等面板属性
 #[derive(Clone, Debug)]
-pub struct AttrEffect<S, Timer> {
-    pub eff_type: AttrEffectType,
-    pub effect: Effect<S>,
-    pub duration: Timer,
+pub struct AttrEffect<S: FixedName, Timer> {
+    eff_id: (AttrEffectType, S),
+    eff_type: AttrEffectType,
+    effect: Effect<S>,
+    duration: Timer,
 }
 
-impl<S> EffectMeaning for ContextWrapper<&AttrEffectType, &Effect<S>> {
+impl<S: FixedName, Timer> AttrEffect<S, Timer> {
+    pub fn new(eff_type: AttrEffectType, effect: Effect<S>, duration: Timer) -> Self {
+        Self {
+            eff_id: (eff_type, effect.get_effect_name().clone()),
+            eff_type,
+            effect,
+            duration,
+        }
+    }
+}
+
+impl<S: FixedName, Timer> WithId for AttrEffect<S, Timer> {
+    type Id = (AttrEffectType, S);
+
+    fn get_id(&self) -> &Self::Id {
+        // todo 确认能否使用内部引用直接返回，节省空间
+        &self.eff_id
+    }
+}
+
+impl<S: FixedName, Timer> EffectStackable for AttrEffect<S, Timer> {
+    fn do_stack(&mut self, other: &Self) {
+        // todo 把几个常用的堆叠逻辑复用，不同的属性效果可能会有不同的堆叠逻辑
+
+        // 不可堆叠 只能替换
+        let source = &mut self.effect;
+        let target = &other.effect;
+
+        source.set_from_name(target.get_from_name().clone());
+        source.update_eff_val_by(target);
+    }
+}
+
+impl<S: FixedName, Timer> EffectMeaning for AttrEffect<S, Timer> {
     fn which_nature(&self) -> EffectMean {
-        let eff_value = self.ctx.get_effect_value();
-        match self.inner {
+        let eff_value = self.effect.get_effect_value();
+        match self.eff_type {
             AttrEffectType::BasicAdd => EffectMean::which_nature(eff_value, BASIC_ADD_BASE_LINE),
             AttrEffectType::BasicPer => EffectMean::which_nature(eff_value, BASIC_PER_BASE_LINE),
             AttrEffectType::FinalPer => EffectMean::which_nature(eff_value, FINAL_PER_BASE_LINE),
@@ -67,7 +104,7 @@ impl Default for AttrModifier {
 }
 
 impl AttrModifier {
-    pub fn reduce<S, Timer>(&mut self, eff: &AttrEffect<S, Timer>) {
+    pub fn reduce<S: FixedName, Timer>(&mut self, eff: &AttrEffect<S, Timer>) {
         let eff_value = eff.effect.get_effect_value();
         let eff_stack = eff.effect.get_stack_value();
 
