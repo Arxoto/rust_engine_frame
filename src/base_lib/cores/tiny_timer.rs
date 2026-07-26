@@ -174,32 +174,32 @@ pub mod few_show_cycle {
     /// 有限循环预制体，实现 [`FlowingTimer`] [`CyclicalTimer`]
     #[derive(Clone, Debug)]
     pub struct FewShotCycleTag {
-        current: usize,
-        limited: usize,
+        value: u32,
+        limit: u32,
     }
 
     impl FewShotCycleTag {
-        pub fn new(limited: usize) -> FewShotCycleTag {
+        pub fn new(limit: u32) -> FewShotCycleTag {
             Self {
-                current: 0,
-                limited,
+                value: 0,
+                limit,
             }
         }
     }
 
     impl FlowingTimerReadonly for FewShotCycleTag {
         fn is_finished(&self) -> bool {
-            self.current >= self.limited
+            self.value >= self.limit
         }
     }
 
     impl FlowingTimer for FewShotCycleTag {
         fn restart(&mut self) {
-            self.current = 0;
+            self.value = 0;
         }
 
         fn finish(&mut self) {
-            self.current = self.limited;
+            self.value = self.limit;
         }
     }
 
@@ -208,7 +208,7 @@ pub mod few_show_cycle {
             if self.is_finished() {
                 false
             } else {
-                self.current += 1;
+                self.value += 1;
                 true
             }
         }

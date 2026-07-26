@@ -5,6 +5,7 @@ use crate::base_lib::cores::{
 
 // 面向对象时可直接使用， ECS 时可考虑拆分
 
+/// 可暂停的计时器
 #[derive(Clone, Debug)]
 pub struct FreezeTickTimer {
     pub freezable_tick_tag: FreezableTickTag,
@@ -20,6 +21,7 @@ impl FreezeTickTimer {
     }
 }
 
+/// 可暂停的循环触发计时器
 #[derive(Clone, Debug)]
 pub struct FreezeCycleTickTimer {
     pub freezable_tick_tag: FreezableTickTag,
@@ -35,6 +37,7 @@ impl FreezeCycleTickTimer {
     }
 }
 
+/// 可暂停的有限触发计时器
 #[derive(Clone, Debug)]
 pub struct FreezeFewShotTickTimer {
     pub freezable_tick_tag: FreezableTickTag,
@@ -43,7 +46,7 @@ pub struct FreezeFewShotTickTimer {
 }
 
 impl FreezeFewShotTickTimer {
-    pub fn new(time_limit: f64, few_shot: usize) -> Self {
+    pub fn new(time_limit: f64, few_shot: u32) -> Self {
         Self {
             freezable_tick_tag: FreezableTickTag::default(),
             few_shot_cycle_tag: FewShotCycleTag::new(few_shot),
