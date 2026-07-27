@@ -1,8 +1,9 @@
 use crate::base_lib::{
     cores::unify_types::FixedName,
     eff_attr_prop::{
-        eff_container::WithId,
-        effects::{Effect, EffectMean, EffectMeaning, EffectStackable},
+        eff_merge_logic::{self, EffectMergeLogic},
+        effects::{Effect, EffectMean, EffectMeaning},
+        upsert_container::Upsert,
     },
 };
 
@@ -25,17 +26,15 @@ pub enum AttrEffectType {
 ///
 /// 表示为：力量、攻击力等面板属性
 #[derive(Clone, Debug)]
-pub struct AttrEffect<S: FixedName, Timer> {
-    eff_id: (AttrEffectType, S),
+pub struct AttrEffect<S: FixedName, Timer: Upsert> {
     eff_type: AttrEffectType,
     effect: Effect<S>,
     duration: Timer,
 }
 
-impl<S: FixedName, Timer> AttrEffect<S, Timer> {
+impl<S: FixedName, Timer: Upsert> AttrEffect<S, Timer> {
     pub fn new(eff_type: AttrEffectType, effect: Effect<S>, duration: Timer) -> Self {
         Self {
-            eff_id: (eff_type, effect.get_effect_name().clone()),
             eff_type,
             effect,
             duration,
@@ -43,29 +42,26 @@ impl<S: FixedName, Timer> AttrEffect<S, Timer> {
     }
 }
 
-impl<S: FixedName, Timer> WithId for AttrEffect<S, Timer> {
-    type Id = (AttrEffectType, S);
+impl<S: FixedName, Timer: Upsert> Upsert for AttrEffect<S, Timer> {
+    type Id = S;
 
     fn get_id(&self) -> &Self::Id {
-        // todo 确认能否使用内部引用直接返回，节省空间
-        &self.eff_id
+        self.effect.get_effect_name()
+    }
+
+    fn update(&mut self, other: &Self) {
+        // 始终刷新时间
+        self.duration.update(&other.duration);
+
+        // 属性效果设计为无法堆叠，仅刷新来源和强度
+        let origin = &mut self.effect;
+        let other = &other.effect;
+        eff_merge_logic::ResetFromName.merge(origin, other);
+        eff_merge_logic::ResetValue.merge(origin, other);
     }
 }
 
-impl<S: FixedName, Timer> EffectStackable for AttrEffect<S, Timer> {
-    fn do_stack(&mut self, other: &Self) {
-        // todo 把几个常用的堆叠逻辑复用，不同的属性效果可能会有不同的堆叠逻辑
-
-        // 不可堆叠 只能替换
-        let source = &mut self.effect;
-        let target = &other.effect;
-
-        source.set_from_name(target.get_from_name().clone());
-        source.update_eff_val_by(target);
-    }
-}
-
-impl<S: FixedName, Timer> EffectMeaning for AttrEffect<S, Timer> {
+impl<S: FixedName, Timer: Upsert> EffectMeaning for AttrEffect<S, Timer> {
     fn which_nature(&self) -> EffectMean {
         let eff_value = self.effect.get_effect_value();
         match self.eff_type {
@@ -104,7 +100,7 @@ impl Default for AttrModifier {
 }
 
 impl AttrModifier {
-    pub fn reduce<S: FixedName, Timer>(&mut self, eff: &AttrEffect<S, Timer>) {
+    pub fn reduce<S: FixedName, Timer: Upsert>(&mut self, eff: &AttrEffect<S, Timer>) {
         let eff_value = eff.effect.get_effect_value();
         let eff_stack = eff.effect.get_stack_value();
 

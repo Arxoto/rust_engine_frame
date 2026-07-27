@@ -12,14 +12,21 @@
 /// 注意：若允许不同来源的效果可叠加，那么必然会导致伤害结算存在误差：叠加产生的额外收益算谁的，这划分给谁都不合适，也许可以算成团队收益
 #[derive(Clone, Debug)]
 pub struct Effect<S> {
-    /// 效果来源，一般用于结算记录
-    from_name: S,
-    /// 效果名称，用作事件触发时主要根据名称生效作用
-    effect_name: S,
+    /// 效果描述
+    effect_desc: EffectDescriptor<S>,
     /// 效果值，部分效果的生效不取决于该值，但仍可根据正负判断是否增益
     effect_value: f64,
     /// 堆叠层数，这里不持有上限信息
     stack_value: i32,
+}
+
+/// 效果描述，包含【效果名称】和【来源】
+#[derive(Clone, Debug)]
+pub struct EffectDescriptor<S> {
+    /// 效果来源，一般用于结算记录
+    from_name: S,
+    /// 效果名称，用作事件触发时主要根据名称生效作用
+    effect_name: S,
 }
 
 impl<S> Effect<S> {
@@ -29,9 +36,13 @@ impl<S> Effect<S> {
         effect_value: f64,
         stack_value: i32,
     ) -> Self {
+        let from_name: S = from_name.into();
+        let effect_name: S = effect_name.into();
         Self {
-            from_name: from_name.into(),
-            effect_name: effect_name.into(),
+            effect_desc: EffectDescriptor {
+                from_name,
+                effect_name,
+            },
             effect_value,
             stack_value,
         }
@@ -39,12 +50,16 @@ impl<S> Effect<S> {
 
     // region: getter
 
+    pub fn get_desc(&self) -> &EffectDescriptor<S> {
+        &self.effect_desc
+    }
+
     pub fn get_from_name(&self) -> &S {
-        &self.from_name
+        &self.effect_desc.from_name
     }
 
     pub fn get_effect_name(&self) -> &S {
-        &self.effect_name
+        &self.effect_desc.effect_name
     }
 
     pub fn get_effect_value(&self) -> f64 {
@@ -61,7 +76,7 @@ impl<S> Effect<S> {
     ///
     /// 注意，若 [`Effect::effect_name`] 和 [`Effect::from_name`] 一起用作索引哈希，那么就不应该修改
     pub fn set_from_name(&mut self, from_name: S) {
-        self.from_name = from_name
+        self.effect_desc.from_name = from_name
     }
 
     /// 设置强度值
@@ -69,8 +84,8 @@ impl<S> Effect<S> {
         self.effect_value = effect_value
     }
 
-    /// 更新强度值
-    pub fn update_eff_val_by(&mut self, other: &Self) {
+    /// 设置强度值
+    pub fn set_eff_val_by(&mut self, other: &Self) {
         self.effect_value = other.effect_value
     }
 
@@ -78,12 +93,6 @@ impl<S> Effect<S> {
     pub fn add_eff_stack_by(&mut self, other: &Self, stack_limit: i32) {
         self.stack_value = stack_limit.max(self.stack_value + other.stack_value)
     }
-}
-
-/// 可堆叠的效果
-pub trait EffectStackable {
-    /// 进行堆叠
-    fn do_stack(&mut self, other: &Self);
 }
 
 /// 判断增益或减益效果

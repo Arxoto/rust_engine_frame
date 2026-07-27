@@ -2,10 +2,17 @@
 
 use std::{fmt::Debug, hash::Hash};
 
-/// 身份标识
-pub trait WithId {
+/// 可合并类型
+pub trait Upsert {
     type Id: Eq + Hash + Clone + Debug;
+
+    /// 获取 id
+    ///
+    /// 返回引用，为简化生命周期，建议直接返回持有字段，不要重新组合；若有必要可以专门定义字段，在创建的时候拷贝对应数据
     fn get_id(&self) -> &Self::Id;
+
+    /// 进行合并，逻辑上建议 id 相同才进行合并
+    fn update(&mut self, other: &Self);
 }
 
 /// 持久效果的容器
@@ -40,27 +47,27 @@ pub trait WithId {
 ///   - 效果逻辑适合作为 System ，新增效果解耦合
 ///   - UI 展示角色所有效果，适合容器管理，作为实体是否合适，待 ECS 熟练后确认 todo
 #[derive(Debug, Default)]
-pub struct EffectContainer<E: WithId> {
+pub struct UpsertContainer<E: Upsert> {
     /// 实际持有的效果
-    effects: Vec<Option<E>>,
+    ll: Vec<Option<E>>,
     /// 空值数量
     hole_count: usize,
 }
 
-impl<E: WithId> EffectContainer<E> {
+impl<E: Upsert> UpsertContainer<E> {
     /// 遍历效果
     pub fn iter_eff(&self) -> impl Iterator<Item = &E> {
-        self.effects.iter().filter_map(|e| e.as_ref())
+        self.ll.iter().filter_map(|e| e.as_ref())
     }
 
     /// 遍历效果（可变）
     pub fn iter_eff_mut(&mut self) -> impl Iterator<Item = &mut E> {
-        self.effects.iter_mut().filter_map(|e| e.as_mut())
+        self.ll.iter_mut().filter_map(|e| e.as_mut())
     }
 
     /// 查询效果
     pub fn find_eff(&self, id: &E::Id) -> Option<&E> {
-        self.effects
+        self.ll
             .iter()
             .filter_map(|e| e.as_ref())
             .find(|e| e.get_id() == id)
@@ -68,7 +75,7 @@ impl<E: WithId> EffectContainer<E> {
 
     /// 查询效果（可变）
     pub fn find_eff_mut(&mut self, id: &E::Id) -> Option<&mut E> {
-        self.effects
+        self.ll
             .iter_mut()
             .filter_map(|e| e.as_mut())
             .find(|e| e.get_id() == id)
@@ -76,30 +83,27 @@ impl<E: WithId> EffectContainer<E> {
 
     /// 查询效果，返回 opt 包裹的效果槽位，槽位逻辑上不可能为空
     fn locate_eff_slot(&mut self, id: &E::Id) -> Option<&mut Option<E>> {
-        self.effects
+        self.ll
             .iter_mut()
             .find(|e| e.as_ref().is_some_and(|inner| inner.get_id() == id))
     }
 
     /// 尝试添加效果，若已有效果则对其进行修改，如进行堆叠操作等
-    pub fn upsert_eff<F>(&mut self, new_eff: E, mut f: F)
-    where
-        F: FnMut(&mut E, E),
-    {
+    pub fn upsert_eff(&mut self, new_eff: E) {
         let id = new_eff.get_id();
         if let Some(old_eff_slot) = self.locate_eff_slot(id) {
             // 槽位逻辑上不可能为空
             if let Some(old_eff) = old_eff_slot {
-                f(old_eff, new_eff);
+                old_eff.update(&new_eff);
 
                 // 刷新后后置，旧槽位置空
                 let merged_eff = old_eff_slot.take();
-                self.effects.push(merged_eff);
+                self.ll.push(merged_eff);
                 self.hole_count += 1;
             }
         } else {
             // do put
-            self.effects.push(Some(new_eff));
+            self.ll.push(Some(new_eff));
         }
     }
 
@@ -127,14 +131,14 @@ impl<E: WithId> EffectContainer<E> {
         }
 
         // 空洞率达到 25% 才压缩
-        if self.hole_count * 4 >= self.effects.len() {
+        if self.hole_count * 4 >= self.ll.len() {
             self.do_clean();
         }
     }
 
     /// 保留非空值，不修改数组容量
     fn do_clean(&mut self) {
-        self.effects.retain(|e| e.is_some());
+        self.ll.retain(|e| e.is_some());
         self.hole_count = 0;
     }
 }

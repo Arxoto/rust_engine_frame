@@ -1,6 +1,6 @@
 use crate::base_lib::{
     cores::unify_types::FixedName,
-    eff_attr_prop::eff_container::{EffectContainer, WithId},
+    eff_attr_prop::upsert_container::{Upsert, UpsertContainer},
 };
 
 /// attribute 属性 一般用作角色属性值 可被效果影响
@@ -28,10 +28,7 @@ impl Attr {
         self.current
     }
 
-    pub fn refresh_value<E: WithId>(
-        &mut self,
-        _effs: EffectContainer<E>,
-    ) {
+    pub fn refresh_value<E: Upsert>(&mut self, _effs: UpsertContainer<E>) {
         // todo
     }
 }
