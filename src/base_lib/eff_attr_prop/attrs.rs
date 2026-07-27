@@ -1,6 +1,9 @@
 use crate::base_lib::{
     cores::unify_types::FixedName,
-    eff_attr_prop::upsert_container::{Upsert, UpsertContainer},
+    eff_attr_prop::{
+        attr_eff::{AttrEffect, AttrModifier},
+        upsert_container::{Upsert, UpsertContainer},
+    },
 };
 
 /// attribute 属性 一般用作角色属性值 可被效果影响
@@ -28,7 +31,20 @@ impl Attr {
         self.current
     }
 
-    pub fn refresh_value<E: Upsert>(&mut self, _effs: UpsertContainer<E>) {
-        // todo
+    /// 刷新属性，在效果更新后
+    /// todo 如何与计时器关联，在新增效果或者计时器过期后触发刷新
+    pub fn refresh_value<S: FixedName, Timer: Upsert>(
+        &mut self,
+        effs: &UpsertContainer<AttrEffect<S, Timer>>,
+    ) {
+        let mut attr_modifier = AttrModifier::default();
+
+        for ele in effs.iter_eff() {
+            attr_modifier.reduce(ele);
+        }
+
+        self.current = attr_modifier.apply_modify(self.origin)
     }
 }
+
+// todo test
