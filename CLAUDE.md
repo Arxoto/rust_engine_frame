@@ -89,3 +89,17 @@ The crate is a **game engine framework** organized into four layered systems:
 - Unit tests are inline in `#[cfg(test)]` blocks within each source file.
 - Integration tests live in `tests/` (currently sparse — `state_machine_action_tests.rs` is a placeholder example).
 - Test helpers in `tests/common/common_helper.rs`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs are tracked as markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
