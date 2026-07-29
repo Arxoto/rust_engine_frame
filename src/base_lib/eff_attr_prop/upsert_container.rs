@@ -60,10 +60,10 @@ impl<E: Upsert> UpsertContainer<E> {
         self.ll.iter().filter_map(|e| e.as_ref())
     }
 
-    /// 遍历效果（可变）
-    pub fn iter_eff_mut(&mut self) -> impl Iterator<Item = &mut E> {
-        self.ll.iter_mut().filter_map(|e| e.as_mut())
-    }
+    // /// 遍历效果（可变）【注意该方式修改不会影响顺序，可能会引起BUG谨慎使用】
+    // pub fn iter_eff_mut(&mut self) -> impl Iterator<Item = &mut E> {
+    //     self.ll.iter_mut().filter_map(|e| e.as_mut())
+    // }
 
     /// 查询效果
     pub fn find_eff(&self, id: &E::Id) -> Option<&E> {
@@ -73,13 +73,13 @@ impl<E: Upsert> UpsertContainer<E> {
             .find(|e| e.get_id() == id)
     }
 
-    /// 查询效果（可变）
-    pub fn find_eff_mut(&mut self, id: &E::Id) -> Option<&mut E> {
-        self.ll
-            .iter_mut()
-            .filter_map(|e| e.as_mut())
-            .find(|e| e.get_id() == id)
-    }
+    // /// 查询效果（可变）【注意该方式修改不会影响顺序，可能会引起BUG谨慎使用】
+    // pub fn find_eff_mut(&mut self, id: &E::Id) -> Option<&mut E> {
+    //     self.ll
+    //         .iter_mut()
+    //         .filter_map(|e| e.as_mut())
+    //         .find(|e| e.get_id() == id)
+    // }
 
     /// 查询效果，返回 opt 包裹的效果槽位，槽位逻辑上不可能为空
     fn locate_eff_slot(&mut self, id: &E::Id) -> Option<&mut Option<E>> {
@@ -88,7 +88,7 @@ impl<E: Upsert> UpsertContainer<E> {
             .find(|e| e.as_ref().is_some_and(|inner| inner.get_id() == id))
     }
 
-    /// 尝试添加效果，若已有效果则对其进行修改，如进行堆叠操作等
+    /// 尝试添加效果，若已有效果则对其进行修改，如进行堆叠操作等，修改后的效果会被排到最后
     pub fn upsert_eff(&mut self, new_eff: E) {
         let id = new_eff.get_id();
         if let Some(old_eff_slot) = self.locate_eff_slot(id) {
