@@ -107,6 +107,24 @@ impl<E: Upsert> UpsertContainer<E> {
         }
     }
 
+    /// 批量删除满足条件的效果
+    pub fn del_ele_batch<F>(&mut self, should_del: F) -> bool
+    where
+        F: Fn(&E) -> bool,
+    {
+        let mut changed = false;
+        for slot in self.ll.iter_mut() {
+            if let Some(ele) = slot {
+                if should_del(ele) {
+                    *slot = None;
+                    self.hole_count += 1;
+                    changed = true;
+                }
+            }
+        }
+        changed
+    }
+
     /// 删除效果（幂等：重复删除无副作用）
     pub fn del_ele_by(&mut self, id: &E::Id) {
         if let Some(ele_slot) = self.locate_ele_slot(id) {
@@ -145,6 +163,30 @@ impl<E: Upsert> UpsertContainer<E> {
     fn do_clean(&mut self) {
         self.ll.retain(|e| e.is_some());
         self.hole_count = 0;
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct UpsertContainerCleaner {
+    do_clean_time: f64,
+}
+
+impl UpsertContainerCleaner {
+    /// 默认 5s 刷新一次
+    pub const fn get_default_period() -> f64 {
+        5.0
+    }
+
+    pub fn check_clean<E: Upsert>(
+        &mut self,
+        container: &mut UpsertContainer<E>,
+        current_time: f64,
+        period: f64,
+    ) {
+        if self.do_clean_time < current_time {
+            self.do_clean_time += period;
+            container.try_clean();
+        }
     }
 }
 
