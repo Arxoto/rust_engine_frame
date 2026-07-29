@@ -39,7 +39,7 @@ impl Attr {
     ) {
         let mut attr_modifier = AttrModifier::default();
 
-        for ele in effs.iter_eff() {
+        for ele in effs.iter_ele() {
             attr_modifier.reduce(ele);
         }
 

@@ -56,17 +56,17 @@ pub struct UpsertContainer<E: Upsert> {
 
 impl<E: Upsert> UpsertContainer<E> {
     /// 遍历效果
-    pub fn iter_eff(&self) -> impl Iterator<Item = &E> {
+    pub fn iter_ele(&self) -> impl Iterator<Item = &E> {
         self.ll.iter().filter_map(|e| e.as_ref())
     }
 
     // /// 遍历效果（可变）【注意该方式修改不会影响顺序，可能会引起BUG谨慎使用】
-    // pub fn iter_eff_mut(&mut self) -> impl Iterator<Item = &mut E> {
+    // pub fn iter_ele_mut(&mut self) -> impl Iterator<Item = &mut E> {
     //     self.ll.iter_mut().filter_map(|e| e.as_mut())
     // }
 
     /// 查询效果
-    pub fn find_eff(&self, id: &E::Id) -> Option<&E> {
+    pub fn find_ele(&self, id: &E::Id) -> Option<&E> {
         self.ll
             .iter()
             .filter_map(|e| e.as_ref())
@@ -74,7 +74,7 @@ impl<E: Upsert> UpsertContainer<E> {
     }
 
     // /// 查询效果（可变）【注意该方式修改不会影响顺序，可能会引起BUG谨慎使用】
-    // pub fn find_eff_mut(&mut self, id: &E::Id) -> Option<&mut E> {
+    // pub fn find_ele_mut(&mut self, id: &E::Id) -> Option<&mut E> {
     //     self.ll
     //         .iter_mut()
     //         .filter_map(|e| e.as_mut())
@@ -82,37 +82,42 @@ impl<E: Upsert> UpsertContainer<E> {
     // }
 
     /// 查询效果，返回 opt 包裹的效果槽位，槽位逻辑上不可能为空
-    fn locate_eff_slot(&mut self, id: &E::Id) -> Option<&mut Option<E>> {
+    fn locate_ele_slot(&mut self, id: &E::Id) -> Option<&mut Option<E>> {
         self.ll
             .iter_mut()
             .find(|e| e.as_ref().is_some_and(|inner| inner.get_id() == id))
     }
 
     /// 尝试添加效果，若已有效果则对其进行修改，如进行堆叠操作等，修改后的效果会被排到最后
-    pub fn upsert_eff(&mut self, new_eff: E) {
-        let id = new_eff.get_id();
-        if let Some(old_eff_slot) = self.locate_eff_slot(id) {
+    pub fn upsert_ele(&mut self, new_ele: E) {
+        let id = new_ele.get_id();
+        if let Some(old_ele_slot) = self.locate_ele_slot(id) {
             // 槽位逻辑上不可能为空
-            if let Some(old_eff) = old_eff_slot {
-                old_eff.update(&new_eff);
+            if let Some(old_ele) = old_ele_slot {
+                old_ele.update(&new_ele);
 
                 // 刷新后后置，旧槽位置空
-                let merged_eff = old_eff_slot.take();
-                self.ll.push(merged_eff);
+                let merged_ele = old_ele_slot.take();
+                self.ll.push(merged_ele);
                 self.hole_count += 1;
             }
         } else {
             // do put
-            self.ll.push(Some(new_eff));
+            self.ll.push(Some(new_ele));
         }
     }
 
     /// 删除效果（幂等：重复删除无副作用）
-    pub fn del_eff_by(&mut self, id: &E::Id) {
-        if let Some(eff_slot) = self.locate_eff_slot(id) {
-            *eff_slot = None;
+    pub fn del_ele_by(&mut self, id: &E::Id) {
+        if let Some(ele_slot) = self.locate_ele_slot(id) {
+            *ele_slot = None;
             self.hole_count += 1;
         }
+    }
+
+    /// 获取当前效果个数
+    pub fn ele_len(&self) -> usize {
+        self.ll.len() - self.hole_count
     }
 
     /// 清理容器，去除空值
