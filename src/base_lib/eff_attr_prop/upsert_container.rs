@@ -13,14 +13,11 @@ pub trait Upsert {
     fn matched_id(&self, id: &Self::Id) -> bool;
 
     /// 为快速比较，避免多次获取 id 引起不必要的克隆
-    fn matched_with(&self, other: &Self) -> bool;
-
-    /// 进行合并，逻辑上建议 id 相同才进行合并
-    fn update(&mut self, other: &Self);
+    fn has_same_id(&self, other: &Self) -> bool;
 }
 
 /// 持久效果的容器
-/// - 顺序无关
+/// - 根据插入顺序排序，不是更新顺序
 /// - 【重要】需要手动遍历判断效果的 Timer 是否过期
 /// - 【重要】外部手动定时刷新
 ///
@@ -65,25 +62,24 @@ impl<E: Upsert> UpsertContainer<E> {
     }
 
     /// 查询效果，返回 opt 包裹的效果槽位，槽位逻辑上不可能为空
-    fn locate_slot_by_id(&mut self, id: &E::Id) -> Option<&mut Option<E>> {
+    fn locate_slot<F>(&mut self, find_logic: F) -> Option<&mut Option<E>>
+    where
+        F: Fn(&E) -> bool,
+    {
         self.ll
             .iter_mut()
-            .find(|e| e.as_ref().is_some_and(|inner| inner.matched_id(id)))
-    }
-
-    /// 查询效果，返回 opt 包裹的效果槽位，槽位逻辑上不可能为空
-    fn locate_slot_match(&mut self, other: &E) -> Option<&mut Option<E>> {
-        self.ll
-            .iter_mut()
-            .find(|e| e.as_ref().is_some_and(|inner| inner.matched_with(other)))
+            .find(|e| e.as_ref().is_some_and(&find_logic))
     }
 
     /// 尝试添加效果，若已有效果则对其进行修改，如进行堆叠操作等，修改后的效果会被排到最后
-    pub fn upsert_ele(&mut self, new_ele: E) {
-        if let Some(old_ele_slot) = self.locate_slot_match(&new_ele) {
+    pub fn upsert_ele<F>(&mut self, new_ele: E, update_logic: F)
+    where
+        F: Fn(&mut E, &E),
+    {
+        if let Some(old_ele_slot) = self.locate_slot(|ele| ele.has_same_id(&new_ele)) {
             // 槽位逻辑上不可能为空
             if let Some(old_ele) = old_ele_slot {
-                old_ele.update(&new_ele);
+                update_logic(old_ele, &new_ele);
 
                 // // 若需要保证更新顺序：刷新后后置，旧槽位置空
                 // let merged_ele = old_ele_slot.take();
@@ -96,27 +92,24 @@ impl<E: Upsert> UpsertContainer<E> {
         }
     }
 
-    /// 批量删除满足条件的效果
-    pub fn del_ele_batch<F>(&mut self, should_del: F) -> bool
+    /// 查询以更新
+    pub fn select_mut_ele<F>(&mut self, find_logic: F) -> Option<&mut E>
     where
         F: Fn(&E) -> bool,
     {
-        let mut changed = false;
-        for slot in self.ll.iter_mut() {
-            if let Some(ele) = slot {
-                if should_del(ele) {
-                    *slot = None;
-                    self.hole_count += 1;
-                    changed = true;
-                }
-            }
+        if let Some(ele_slot) = self.locate_slot(find_logic) {
+            ele_slot.as_mut()
+        } else {
+            None
         }
-        changed
     }
 
     /// 删除效果（幂等：重复删除无副作用）
-    pub fn del_ele_by(&mut self, id: &E::Id) -> bool {
-        if let Some(ele_slot) = self.locate_slot_by_id(id) {
+    pub fn delete_ele<F>(&mut self, find_logic: F) -> bool
+    where
+        F: Fn(&E) -> bool,
+    {
+        if let Some(ele_slot) = self.locate_slot(find_logic) {
             *ele_slot = None;
             self.hole_count += 1;
             true
@@ -128,6 +121,10 @@ impl<E: Upsert> UpsertContainer<E> {
     /// 获取当前效果个数
     pub fn ele_len(&self) -> usize {
         self.ll.len() - self.hole_count
+    }
+
+    pub fn ele_empty(&self) -> bool {
+        self.ele_len() == 0
     }
 
     /// 清理容器，去除空值

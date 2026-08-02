@@ -1,7 +1,6 @@
 use crate::base_lib::{
     cores::unify_types::FixedName,
     eff_attr_prop::{
-        eff_merge_logic::{self, EffectMergeLogic},
         effects::{Effect, EffectMean, EffectMeaning},
         upsert_container::Upsert,
     },
@@ -27,51 +26,53 @@ pub enum AttrEffectType {
 /// 表示为：力量、攻击力等面板属性
 #[derive(Clone, Debug)]
 pub struct AttrEffect<S: FixedName, Timer: Upsert> {
+    /// 效果类型 对应公式变量
     eff_type: AttrEffectType,
-    effect: Effect<S>,
+    /// 效果（来源：角色；名称：BUFF名称及其效果）
+    eff: Effect<S>,
+    /// 持续时间（可以不用计时器，而是计数器或者BUFF列表，通过空判断是否结束）
     duration: Timer,
 }
 
 impl<S: FixedName, Timer: Upsert> AttrEffect<S, Timer> {
-    pub fn new(eff_type: AttrEffectType, effect: Effect<S>, duration: Timer) -> Self {
+    pub fn new(eff_type: AttrEffectType, eff: Effect<S>, duration: Timer) -> Self {
         Self {
             eff_type,
-            effect,
+            eff,
             duration,
         }
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct AttrEffId<S: FixedName> {
+    pub eff: S,
+    pub from: S,
+}
+
 impl<S: FixedName, Timer: Upsert> Upsert for AttrEffect<S, Timer> {
-    type Id = S;
+    type Id = AttrEffId<S>;
 
     fn get_id(&self) -> Self::Id {
-        self.effect.get_effect_name().clone()
+        AttrEffId {
+            eff: self.eff.get_effect_name().clone(),
+            from: self.eff.get_from_name().clone(),
+        }
     }
-    
+
     fn matched_id(&self, id: &Self::Id) -> bool {
-        self.effect.get_effect_name() == id
+        *self.eff.get_effect_name() == id.eff && *self.eff.get_from_name() == id.from
     }
 
-    fn matched_with(&self, other: &Self) -> bool {
-        self.effect.get_effect_name() == other.effect.get_effect_name()
-    }
-
-    fn update(&mut self, other: &Self) {
-        // 始终刷新时间
-        self.duration.update(&other.duration);
-
-        // 属性效果设计为无法堆叠，仅刷新来源和强度
-        let origin = &mut self.effect;
-        let other = &other.effect;
-        eff_merge_logic::ResetFromName.merge(origin, other);
-        eff_merge_logic::ResetValue.merge(origin, other);
+    fn has_same_id(&self, other: &Self) -> bool {
+        self.eff.get_effect_name() == other.eff.get_effect_name()
+            && self.eff.get_from_name() == other.eff.get_from_name()
     }
 }
 
 impl<S: FixedName, Timer: Upsert> EffectMeaning for AttrEffect<S, Timer> {
     fn which_nature(&self) -> EffectMean {
-        let eff_value = self.effect.get_effect_value();
+        let eff_value = self.eff.get_effect_value();
         match self.eff_type {
             AttrEffectType::BasicAdd => EffectMean::which_nature(eff_value, BASIC_ADD_BASE_LINE),
             AttrEffectType::BasicPer => EffectMean::which_nature(eff_value, BASIC_PER_BASE_LINE),
@@ -109,14 +110,13 @@ impl Default for AttrModifier {
 
 impl AttrModifier {
     pub fn reduce<S: FixedName, Timer: Upsert>(&mut self, eff: &AttrEffect<S, Timer>) {
-        let eff_value = eff.effect.get_effect_value();
-        let eff_stack = eff.effect.get_stack_value();
+        let eff_value = eff.eff.get_effect_value();
 
         match eff.eff_type {
-            AttrEffectType::BasicAdd => self.basic_add += eff_value * eff_stack as f64,
-            AttrEffectType::BasicPer => self.basic_per += eff_value * eff_stack as f64,
-            AttrEffectType::FinalPer => self.final_per += eff_value * eff_stack as f64,
-            AttrEffectType::FinalMul => self.final_mul *= eff_value.powi(eff_stack),
+            AttrEffectType::BasicAdd => self.basic_add += eff_value,
+            AttrEffectType::BasicPer => self.basic_per += eff_value,
+            AttrEffectType::FinalPer => self.final_per += eff_value,
+            AttrEffectType::FinalMul => self.final_mul *= eff_value,
         }
     }
 

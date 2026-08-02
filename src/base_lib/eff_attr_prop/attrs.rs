@@ -2,7 +2,7 @@ use crate::base_lib::{
     cores::unify_types::FixedName,
     eff_attr_prop::{
         attr_eff::{AttrEffect, AttrModifier},
-        upsert_container::{Upsert, UpsertContainer},
+        upsert_container::Upsert,
     },
 };
 
@@ -33,17 +33,21 @@ impl Attr {
 
     /// 刷新属性，在效果更新后
     /// todo 如何与计时器关联，在新增效果或者计时器过期后触发刷新
-    pub fn refresh_value<S: FixedName, Timer: Upsert>(
+    pub fn refresh_value<'a, S: FixedName + 'a, Timer: Upsert + 'a>(
         &mut self,
-        effs: &UpsertContainer<AttrEffect<S, Timer>>,
+        effs: impl Iterator<Item = &'a AttrEffect<S, Timer>>,
     ) {
         let mut attr_modifier = AttrModifier::default();
 
-        for ele in effs.iter_ele() {
+        for ele in effs {
             attr_modifier.reduce(ele);
         }
 
-        self.current = attr_modifier.apply_modify(self.origin)
+        self.apply_modify(&attr_modifier);
+    }
+
+    pub(super) fn apply_modify(&mut self, am: &AttrModifier) {
+        self.current = am.apply_modify(self.origin)
     }
 }
 
