@@ -45,8 +45,16 @@ impl<S: FixedName, Timer: Upsert> AttrEffect<S, Timer> {
 impl<S: FixedName, Timer: Upsert> Upsert for AttrEffect<S, Timer> {
     type Id = S;
 
-    fn get_id(&self) -> &Self::Id {
-        self.effect.get_effect_name()
+    fn get_id(&self) -> Self::Id {
+        self.effect.get_effect_name().clone()
+    }
+    
+    fn matched_id(&self, id: &Self::Id) -> bool {
+        self.effect.get_effect_name() == id
+    }
+
+    fn matched_with(&self, other: &Self) -> bool {
+        self.effect.get_effect_name() == other.effect.get_effect_name()
     }
 
     fn update(&mut self, other: &Self) {

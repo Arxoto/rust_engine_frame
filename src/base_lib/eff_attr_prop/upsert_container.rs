@@ -6,21 +6,25 @@ use std::{fmt::Debug, hash::Hash};
 pub trait Upsert {
     type Id: Eq + Hash + Clone + Debug;
 
-    /// 获取 id
-    ///
-    /// 返回引用，为简化生命周期，建议直接返回持有字段，不要重新组合；若有必要可以专门定义字段，在创建的时候拷贝对应数据
-    fn get_id(&self) -> &Self::Id;
+    /// 获取 id ，为能够自由组合字段，返回克隆后的所有权
+    fn get_id(&self) -> Self::Id;
+
+    /// 为快速比较，避免多次获取 id 引起不必要的克隆
+    fn matched_id(&self, id: &Self::Id) -> bool;
+
+    /// 为快速比较，避免多次获取 id 引起不必要的克隆
+    fn matched_with(&self, other: &Self) -> bool;
 
     /// 进行合并，逻辑上建议 id 相同才进行合并
     fn update(&mut self, other: &Self);
 }
 
 /// 持久效果的容器
-/// - 保证顺序，后插入的在后面，更新的也在最后
+/// - 顺序无关
 /// - 【重要】需要手动遍历判断效果的 Timer 是否过期
 /// - 【重要】外部手动定时刷新
 ///
-/// 架构选型问题：面向数据ECS架构 or 面向对象直接持有
+/// 架构选型问题：面向数据ECS架构 or 面向对象直接持有 （容器应该是【直接被持有】还是【作为一个组件】）
 /// - ECS 定理：多个同类型的东西都要在每帧做同一件事，那么就应该拆成 Entity + System
 /// - 参考 DDD 主要从聚合的角度考虑，一系列足够内聚的数据才应成为 Component 组件，否则不应被拆分
 ///   - 是否有父级之外的其他 system 去访问？
@@ -60,46 +64,31 @@ impl<E: Upsert> UpsertContainer<E> {
         self.ll.iter().filter_map(|e| e.as_ref())
     }
 
-    // /// 遍历效果（可变）【注意该方式修改不会影响顺序，可能会引起BUG谨慎使用】
-    // pub fn iter_ele_mut(&mut self) -> impl Iterator<Item = &mut E> {
-    //     self.ll.iter_mut().filter_map(|e| e.as_mut())
-    // }
-
-    /// 查询效果
-    pub fn find_ele(&self, id: &E::Id) -> Option<&E> {
-        self.ll
-            .iter()
-            .filter_map(|e| e.as_ref())
-            .find(|e| e.get_id() == id)
-    }
-
-    // /// 查询效果（可变）【注意该方式修改不会影响顺序，可能会引起BUG谨慎使用】
-    // pub fn find_ele_mut(&mut self, id: &E::Id) -> Option<&mut E> {
-    //     self.ll
-    //         .iter_mut()
-    //         .filter_map(|e| e.as_mut())
-    //         .find(|e| e.get_id() == id)
-    // }
-
     /// 查询效果，返回 opt 包裹的效果槽位，槽位逻辑上不可能为空
-    fn locate_ele_slot(&mut self, id: &E::Id) -> Option<&mut Option<E>> {
+    fn locate_slot_by_id(&mut self, id: &E::Id) -> Option<&mut Option<E>> {
         self.ll
             .iter_mut()
-            .find(|e| e.as_ref().is_some_and(|inner| inner.get_id() == id))
+            .find(|e| e.as_ref().is_some_and(|inner| inner.matched_id(id)))
+    }
+
+    /// 查询效果，返回 opt 包裹的效果槽位，槽位逻辑上不可能为空
+    fn locate_slot_match(&mut self, other: &E) -> Option<&mut Option<E>> {
+        self.ll
+            .iter_mut()
+            .find(|e| e.as_ref().is_some_and(|inner| inner.matched_with(other)))
     }
 
     /// 尝试添加效果，若已有效果则对其进行修改，如进行堆叠操作等，修改后的效果会被排到最后
     pub fn upsert_ele(&mut self, new_ele: E) {
-        let id = new_ele.get_id();
-        if let Some(old_ele_slot) = self.locate_ele_slot(id) {
+        if let Some(old_ele_slot) = self.locate_slot_match(&new_ele) {
             // 槽位逻辑上不可能为空
             if let Some(old_ele) = old_ele_slot {
                 old_ele.update(&new_ele);
 
-                // 刷新后后置，旧槽位置空
-                let merged_ele = old_ele_slot.take();
-                self.ll.push(merged_ele);
-                self.hole_count += 1;
+                // // 若需要保证更新顺序：刷新后后置，旧槽位置空
+                // let merged_ele = old_ele_slot.take();
+                // self.ll.push(merged_ele);
+                // self.hole_count += 1;
             }
         } else {
             // do put
@@ -126,10 +115,13 @@ impl<E: Upsert> UpsertContainer<E> {
     }
 
     /// 删除效果（幂等：重复删除无副作用）
-    pub fn del_ele_by(&mut self, id: &E::Id) {
-        if let Some(ele_slot) = self.locate_ele_slot(id) {
+    pub fn del_ele_by(&mut self, id: &E::Id) -> bool {
+        if let Some(ele_slot) = self.locate_slot_by_id(id) {
             *ele_slot = None;
             self.hole_count += 1;
+            true
+        } else {
+            false
         }
     }
 
