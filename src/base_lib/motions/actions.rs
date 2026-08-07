@@ -16,7 +16,7 @@ pub struct ActionData<PureTag: FixedName> {
 
     // 进入条件
     // ===========================
-    /// 进入条件
+    /// 进入条件，可定义理解为 (前置动作集, 细分子状态, 触发事件)
     enter_confition: TinyTag<PureTag>,
 
     // 初始化逻辑
