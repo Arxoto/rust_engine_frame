@@ -12,6 +12,13 @@
 /// （如 godot-rust 若仅初始化涉及转换、运行时不涉及外部交互，那么可以将 GString 转换为 String 使用）
 pub trait FixedName: Eq + std::hash::Hash + Clone + std::fmt::Debug {}
 
+impl FixedName for u8 {}
+impl FixedName for u16 {}
+impl FixedName for u32 {}
+impl FixedName for u64 {}
+impl FixedName for i8 {}
+impl FixedName for i16 {}
+impl FixedName for i32 {}
 impl FixedName for i64 {}
 impl FixedName for usize {}
 impl FixedName for &str {}
