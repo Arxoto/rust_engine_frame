@@ -31,15 +31,15 @@ pub struct AttrEffect<S: FixedName, Timer: Upsert> {
     /// 效果（来源：角色；名称：BUFF名称及其效果）
     eff: Effect<S>,
     /// 持续时间（可以不用计时器，而是计数器或者BUFF列表，通过空判断是否结束）
-    duration: Timer,
+    _duration: Timer,
 }
 
 impl<S: FixedName, Timer: Upsert> AttrEffect<S, Timer> {
-    pub fn new(eff_type: AttrEffectType, eff: Effect<S>, duration: Timer) -> Self {
+    pub fn new(eff_type: AttrEffectType, eff: Effect<S>, _duration: Timer) -> Self {
         Self {
             eff_type,
             eff,
-            duration,
+            _duration,
         }
     }
 }
