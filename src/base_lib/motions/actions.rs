@@ -16,7 +16,11 @@ pub struct ActionData<PureTag: FixedName> {
 
     // 进入条件
     // ===========================
-    /// 进入条件，可定义理解为 (前置动作集, 细分子状态, 触发事件)
+    /// 进入条件
+    /// 
+    /// 复杂条件可拆分为 (前置动作集, 细分子状态, 触发事件)
+    /// 
+    /// 基础条件建议设置为 Not(xxx) 而不要 Always ，以保留强制剔除动作的灵活性，但至少要有一个 Always 条件
     enter_confition: TinyTag<PureTag>,
 
     // 初始化逻辑
@@ -43,8 +47,11 @@ pub struct ActionSwitcher<PureTag: FixedName> {
     /// 动作数据库
     action_database: FxHashMap<i64, ActionData<PureTag>>,
 
+    /// 通过 tag 控制动作切换，业务实现层可在通用模块（共同逻辑）和动作模块（独特逻辑）分别定制刷新 tag 逻辑
     current_tags: ActionTagContainer<PureTag>,
-    current_action: i64,
+
+    /// 当前动作 id
+    current_action_id: i64,
 }
 
 impl<PureTag: FixedName> ActionSwitcher<PureTag> {
@@ -52,7 +59,7 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
         Self {
             action_database: FxHashMap::default(),
             current_tags: ActionTagContainer(FxHashSet::default()),
-            current_action: default_action,
+            current_action_id: default_action,
         }
     }
 
@@ -66,7 +73,7 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
         let mut candidates: Option<&ActionData<PureTag>> = None;
         for action in self.action_database.values() {
             // 跳过自身 防止自己切换到自己导致修改 tag
-            if action.id == self.current_action {
+            if action.id == self.current_action_id {
                 continue;
             }
 
@@ -83,14 +90,14 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
             return self.do_switch_action(candidates.id);
         } else {
             // 空不切换
-            return self.current_action;
+            return self.current_action_id;
         }
     }
 
     /// 切换动作，保证切换的动作始终存在，返回当前动作
     fn do_switch_action(&mut self, action_id: i64) -> i64 {
         if let Some(action) = self.action_database.get(&action_id) {
-            self.current_action = action_id;
+            self.current_action_id = action_id;
             if action.clear_tags {
                 self.current_tags.0.clear();
             }
@@ -98,6 +105,6 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
                 self.current_tags.0.insert(tag.clone());
             }
         }
-        return self.current_action;
+        return self.current_action_id;
     }
 }
