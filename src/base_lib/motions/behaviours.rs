@@ -26,6 +26,11 @@ mod god_behaviour {}
 
 /// 跳跃一般行为
 ///
+/// todo 存在一个问题：
+///
+/// - 如果把 in_air 当作是一个动作下的细分行为，那么空中攻击动作会导致重新进入 in_air 状态，导致跳跃行为的相关参数重置，这个不符合预期
+/// - 思考是否把 behaviour 放外面 action 放里面（同老架构一样）
+///
 /// 业务逻辑参考跳跃优先级： 踩踏跳 > 蹬墙跳 > 郊狼时间跳跃 > 二段跳
 ///
 /// - stamp_jump 踩踏跳，跳跃能力增强
@@ -174,9 +179,7 @@ pub mod in_air_behaviour {
 }
 
 /// 地面一般行为 todo
-mod on_land_behaviour {
-
-}
+mod on_land_behaviour {}
 
 /// 攻击行为举例
 ///
@@ -184,11 +187,10 @@ mod on_land_behaviour {
 /// - 自动反击，受击自动增加 tag ，同时需要对伤害系统做 hook
 mod attack_example_behaviour {}
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_in_air_jump() {
         todo!()
