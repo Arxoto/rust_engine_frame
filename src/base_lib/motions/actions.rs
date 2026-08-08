@@ -1,3 +1,16 @@
+//! 控制角色动作切换
+//!
+//! 使用 tag 定制切换逻辑，用于代替状态机转换
+//!
+//! 传统状态机存在以下缺点
+//! - 可维护性差，单个状态可能存在扇入扇出的情况，此时修改容易引发蝴蝶效应
+//! - 可视化差，复杂网状结构几乎不可读
+//! - 虽然可用分层状态机优化，但是统一层级的动作过多时也会有一样的问题
+//!
+//! 优先级动作切换器（目前的方案）
+//! - 基于标签实现，支持复杂切换逻辑，但是把复杂度转移到了优先级上面，因此需要设计好优先级级别
+//! - 可视化差，需要自己实现预览视图，同时预览视图只能看到标签条件跳转到动作，无法直接看到动作的跳转逻辑
+
 use rustc_hash::FxHashMap;
 
 use crate::base_lib::cores::{
@@ -17,8 +30,10 @@ pub struct ActionData<PureTag: FixedName> {
     // ===========================
     /// id 应在工程打包时确定
     id: i64,
-    /// 优先级，选择动作时用于决策，值大的优先，优先级相同时随机选取（根据底层 HashMap 的排序来）
+    /// 优先级，选择动作时用于决策，值大的优先，优先级相同时根据注册顺序决定，后注册的优先
     priority: u16,
+    /// 注册顺序，该值在注册的时候自动赋值
+    order: usize,
 
     // 进入条件
     // ===========================
@@ -33,6 +48,22 @@ pub struct ActionData<PureTag: FixedName> {
     // ===========================
     /// 状态 tag 生命周期与当前动作一致
     state_tags: Vec<PureTag>,
+}
+
+impl<PureTag: FixedName> ActionData<PureTag> {
+    /// 判断优先级，若优先级相同则根据注册顺序判断
+    fn priority_over(&self, other: &Self) -> bool {
+        self.priority > other.priority
+            || self.priority == other.priority && self.order > other.order
+    }
+
+    /// 判断优先级，若优先级相同则根据注册顺序判断，若为空则始终优先
+    fn priority_over_opt(&self, other: Option<&Self>) -> bool {
+        match other {
+            Some(other) => self.priority_over(other),
+            None => true,
+        }
+    }
 }
 
 /// tag 集合
@@ -87,7 +118,9 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
         }
     }
 
-    pub fn register_action(&mut self, action: ActionData<PureTag>) {
+    pub fn register_action(&mut self, mut action: ActionData<PureTag>) {
+        // 无法注销，因此直接使用当前个数作为注册顺序
+        action.order = self.action_database.len();
         self.action_database.insert(action.id, action);
     }
 
@@ -101,8 +134,8 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
                 continue;
             }
 
-            // 优先级排序 选择大的
-            if candidates.is_none() || candidates.is_some_and(|c| c.priority < action.priority) {
+            // 优先级排序
+            if action.priority_over_opt(candidates) {
                 // 条件判断
                 if action.enter_confition.check_condition(&self.current_tags) {
                     candidates = Some(action);
@@ -138,6 +171,11 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
     /// 事件触发增加有时效性的 tag
     pub fn upsert_timer_tag(&mut self, tag: PureTag, timer: TickTimerFinite) {
         self.current_tags.0.insert(tag, Some(timer));
+    }
+
+    /// 获取当前所有的 tag ，一般用于调试
+    pub fn get_current_tags(&self) -> Vec<PureTag> {
+        self.current_tags.0.keys().cloned().collect()
     }
 }
 
