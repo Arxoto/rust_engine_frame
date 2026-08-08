@@ -1,5 +1,5 @@
 //! 定义计时器的核心功能，并提供基础的逻辑复用
-//! 
+//!
 //! 组合预制体的逻辑复用其实有两种方案
 //! - Blanket impl 自动实现
 //!   - 需要配合 private::Sealed 私有封装防止下游重复实现，否则可能导致同一特征冲突实现
@@ -31,6 +31,8 @@ pub trait TinyTimer {
 /// 基于增量累加时间实现的计时器
 pub trait TickTimer {
     /// 时间流逝
+    ///
+    /// 每帧应该最先调用 而后再处理业务逻辑
     fn tick(&mut self, delta: f64);
 }
 
@@ -180,10 +182,7 @@ pub mod few_show_cycle {
 
     impl FewShotCycleTag {
         pub fn new(limit: u32) -> FewShotCycleTag {
-            Self {
-                value: 0,
-                limit,
-            }
+            Self { value: 0, limit }
         }
     }
 

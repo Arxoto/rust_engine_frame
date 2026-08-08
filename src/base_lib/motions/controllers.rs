@@ -107,7 +107,6 @@ impl InstructionBufferedJustOn {
         new_one
     }
 
-    /// 计时器应该先 tick 后处理逻辑
     pub fn consume_instruction(&mut self) {
         self.0.finish();
     }
