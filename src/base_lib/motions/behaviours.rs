@@ -29,7 +29,12 @@ mod god_behaviour {}
 /// todo 存在一个问题：
 ///
 /// - 如果把 in_air 当作是一个动作下的细分行为，那么空中攻击动作会导致重新进入 in_air 状态，导致跳跃行为的相关参数重置，这个不符合预期
-/// - 思考是否把 behaviour 放外面 action 放里面（同老架构一样）
+/// - behaviour 作为主状态，其中包含 action 覆盖 behaviour （原架构）
+///   - behaviour 需要独立状态机控制状态切换
+///   - base behaviour 作为一个特殊的逻辑，需要作为父类被实现，耦合度增高
+/// - 令 behaviour 之间存在依赖关系，如空中攻击动作对应的 behaviour 依赖 in_air 和 base behaviour ，只有依赖切换时才执行退出逻辑
+///   - 这样即能保证 behaviour 是 action 的下层，又能借助 action 实现自动状态转换，还兼容了 base behaviour 的逻辑
+///   - 依赖 behaviour 预期不多，可用 list 记录 id 进行存储
 ///
 /// 业务逻辑参考跳跃优先级： 踩踏跳 > 蹬墙跳 > 郊狼时间跳跃 > 二段跳
 ///
