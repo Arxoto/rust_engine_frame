@@ -29,7 +29,7 @@ pub trait TinyTimer {
 }
 
 /// 基于增量累加时间实现的计时器
-pub trait TickTimer: TinyTimer {
+pub trait TickTimer {
     /// 时间流逝
     fn tick(&mut self, delta: f64);
 }
@@ -122,7 +122,7 @@ pub mod freezable_tick {
         }
     }
 
-    impl<T: TickTimer> TinyTimer for ContextWrapper<&FreezableTickTag, &T> {
+    impl<T: TinyTimer> TinyTimer for ContextWrapper<&FreezableTickTag, &T> {
         fn get_time(&self) -> f64 {
             self.ctx.get_time()
         }
@@ -140,7 +140,7 @@ pub mod freezable_tick {
         }
     }
 
-    impl<T: TickTimer> TinyTimer for ContextWrapper<&mut FreezableTickTag, &mut T> {
+    impl<T: TinyTimer> TinyTimer for ContextWrapper<&mut FreezableTickTag, &mut T> {
         fn get_time(&self) -> f64 {
             self.ctx.get_time()
         }
