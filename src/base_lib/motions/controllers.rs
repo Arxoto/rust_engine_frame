@@ -220,16 +220,26 @@ mod tests {
         let len = input_buf.len();
 
         // 自动化测试
-        let mut instruction = InstructionBufferedJustOn::new(INPUT_BUFFER_WINDOWS);
-        for i in 0..len {
-            let in_buf_window = input_buf[i] != ' ';
-            let button_press = input_tag[i] == '+';
-            let input_operation = InputOperation::new(button_press);
+        // 这里无论先 tick 还是后 tick 都可以
+        for tick_first in [false, true] {
+            let mut instruction = InstructionBufferedJustOn::new(INPUT_BUFFER_WINDOWS);
+            for i in 0..len {
+                let in_buf_window = input_buf[i] != ' ';
+                let button_press = input_tag[i] == '+';
+                let input_operation = InputOperation::new(button_press);
 
-            instruction.tick(UNIT_TIME);
-            instruction.update_by_operation(&input_operation);
+                if tick_first {
+                    instruction.tick(UNIT_TIME);
+                }
 
-            assert_eq!(in_buf_window, instruction.is_on(), "at index {i}");
+                instruction.update_by_operation(&input_operation);
+
+                assert_eq!(in_buf_window, instruction.is_on(), "at index {i}");
+
+                if !tick_first {
+                    instruction.tick(UNIT_TIME);
+                }
+            }
         }
     }
 }

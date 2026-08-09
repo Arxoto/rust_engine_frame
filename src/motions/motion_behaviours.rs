@@ -31,5 +31,4 @@
 //!   - 攀爬时允许跳跃
 
 pub mod climb_wall;
-pub mod on_floor;
 pub mod under_water;

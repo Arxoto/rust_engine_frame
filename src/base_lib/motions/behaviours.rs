@@ -34,6 +34,9 @@
 //! - 进入逻辑先执行依赖行为，退出逻辑反之
 //! - 预期的依赖行为不是很多，使用 list 记录 id 和上一行为进行对比
 //! - 设计依赖行为是扁平化的，不递归，因此在行为初始化时对依赖行为进行下钻，检查依赖的依赖是否在依赖列表中
+//! - 行为应该是纯函数，副作用通过返回值传递，比如修改动画或者物理等，在框架侧进行优先级聚合后统一实施作用
+//!   - 聚合逻辑若要追求完美，可能会特别复杂
+//!   - 可简化为字段覆盖，互斥的字段组合成一个类型，根据具体效果灵活变通
 
 /// 抽象行为，定义特征/接口/虚类
 ///
@@ -206,8 +209,90 @@ pub mod in_air_behaviour {
     }
 }
 
-/// 地面一般行为 todo
-pub mod on_land_behaviour {}
+/// 地面一般行为
+///
+/// - hard-landing 硬着陆眩晕效果通过动作系统实现
+/// - 着陆受身动画，进入状态时，计算上一帧y轴速度差值，差值过大播放受身动画，行为内部优先级最高，仅为视觉效果
+///   - 参考动画时长 0.1s
+/// - 起跳动画，受到跳跃指令播放起跳动画，而后消费指令进行跳跃，落地允许直接跳跃、连点跳跃不重复播放起跳动画
+///   - 快节奏/硬核 0.05 - 0.15 秒
+///   - 中节奏/流畅 0.15 - 0.2  秒
+///   - 慢节奏/蓄力 0.2  - 0.5  秒 （超过 0.25 秒会有严重的输入延迟）
+///   - 起跳动画期间若离开平台，则通过郊狼时间实现跳跃 （因此必须真正起跳时才消费指令）
+/// - 转身动画，速度很快时输入反方向移动指令，触发转身动画，转身动画播放时取消转向、结束时自动播放奔跑动画
+/// - 根据是否移动切换站立和行走动画
+pub mod on_land_behaviour {
+    use crate::base_lib::cores::{
+        tick_timer::TickTimerFinite,
+        tiny_timer::{FlowingTimer, FlowingTimerReadonly, TickTimer},
+    };
+
+    /// 落地受身辅助，动画驱动
+    pub struct LandingRoll {
+        /// 当前正在播放落地受身动画
+        anim_playing: bool,
+    }
+
+    /// 落地立即起跳辅助，计时器和动画驱动
+    pub struct ReadyToJump {
+        /// 参考 coyote_time ，落地的一段时间内【允许立即跳跃】，跳过起跳动画
+        allow_immediate_jump: TickTimerFinite,
+    }
+
+    impl LandingRoll {
+        pub fn new() -> Self {
+            Self {
+                anim_playing: false,
+            }
+        }
+
+        /// 大落差、速度差超过阈值，需要落地受身
+        pub fn init(&mut self, big_fall_to_land: bool) {
+            // 只有大落差才能够开启标记
+            self.anim_playing = big_fall_to_land;
+        }
+
+        /// 是否播放落地受身动画
+        ///
+        /// - landing_anim_finished - 当前正在播放受身动画、且动画播放结束
+        pub fn should_play_anim(&mut self, landing_anim_finished: bool) -> bool {
+            if landing_anim_finished {
+                // 只有动画播放完成才能够关闭标记
+                self.anim_playing = false;
+            }
+            self.anim_playing
+        }
+    }
+
+    impl ReadyToJump {
+        pub fn new(jump_immediately_time: f64) -> Self {
+            Self {
+                allow_immediate_jump: TickTimerFinite::new(jump_immediately_time),
+            }
+        }
+
+        pub fn init(&mut self, fall_to_land: bool) {
+            if fall_to_land {
+                self.allow_immediate_jump.restart();
+            } else {
+                self.allow_immediate_jump.finish();
+            }
+        }
+
+        /// 是否触发跳跃
+        ///
+        /// - ready_to_jump_anim_finished - 当前正在播放起跳动画、且动画播放结束
+        pub fn jump_immediately(&self, ready_to_jump_anim_finished: bool) -> bool {
+            ready_to_jump_anim_finished || !self.allow_immediate_jump.is_finished()
+        }
+    }
+
+    impl TickTimer for ReadyToJump {
+        fn tick(&mut self, delta: f64) {
+            self.allow_immediate_jump.tick(delta);
+        }
+    }
+}
 
 /// 攻击行为举例
 ///
@@ -218,33 +303,153 @@ pub mod attack_example_behaviour {}
 #[cfg(test)]
 mod tests {
     use crate::base_lib::{
-        cores::tiny_timer::TickTimer, motions::behaviours::in_air_behaviour::JumpBehaviourHelper,
+        cores::tiny_timer::TickTimer,
+        motions::behaviours::{
+            in_air_behaviour::JumpBehaviourHelper,
+            on_land_behaviour::{LandingRoll, ReadyToJump},
+        },
     };
 
     #[test]
     fn test_in_air_jump() {
         let mut jump_behaviour_helper = JumpBehaviourHelper::new(0.1, 0.4);
 
+        // 计时尽量长，先业务后 tick
         jump_behaviour_helper.init();
         assert!(jump_behaviour_helper.can_coyote_jump()); // 未跳跃，允许郊狼跳跃
         assert!(!jump_behaviour_helper.is_higher_jumping()); // 未跳跃，不在大跳时间内
         jump_behaviour_helper.tick(0.3);
-        assert!(!jump_behaviour_helper.can_coyote_jump()); // 郊狼时间结束
-        assert!(!jump_behaviour_helper.is_higher_jumping());
 
-        jump_behaviour_helper.higher_jump();
+        assert!(!jump_behaviour_helper.can_coyote_jump()); // 郊狼时间结束
+        assert!(!jump_behaviour_helper.is_higher_jumping()); // 未跳跃，不在大跳时间内
+        jump_behaviour_helper.higher_jump(); // 二段跳强制跳跃
         assert!(!jump_behaviour_helper.can_coyote_jump()); // 大跳，无法触发郊狼跳跃
         assert!(jump_behaviour_helper.is_higher_jumping()); // 大跳进行中
         jump_behaviour_helper.tick(1.0);
+
         assert!(!jump_behaviour_helper.can_coyote_jump());
         assert!(!jump_behaviour_helper.is_higher_jumping()); // 大跳结束
-
-        jump_behaviour_helper.higher_jump();
+        jump_behaviour_helper.higher_jump(); // 又一次二段跳
         jump_behaviour_helper.tick(0.2);
+
         assert!(!jump_behaviour_helper.can_coyote_jump()); // 大跳，无法触发郊狼跳跃
         assert!(jump_behaviour_helper.is_higher_jumping()); // 大跳仍在进行中
-        jump_behaviour_helper.complete_a_jump();
+        jump_behaviour_helper.complete_a_jump(); // 主动结束大跳
         assert!(!jump_behaviour_helper.can_coyote_jump());
-        assert!(!jump_behaviour_helper.is_higher_jumping()); // 主动结束大跳
+        assert!(!jump_behaviour_helper.is_higher_jumping()); // 大跳结束
+        jump_behaviour_helper.tick(1.0);
+    }
+
+    #[test]
+    fn test_landing_roll() {
+        let mut landing_roll = LandingRoll::new();
+
+        // enter with big_fall_to_land
+        let big_fall_to_land = true;
+        landing_roll.init(big_fall_to_land);
+
+        // tick first
+        let playing_landing_anim = false;
+        let landing_anim_finished = false;
+        let should_play =
+            landing_roll.should_play_anim(playing_landing_anim && landing_anim_finished);
+        assert!(should_play);
+        // do play landing anim
+
+        // tick palying
+        let playing_landing_anim = true;
+        let landing_anim_finished = false;
+        let should_play =
+            landing_roll.should_play_anim(playing_landing_anim && landing_anim_finished);
+        assert!(should_play);
+        // continue play landing anim
+
+        // tick play finished
+        let playing_landing_anim = true;
+        let landing_anim_finished = true;
+        let should_play =
+            landing_roll.should_play_anim(playing_landing_anim && landing_anim_finished);
+        assert!(!should_play);
+        // do play other anim
+
+        // tick play other anim
+        let playing_landing_anim = false;
+        let landing_anim_finished = false;
+        let should_play =
+            landing_roll.should_play_anim(playing_landing_anim && landing_anim_finished);
+        assert!(!should_play);
+        // do nothing
+
+        // ===========================
+
+        // enter without big_fall_to_land
+        let big_fall_to_land = false;
+        landing_roll.init(big_fall_to_land);
+
+        // tick
+        let playing_landing_anim = false;
+        let landing_anim_finished = false;
+        let should_play =
+            landing_roll.should_play_anim(playing_landing_anim && landing_anim_finished);
+        assert!(!should_play);
+        // do nothing
+    }
+
+    #[test]
+    fn test_ready_to_jump() {
+        let mut ready_to_jump = ReadyToJump::new(0.2);
+
+        // 计时尽量长，先业务后 tick
+
+        // enter with fall_to_land
+        let fall_to_land = true;
+        ready_to_jump.init(fall_to_land);
+
+        // tick
+        let playing_ready_to_jump_anim = false;
+        let ready_to_jump_anim_finished = false;
+        let can_jump = ready_to_jump
+            .jump_immediately(playing_ready_to_jump_anim && ready_to_jump_anim_finished);
+        assert!(can_jump);
+        // but not jump
+        ready_to_jump.tick(0.1);
+
+        // tick
+        let playing_ready_to_jump_anim = false;
+        let ready_to_jump_anim_finished = false;
+        let can_jump = ready_to_jump
+            .jump_immediately(playing_ready_to_jump_anim && ready_to_jump_anim_finished);
+        assert!(can_jump);
+        // but not jump, ready_to_jump 时间窗过期
+        ready_to_jump.tick(0.1);
+
+        // tick
+        let playing_ready_to_jump_anim = false;
+        let ready_to_jump_anim_finished = false;
+        let can_jump = ready_to_jump
+            .jump_immediately(playing_ready_to_jump_anim && ready_to_jump_anim_finished);
+        assert!(!can_jump);
+        // want jump, play ready_to_jump anim
+        ready_to_jump.tick(0.1);
+
+        // tick
+        let playing_ready_to_jump_anim = true;
+        let ready_to_jump_anim_finished = false;
+        let can_jump = ready_to_jump
+            .jump_immediately(playing_ready_to_jump_anim && ready_to_jump_anim_finished);
+        assert!(!can_jump);
+        // playing ready_to_jump anim
+        ready_to_jump.tick(0.1);
+
+        // tick
+        let playing_ready_to_jump_anim = true;
+        let ready_to_jump_anim_finished = true;
+        let can_jump = ready_to_jump
+            .jump_immediately(playing_ready_to_jump_anim && ready_to_jump_anim_finished);
+        assert!(can_jump);
+        // ready_to_jump anim finished, do jump
+        ready_to_jump.tick(0.1);
+
+        // exit on_land behavior
     }
 }
