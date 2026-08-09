@@ -5,7 +5,7 @@ use crate::base_lib::{
     },
     eff_attr_prop::{
         attr_eff::AttrEffect,
-        attr_system,
+        attr_systems,
         attrs::Attr,
         upsert_container::{UpsertContainer, UpsertContainerCleaner},
     },
@@ -58,7 +58,7 @@ impl<S: FixedName> CombatAdditionAttr<S> {
     }
 
     pub fn process_tick(&mut self, delta: f64) {
-        attr_system::process_tick(
+        attr_systems::process_tick(
             delta,
             &mut self.timeline,
             &mut self.cleaner,

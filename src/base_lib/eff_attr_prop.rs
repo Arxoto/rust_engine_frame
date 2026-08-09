@@ -51,4 +51,4 @@ pub mod props;
 
 // systems
 
-pub mod attr_system;
+pub mod attr_systems;
