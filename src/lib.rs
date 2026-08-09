@@ -6,9 +6,6 @@ pub mod cores;
 pub mod attrs;
 pub mod effects;
 
-// Motion System Component
-pub mod motions;
-
 // Combat System Component
 #[cfg(feature = "commonimpl")]
 pub mod combats;
