@@ -5,7 +5,7 @@ pub mod abstracts;
 pub mod motion_mode;
 
 pub mod motion_action;
-pub mod motion_behaviours;
+// pub mod motion_behaviours;
 
 // 输入输出参数抽象
 
