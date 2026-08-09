@@ -11,16 +11,16 @@ use crate::base_lib::cores::{
 /// 操作 直接对应玩家意图
 pub struct InputOperation<T>(T);
 
-/// 指令 按键刚刚被按下，严格前一帧刚刚按键按下
+/// 指令 直接控制玩家角色 按键刚刚被按下，严格前一帧刚刚按键按下
 pub struct InstructionStrictJustOn(bool);
 
-/// 指令 按键刚刚被按下，预输入缓冲，有容错时间
+/// 指令 直接控制玩家角色 按键刚刚被按下，预输入缓冲，有容错时间
 pub struct InstructionBufferedJustOn(TickTimerFinite, bool);
 
-/// 指令 按键处于按下状态（仅表示当前状态，不关心是否刚刚被摁下）
+/// 指令 直接控制玩家角色 按键处于按下状态（仅表示当前状态，不关心是否刚刚被摁下）
 pub struct InstructionStateOn(bool);
 
-/// 指令 按键一直被按下从未释放 不应放在全局控制器中 这里提供实现供状态逻辑中去调用
+/// 指令 直接控制玩家角色 按键一直被按下从未释放 不应放在全局控制器中 这里提供实现供状态逻辑中去调用
 pub struct InstructionStillKeep(bool);
 
 // region: trait
@@ -31,7 +31,7 @@ pub trait ActiveInput {
 }
 
 pub trait AbstractInstruction {
-    fn update_by_operation(&mut self, operation: &impl ActiveInput);
+    fn update_by_op(&mut self, operation: &impl ActiveInput);
 }
 
 // endregion
@@ -85,7 +85,7 @@ impl ActiveInput for InstructionStrictJustOn {
 }
 
 impl AbstractInstruction for InstructionStrictJustOn {
-    fn update_by_operation(&mut self, operation: &impl ActiveInput) {
+    fn update_by_op(&mut self, operation: &impl ActiveInput) {
         if self.0 {
             // 上一帧是开启状态 无论如何都关闭
             self.0 = false;
@@ -119,7 +119,7 @@ impl ActiveInput for InstructionBufferedJustOn {
 }
 
 impl AbstractInstruction for InstructionBufferedJustOn {
-    fn update_by_operation(&mut self, operation: &impl ActiveInput) {
+    fn update_by_op(&mut self, operation: &impl ActiveInput) {
         if !self.1 && operation.is_on() {
             // 根据上一帧关闭 这一帧开启 重置时间
             self.0.restart();
@@ -151,7 +151,7 @@ impl ActiveInput for InstructionStateOn {
 }
 
 impl AbstractInstruction for InstructionStateOn {
-    fn update_by_operation(&mut self, operation: &impl ActiveInput) {
+    fn update_by_op(&mut self, operation: &impl ActiveInput) {
         self.0 = operation.is_on()
     }
 }
@@ -177,7 +177,7 @@ impl ActiveInput for InstructionStillKeep {
 }
 
 impl AbstractInstruction for InstructionStillKeep {
-    fn update_by_operation(&mut self, operation: &impl ActiveInput) {
+    fn update_by_op(&mut self, operation: &impl ActiveInput) {
         self.0 &= operation.is_on()
     }
 }
@@ -199,7 +199,7 @@ mod tests {
         // update
         for input in inputs {
             let operation = InputOperation::new(input);
-            instruction.update_by_operation(&operation);
+            instruction.update_by_op(&operation);
             assert_eq!(answer_iter.next(), Some(instruction.is_on()));
         }
     }
@@ -232,7 +232,7 @@ mod tests {
                     instruction.tick(UNIT_TIME);
                 }
 
-                instruction.update_by_operation(&input_operation);
+                instruction.update_by_op(&input_operation);
 
                 assert_eq!(in_buf_window, instruction.is_on(), "at index {i}");
 
