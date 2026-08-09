@@ -1,9 +1,9 @@
 //! 效果和属性基础实现
-//! 
+//!
 //! ## 架构选型问题
-//! 
+//!
 //! 面向数据ECS架构 or 面向对象直接持有 （属性和容器应该是【直接被持有】还是【作为一个组件】）
-//! 
+//!
 //! 分析
 //! - ECS 特性考虑
 //!   - 游戏内是否有足够多的对象来充分发挥 ECS 缓存优先的性能提升
@@ -48,3 +48,7 @@ pub mod prop_bounds_eff;
 pub mod prop_eff;
 
 pub mod props;
+
+// systems
+
+pub mod attr_system;

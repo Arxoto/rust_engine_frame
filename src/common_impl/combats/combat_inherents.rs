@@ -1,12 +1,11 @@
 use crate::base_lib::{
     cores::{
-        design_patterns::WithContext,
         static_timer::{StaticTimeline, StaticTimer},
-        tiny_timer::{FlowingTimerReadonly, TickTimer},
         unify_types::FixedName,
     },
     eff_attr_prop::{
         attr_eff::AttrEffect,
+        attr_system,
         attrs::Attr,
         upsert_container::{UpsertContainer, UpsertContainerCleaner},
     },
@@ -46,42 +45,14 @@ impl<S: FixedName> CombatInherentAttr<S> {
     }
 
     pub fn process_time(&mut self, delta: f64) {
-        self.timeline.0.tick(delta);
-
-        Self::try_update_attr(&mut self.strength, &mut self.strength_effs, &self.timeline);
-        Self::try_update_attr(&mut self.belief, &mut self.belief_effs, &self.timeline);
-
-        // 规整处理，业务无关
-
-        let should_clean_period = UpsertContainerCleaner::get_default_period();
-        let should_clean_hole = self.cleaner.should_clean_hole(delta, should_clean_period);
-        if should_clean_hole {
-            self.cleaner.do_clean_hole(&mut self.strength_effs);
-            self.cleaner.do_clean_hole(&mut self.belief_effs);
-        }
-
-        let mut should_restart_timeline = true;
-        should_restart_timeline &= self.strength_effs.ele_empty();
-        should_restart_timeline &= self.belief_effs.ele_empty();
-        if should_restart_timeline {
-            self.timeline.restart_timeline();
-        }
-    }
-
-    fn try_update_attr(
-        attr: &mut Attr,
-        effs: &mut UpsertContainer<AttrEffect<S, StaticTimer>>,
-        timeline: &StaticTimeline,
-    ) {
-        effs.delete_ele(|eff| {
-            let timer = eff.get_timer();
-            timer.with_ctx(timeline).is_finished()
-        });
-
-        if effs.is_changed() {
-            effs.reset_changed_flag();
-
-            attr.refresh_value(effs.iter_ele());
-        }
+        attr_system::process_tick(
+            delta,
+            &mut self.timeline,
+            &mut self.cleaner,
+            &mut [
+                (&mut self.strength, &mut self.strength_effs),
+                (&mut self.belief, &mut self.belief_effs),
+            ],
+        );
     }
 }
