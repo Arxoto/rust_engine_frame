@@ -42,7 +42,7 @@
 /// - on_enter
 /// - on_exit
 /// - tick 帧逻辑，一般在 _physics_process / FixedUpdate 中调用
-mod abstract_behaviour {}
+pub mod abstract_behaviour {}
 
 /// 基础行为，存放通用逻辑，无论什么行为都会去调用
 ///
@@ -52,10 +52,10 @@ mod abstract_behaviour {}
 /// - in_air
 /// - on_land
 /// - under_water
-mod base_behaviour {}
+pub mod base_behaviour {}
 
 /// 依赖特定 tag 才能进入的高优先级动作行为，不会切换至其他状态，打开上帝模式在测试时用
-mod god_behaviour {}
+pub mod god_behaviour {}
 
 /// 跳跃一般行为
 ///
@@ -207,13 +207,13 @@ pub mod in_air_behaviour {
 }
 
 /// 地面一般行为 todo
-mod on_land_behaviour {}
+pub mod on_land_behaviour {}
 
 /// 攻击行为举例
 ///
 /// - 命中派生，攻击命中敌人增加 tag
 /// - 自动反击，受击自动增加 tag ，同时需要对伤害系统做 hook
-mod attack_example_behaviour {}
+pub mod attack_example_behaviour {}
 
 #[cfg(test)]
 mod tests {
