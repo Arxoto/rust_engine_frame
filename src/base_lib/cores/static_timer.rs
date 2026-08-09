@@ -15,8 +15,18 @@ use crate::base_lib::cores::{
 pub struct StaticTimeline(pub FreezeTickTimer);
 
 impl StaticTimeline {
+    /// 创建一个永不停止的计时器 用作静态计时器的基准
+    pub fn new() -> Self {
+        Self(FreezeTickTimer::new(f64::INFINITY))
+    }
+
     pub fn current_time(&self) -> f64 {
         self.0.get_time()
+    }
+
+    /// 确认没有依赖本时间线的计时器后，【重启时间线】，防止无限累加引起精度丢失
+    pub fn restart_timeline(&mut self) {
+        self.0.tick_timer.restart();
     }
 }
 

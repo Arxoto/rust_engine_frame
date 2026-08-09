@@ -6,7 +6,6 @@ use crate::base_lib::{
         effects::EffectMeaning,
         prop_bounds_eff::{PropBoundsEffect, PropBoundsEffectTarget},
         prop_eff::PropEffect,
-        upsert_container::Upsert,
     },
 };
 
@@ -54,7 +53,7 @@ impl Prop {
     }
 
     /// 【注意】不会自动应用上下限，只会需手动调用
-    pub fn refresh_bounds<'a, S: FixedName + 'a, Timer: Upsert + 'a>(
+    pub fn refresh_bounds<'a, S: FixedName + 'a, Timer: 'a>(
         &mut self,
         effs: impl Iterator<Item = &'a PropBoundsEffect<S, Timer>>,
     ) {
@@ -75,7 +74,7 @@ impl Prop {
     /// 风格是把所有修改存入 buffer 然后一把梭哈
     ///
     /// 应先复制当前值和上下限作为基准，然后计算百分比得出绝对值、推入buffer，之后再 [`Prop::refresh_bounds`] [`Prop::refresh_value`]
-    pub fn apply_effs<'a, S: FixedName + 'a, Timer: Upsert + 'a>(
+    pub fn apply_effs<'a, S: FixedName + 'a, Timer: 'a>(
         &mut self,
         buffer: impl Iterator<Item = &'a PropEffect<S>>,
     ) -> PropAlterResult<S> {

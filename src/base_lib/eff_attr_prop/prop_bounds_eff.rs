@@ -1,8 +1,11 @@
 //! prop 属性的上下限效果，表现为血量上下限
 
 use crate::base_lib::{
-    cores::unify_types::FixedName, eff_attr_prop::{
-        attr_eff::{AttrEffId, AttrEffect, AttrEffectType}, effects::{Effect, EffectMeaning}, upsert_container::Upsert,
+    cores::unify_types::FixedName,
+    eff_attr_prop::{
+        attr_eff::{AttrEffId, AttrEffect, AttrEffectType},
+        effects::{Effect, EffectMeaning},
+        upsert_container::Upsert,
     },
 };
 
@@ -27,12 +30,12 @@ pub enum PropBoundsEffectTarget {
 ///
 /// 为了保证两者修改效果一致，限制修改维度只能基于基础值修改（不会被放大缩小产生偏差）
 #[derive(Clone, Debug)]
-pub struct PropBoundsEffect<S: FixedName, Timer: Upsert> {
+pub struct PropBoundsEffect<S: FixedName, Timer> {
     target: PropBoundsEffectTarget,
     eff: AttrEffect<S, Timer>,
 }
 
-impl<S: FixedName, Timer: Upsert> PropBoundsEffect<S, Timer> {
+impl<S: FixedName, Timer> PropBoundsEffect<S, Timer> {
     pub fn new(eff_type: PropBoundsEffectType, effect: Effect<S>, duration: Timer) -> Self {
         match eff_type {
             PropBoundsEffectType::UpperAdd => Self {
@@ -59,7 +62,7 @@ impl<S: FixedName, Timer: Upsert> PropBoundsEffect<S, Timer> {
     }
 }
 
-impl<S: FixedName, Timer: Upsert> Upsert for PropBoundsEffect<S, Timer> {
+impl<S: FixedName, Timer> Upsert for PropBoundsEffect<S, Timer> {
     type Id = AttrEffId<S>;
 
     fn get_id(&self) -> Self::Id {
@@ -75,7 +78,7 @@ impl<S: FixedName, Timer: Upsert> Upsert for PropBoundsEffect<S, Timer> {
     }
 }
 
-impl<S: FixedName, Timer: Upsert> EffectMeaning for PropBoundsEffect<S, Timer> {
+impl<S: FixedName, Timer> EffectMeaning for PropBoundsEffect<S, Timer> {
     fn which_nature(&self) -> super::effects::EffectMean {
         self.eff.which_nature()
     }

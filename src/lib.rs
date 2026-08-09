@@ -1,5 +1,8 @@
 pub mod base_lib;
 
+#[cfg(feature = "commonimpl")]
+pub mod common_impl;
+
 pub mod cores;
 
 // Ability System Component

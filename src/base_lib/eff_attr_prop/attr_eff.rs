@@ -25,22 +25,32 @@ pub enum AttrEffectType {
 ///
 /// 表示为：力量、攻击力等面板属性
 #[derive(Clone, Debug)]
-pub struct AttrEffect<S: FixedName, Timer: Upsert> {
+pub struct AttrEffect<S: FixedName, Timer> {
     /// 效果类型 对应公式变量
     eff_type: AttrEffectType,
     /// 效果（来源：角色；名称：BUFF名称及其效果）
     eff: Effect<S>,
     /// 持续时间（可以不用计时器，而是计数器或者BUFF列表，通过空判断是否结束）
-    _duration: Timer,
+    duration: Timer,
 }
 
-impl<S: FixedName, Timer: Upsert> AttrEffect<S, Timer> {
-    pub fn new(eff_type: AttrEffectType, eff: Effect<S>, _duration: Timer) -> Self {
+impl<S: FixedName, Timer> AttrEffect<S, Timer> {
+    pub fn new(eff_type: AttrEffectType, eff: Effect<S>, duration: Timer) -> Self {
         Self {
             eff_type,
             eff,
-            _duration,
+            duration,
         }
+    }
+
+    /// 为了内聚（简化逻辑） 在外部处理过期
+    pub fn get_timer(&self) -> &Timer {
+        &self.duration
+    }
+
+    /// 为了内聚（简化逻辑） 在外部处理过期
+    pub fn get_timer_mut(&mut self) -> &mut Timer {
+        &mut self.duration
     }
 }
 
@@ -50,7 +60,7 @@ pub struct AttrEffId<S: FixedName> {
     pub from: S,
 }
 
-impl<S: FixedName, Timer: Upsert> Upsert for AttrEffect<S, Timer> {
+impl<S: FixedName, Timer> Upsert for AttrEffect<S, Timer> {
     type Id = AttrEffId<S>;
 
     fn get_id(&self) -> Self::Id {
@@ -70,7 +80,7 @@ impl<S: FixedName, Timer: Upsert> Upsert for AttrEffect<S, Timer> {
     }
 }
 
-impl<S: FixedName, Timer: Upsert> EffectMeaning for AttrEffect<S, Timer> {
+impl<S: FixedName, Timer> EffectMeaning for AttrEffect<S, Timer> {
     fn which_nature(&self) -> EffectMean {
         let eff_value = self.eff.get_effect_value();
         match self.eff_type {
@@ -109,7 +119,7 @@ impl Default for AttrModifier {
 }
 
 impl AttrModifier {
-    pub fn reduce<S: FixedName, Timer: Upsert>(&mut self, eff: &AttrEffect<S, Timer>) {
+    pub fn reduce<S: FixedName, Timer>(&mut self, eff: &AttrEffect<S, Timer>) {
         let eff_value = eff.eff.get_effect_value();
 
         match eff.eff_type {
