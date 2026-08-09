@@ -44,7 +44,7 @@ impl<S: FixedName> CombatInherentAttr<S> {
         }
     }
 
-    pub fn process_time(&mut self, delta: f64) {
+    pub fn process_tick(&mut self, delta: f64) {
         attr_system::process_tick(
             delta,
             &mut self.timeline,

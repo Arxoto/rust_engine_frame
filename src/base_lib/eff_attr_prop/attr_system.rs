@@ -12,6 +12,10 @@ use crate::base_lib::{
     },
 };
 
+/// todo
+/// 这样的实现本身是一个很面向对象的写法
+/// 确认是否要更 ECS 一点，把各个不同的处理逻辑拆开
+/// 还有看一下是否要把 attr 和 effs 捆绑在一块，【确认每次修改 effs 是否都必定修改 attr】
 pub fn process_tick<S: FixedName>(
     delta: f64,
     timeline: &mut StaticTimeline,
