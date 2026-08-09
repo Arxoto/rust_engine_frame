@@ -10,6 +10,11 @@
 //! 优先级动作切换器（目前的方案）
 //! - 基于标签实现，支持复杂切换逻辑，但是把复杂度转移到了优先级上面，因此需要设计好优先级级别
 //! - 可视化差，需要自己实现预览视图，同时预览视图只能看到标签条件跳转到动作，无法直接看到动作的跳转逻辑
+//!
+//! 动作切换系统参考自 <https://github.com/kierstone/ACT-Game-Action-System/tree/main>
+//! - 原文 <https://mp.weixin.qq.com/s?__biz=MzA3NjQzMzYxMw==&mid=2650635859&idx=1&sn=ba171829af2fc461f5e5be9dcafc804e&chksm=87688ff1b01f06e77d42952eb6207feb736781798c7bdaaeb6df60f40986d6a452e8824ed94c&scene=23&srcid=1025GxLrb9dTlBpNgWSbaQiN>
+//! - 讲解了以“动作帧”为单位，如何实现动作选择器，以支持 ACT 游戏开发（非 ARPG 游戏）
+//! - 这里参考了 UE GAS 框架里面的 GameplayTag ，通过 Tag 来解耦框架实现与合业务逻辑（不在强制绑定动作取消标记和、取消条件、自然结束后的动作等等）
 
 use rustc_hash::FxHashMap;
 
