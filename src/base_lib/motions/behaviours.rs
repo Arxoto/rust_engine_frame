@@ -192,7 +192,7 @@ pub mod in_air_behaviour {
         }
 
         /// 是否在大跳时间内
-        pub fn in_higher_jumping(&self) -> bool {
+        pub fn is_higher_jumping(&self) -> bool {
             // 计时与状态始终保持自洽 无需判断状态
             !self.higher_jump.is_finished()
         }
@@ -217,10 +217,34 @@ mod attack_example_behaviour {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::base_lib::{
+        cores::tiny_timer::TickTimer, motions::behaviours::in_air_behaviour::JumpBehaviourHelper,
+    };
 
     #[test]
     fn test_in_air_jump() {
-        todo!()
+        let mut jump_behaviour_helper = JumpBehaviourHelper::new(0.1, 0.4);
+
+        jump_behaviour_helper.init();
+        assert!(jump_behaviour_helper.can_coyote_jump()); // 未跳跃，允许郊狼跳跃
+        assert!(!jump_behaviour_helper.is_higher_jumping()); // 未跳跃，不在大跳时间内
+        jump_behaviour_helper.tick(0.3);
+        assert!(!jump_behaviour_helper.can_coyote_jump()); // 郊狼时间结束
+        assert!(!jump_behaviour_helper.is_higher_jumping());
+
+        jump_behaviour_helper.higher_jump();
+        assert!(!jump_behaviour_helper.can_coyote_jump()); // 大跳，无法触发郊狼跳跃
+        assert!(jump_behaviour_helper.is_higher_jumping()); // 大跳进行中
+        jump_behaviour_helper.tick(1.0);
+        assert!(!jump_behaviour_helper.can_coyote_jump());
+        assert!(!jump_behaviour_helper.is_higher_jumping()); // 大跳结束
+
+        jump_behaviour_helper.higher_jump();
+        jump_behaviour_helper.tick(0.2);
+        assert!(!jump_behaviour_helper.can_coyote_jump()); // 大跳，无法触发郊狼跳跃
+        assert!(jump_behaviour_helper.is_higher_jumping()); // 大跳仍在进行中
+        jump_behaviour_helper.complete_a_jump();
+        assert!(!jump_behaviour_helper.can_coyote_jump());
+        assert!(!jump_behaviour_helper.is_higher_jumping()); // 主动结束大跳
     }
 }
