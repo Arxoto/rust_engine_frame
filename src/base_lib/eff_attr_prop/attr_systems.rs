@@ -1,14 +1,14 @@
 use crate::base_lib::{
     cores::{
         design_patterns::WithContext,
-        static_timer::{StaticTimeline, StaticTimer},
+        static_timer::{HasStaticTimer, StaticTimeline, StaticTimer},
         tiny_timer::{FlowingTimerReadonly, TickTimer},
         unify_types::FixedName,
     },
     eff_attr_prop::{
         attr_eff::AttrEffect,
         attrs::Attr,
-        upsert_container::{UpsertContainer, UpsertContainerCleaner},
+        upsert_container::{Upsert, UpsertContainer, UpsertContainerCleaner},
     },
 };
 
@@ -65,4 +65,26 @@ fn try_update_attr<S: FixedName>(
 
         attr.refresh_value(effs.iter_ele());
     }
+}
+
+// todo 能否通过 WithInto 优化
+pub fn clean_expired_static_timer<E>(ll: &mut UpsertContainer<E>, timeline: &StaticTimeline)
+where
+    E: Upsert + HasStaticTimer,
+{
+    ll.delete_ele(|ele| {
+        let static_timer = ele.get_static_timer();
+        static_timer.with_ctx(timeline).is_finished()
+    });
+}
+
+/// todo
+pub fn clean_expired_upert_ele<E, Ctx>(ll: &mut UpsertContainer<E>, ctx: &Ctx)
+where
+    E: Upsert + WithContext,
+{
+    ll.delete_ele(|ele| {
+        let aaa = ele.with_ctx(ctx);
+        false
+    });
 }
