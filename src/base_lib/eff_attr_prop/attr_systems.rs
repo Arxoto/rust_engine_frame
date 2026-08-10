@@ -1,7 +1,7 @@
 use crate::base_lib::{
     cores::{
-        design_patterns::WithContext,
-        static_timer::{HasStaticTimer, StaticTimeline, StaticTimer},
+        design_patterns::{WithContext, WithInto},
+        static_timer::{StaticTimeline, StaticTimer},
         tiny_timer::{FlowingTimerReadonly, TickTimer},
         unify_types::FixedName,
     },
@@ -67,24 +67,15 @@ fn try_update_attr<S: FixedName>(
     }
 }
 
-// todo 能否通过 WithInto 优化
-pub fn clean_expired_static_timer<E>(ll: &mut UpsertContainer<E>, timeline: &StaticTimeline)
+/// 老化过期元素
+///
+/// 注意，这里约束 &E 让其返回的是所有权，需要测试 E 直接拥有 TinyTickTimer 的情况
+/// 其返回引用应该没有实现 FlowingTimerReadonly 会导致报错
+pub fn clean_expired_element<'a, E, Ctx, Timer>(ll: &'a mut UpsertContainer<E>, ctx: &'a Ctx)
 where
-    E: Upsert + HasStaticTimer,
+    E: Upsert,
+    for<'b> &'b E: WithInto<&'a Ctx, Timer>,
+    Timer: FlowingTimerReadonly,
 {
-    ll.delete_ele(|ele| {
-        let static_timer = ele.get_static_timer();
-        static_timer.with_ctx(timeline).is_finished()
-    });
-}
-
-/// todo
-pub fn clean_expired_upert_ele<E, Ctx>(ll: &mut UpsertContainer<E>, ctx: &Ctx)
-where
-    E: Upsert + WithContext,
-{
-    ll.delete_ele(|ele| {
-        let aaa = ele.with_ctx(ctx);
-        false
-    });
+    ll.delete_ele(|ele| ele.with_into(ctx).is_finished());
 }

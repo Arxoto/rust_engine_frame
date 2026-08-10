@@ -47,11 +47,6 @@ impl StaticTimer {
     }
 }
 
-pub trait HasStaticTimer {
-    fn get_static_timer(&self) -> &StaticTimer;
-    fn get_static_timer_mut(&mut self) -> &mut StaticTimer;
-}
-
 impl TinyTimer for ContextWrapper<&StaticTimer, &StaticTimeline> {
     fn get_time(&self) -> f64 {
         self.get_time_limit() - self.get_time_left()
