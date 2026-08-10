@@ -1,6 +1,14 @@
 //! 定义计时器的核心功能，并提供基础的逻辑复用
 //!
 //! 组合预制体的逻辑复用其实有两种方案
+//! - 使用泛型结构体
+//!   - 会导致 tag 与特定 timer 所有权绑定
+//!     - [`freezable_tick::FreezableTickTag`] 需要修改 [`TickTimer::tick`] 行为
+//!     - [`few_show_cycle::FewShotCycleTag`] 需要修改 [`FlowingTimer::restart`] [`FlowingTimer::finish`] [`CyclicalTimer::try_trigger_once`] 行为
+//!   - 考虑到 [`TickTimer`] 和 [`FlowingTimer`] 一般被同一个结构体所实现，因此泛型结构的重复代码是 [`FreezableTimer`] [`CyclicalTimer`] 特征的排列组合
+//!   - 考虑到代码段复制（泛型结构体）比透传调用（组合方式）更不可维护，因此不考虑该方案
+//! - 宏实现代码复用
+//!   - 考虑到调试难度和可读性，暂不考虑
 //! - Blanket impl 自动实现
 //!   - 需要配合 private::Sealed 私有封装防止下游重复实现，否则可能导致同一特征冲突实现
 //!   - 无限循环和有限循环的逻辑，由于实现同一特征，因此判定存在冲突，无法优雅解决
