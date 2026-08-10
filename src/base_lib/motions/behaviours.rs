@@ -129,7 +129,7 @@ pub mod god_behaviour {}
 ///   - 非主观升空即【不可控状态】，通过动作系统覆盖，而郊狼时间一般较短，因此判断无影响
 pub mod in_air_behaviour {
     use crate::base_lib::cores::{
-        tick_timer::TickTimerFinite,
+        tick_timer::TinyTickTimer,
         tiny_timer::{FlowingTimer, FlowingTimerReadonly, TickTimer},
     };
 
@@ -171,9 +171,9 @@ pub mod in_air_behaviour {
         /// 跳跃状态，一个简单的有限状态机
         jump_stat: JumpStat,
         /// 郊狼时间，跳跃操作体验优化，给予容错时间
-        coyote_time: TickTimerFinite,
+        coyote_time: TinyTickTimer,
         /// 大跳
-        higher_jump: TickTimerFinite,
+        higher_jump: TinyTickTimer,
     }
 
     impl JumpBehaviourHelper {
@@ -183,8 +183,8 @@ pub mod in_air_behaviour {
         pub fn new(coyote_time_limit: f64, higher_jump_duration: f64) -> Self {
             Self {
                 jump_stat: JumpStat::new(),
-                coyote_time: TickTimerFinite::new(coyote_time_limit),
-                higher_jump: TickTimerFinite::new(higher_jump_duration),
+                coyote_time: TinyTickTimer::new(coyote_time_limit),
+                higher_jump: TinyTickTimer::new(higher_jump_duration),
             }
         }
 
@@ -263,7 +263,7 @@ pub mod in_air_behaviour {
 /// - 根据是否移动切换站立和行走动画
 pub mod on_land_behaviour {
     use crate::base_lib::cores::{
-        tick_timer::TickTimerFinite,
+        tick_timer::TinyTickTimer,
         tiny_timer::{FlowingTimer, FlowingTimerReadonly, TickTimer},
     };
 
@@ -276,7 +276,7 @@ pub mod on_land_behaviour {
     /// 落地立即起跳辅助，计时器和动画驱动
     pub struct ReadyToJump {
         /// 参考 coyote_time ，落地的一段时间内【允许立即跳跃】，跳过起跳动画
-        allow_immediate_jump: TickTimerFinite,
+        allow_immediate_jump: TinyTickTimer,
     }
 
     impl LandingRoll {
@@ -307,7 +307,7 @@ pub mod on_land_behaviour {
     impl ReadyToJump {
         pub fn new(jump_immediately_time: f64) -> Self {
             Self {
-                allow_immediate_jump: TickTimerFinite::new(jump_immediately_time),
+                allow_immediate_jump: TinyTickTimer::new(jump_immediately_time),
             }
         }
 

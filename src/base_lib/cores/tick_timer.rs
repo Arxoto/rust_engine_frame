@@ -7,14 +7,14 @@ use crate::base_lib::cores::tiny_timer::{
     CyclicalTimer, FlowingTimer, FlowingTimerReadonly, TickTimer, TinyTimer,
 };
 
-/// 有限增长的 [`TickTimer`] 默认实现 [`FlowingTimer`]
+/// 计时器最小实现，不支持暂停
 #[derive(Clone, Debug)]
-pub struct TickTimerFinite {
+pub struct TinyTickTimer {
     time: f64,
     time_limit: f64,
 }
 
-impl TickTimerFinite {
+impl TinyTickTimer {
     pub fn new(limit: f64) -> Self {
         Self {
             time: 0.0,
@@ -23,7 +23,7 @@ impl TickTimerFinite {
     }
 }
 
-impl TinyTimer for TickTimerFinite {
+impl TinyTimer for TinyTickTimer {
     fn get_time(&self) -> f64 {
         self.time
     }
@@ -41,20 +41,20 @@ impl TinyTimer for TickTimerFinite {
     }
 }
 
-impl TickTimer for TickTimerFinite {
+impl TickTimer for TinyTickTimer {
     fn tick(&mut self, delta: f64) {
         // 有限累加
         self.time = self.time_limit.min(self.time + delta)
     }
 }
 
-impl FlowingTimerReadonly for TickTimerFinite {
+impl FlowingTimerReadonly for TinyTickTimer {
     fn is_finished(&self) -> bool {
         self.time >= self.time_limit
     }
 }
 
-impl FlowingTimer for TickTimerFinite {
+impl FlowingTimer for TinyTickTimer {
     fn restart(&mut self) {
         self.time = 0.0
     }
@@ -64,14 +64,14 @@ impl FlowingTimer for TickTimerFinite {
     }
 }
 
-/// 无限增长的 [`TickTimer`] 默认实现 [`FlowingTimer`] 额外实现 [`CyclicalTimer`] 无限循环
+/// 无法暂停的无限触发器
 #[derive(Clone, Debug)]
-pub struct TickTimerInfinite {
+pub struct InfTickTrigger {
     time: f64,
     time_limit: f64,
 }
 
-impl TickTimerInfinite {
+impl InfTickTrigger {
     pub fn new(limit: f64) -> Self {
         Self {
             time: 0.0,
@@ -80,7 +80,7 @@ impl TickTimerInfinite {
     }
 }
 
-impl TinyTimer for TickTimerInfinite {
+impl TinyTimer for InfTickTrigger {
     fn get_time(&self) -> f64 {
         // when time is INF, return NAN
         // cause ratio to be NAN, left to be NAN
@@ -100,21 +100,21 @@ impl TinyTimer for TickTimerInfinite {
     }
 }
 
-impl TickTimer for TickTimerInfinite {
+impl TickTimer for InfTickTrigger {
     fn tick(&mut self, delta: f64) {
         // 无限累加
         self.time += delta
     }
 }
 
-impl FlowingTimerReadonly for TickTimerInfinite {
+impl FlowingTimerReadonly for InfTickTrigger {
     fn is_finished(&self) -> bool {
         // 无法结束
         false
     }
 }
 
-impl FlowingTimer for TickTimerInfinite {
+impl FlowingTimer for InfTickTrigger {
     fn restart(&mut self) {
         self.time = 0.0
     }
@@ -124,7 +124,7 @@ impl FlowingTimer for TickTimerInfinite {
     }
 }
 
-impl CyclicalTimer for TickTimerInfinite {
+impl CyclicalTimer for InfTickTrigger {
     fn try_trigger_once(&mut self) -> bool {
         if self.time >= self.time_limit {
             self.time -= self.time_limit;

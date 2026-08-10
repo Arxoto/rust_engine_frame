@@ -4,7 +4,7 @@
 //! - Instruction 指令，对应角色控制，从意图中翻译而来
 
 use crate::base_lib::cores::{
-    tick_timer::TickTimerFinite,
+    tick_timer::TinyTickTimer,
     tiny_timer::{FlowingTimer, FlowingTimerReadonly, TickTimer},
 };
 
@@ -15,7 +15,7 @@ pub struct InputOperation<T>(T);
 pub struct InstructionStrictJustOn(bool);
 
 /// 指令 直接控制玩家角色 按键刚刚被按下，预输入缓冲，有容错时间
-pub struct InstructionBufferedJustOn(TickTimerFinite, bool);
+pub struct InstructionBufferedJustOn(TinyTickTimer, bool);
 
 /// 指令 直接控制玩家角色 按键处于按下状态（仅表示当前状态，不关心是否刚刚被摁下）
 pub struct InstructionStateOn(bool);
@@ -102,7 +102,7 @@ impl AbstractInstruction for InstructionStrictJustOn {
 
 impl InstructionBufferedJustOn {
     pub fn new(limit: f64) -> Self {
-        let mut new_one = Self(TickTimerFinite::new(limit), false);
+        let mut new_one = Self(TinyTickTimer::new(limit), false);
         new_one.0.finish();
         new_one
     }

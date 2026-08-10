@@ -20,7 +20,7 @@ use rustc_hash::FxHashMap;
 
 use crate::base_lib::cores::{
     design_patterns::WithContext,
-    tick_timer::TickTimerFinite,
+    tick_timer::TinyTickTimer,
     tiny_tags::{TinyTag, TinyTagContainer},
     tiny_timer::{
         FlowingTimerReadonly, FreezableTimer, FreezableTimerReadonly, TickTimer,
@@ -72,7 +72,7 @@ impl<PureTag: FixedName> ActionData<PureTag> {
 }
 
 /// tag 集合
-struct ActionTagContainer<PureTag: FixedName>(FxHashMap<PureTag, Option<TickTimerFinite>>);
+struct ActionTagContainer<PureTag: FixedName>(FxHashMap<PureTag, Option<TinyTickTimer>>);
 
 impl<PureTag: FixedName> TinyTagContainer for ActionTagContainer<PureTag> {
     type Element = PureTag;
@@ -174,7 +174,7 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
     }
 
     /// 事件触发增加有时效性的 tag
-    pub fn upsert_timer_tag(&mut self, tag: PureTag, timer: TickTimerFinite) {
+    pub fn upsert_timer_tag(&mut self, tag: PureTag, timer: TinyTickTimer) {
         self.current_tags.0.insert(tag, Some(timer));
     }
 

@@ -17,7 +17,7 @@ pub trait WithContext {
     }
 }
 
-// 为所有类型 Blanket impl
+// 为所有类型默认实现
 impl<T: ?Sized> WithContext for T {}
 
 // 可变自动转换至只读
@@ -41,9 +41,9 @@ impl<'a, I, Ctx> ContextWrapper<&'a mut I, &'a mut Ctx> {
 
 /// 明确上下文与目标类型，主要用于函数声明
 ///
-/// 通过 Blanket impl 自动为只读和可变 [`ContextWrapper`] 实现本特征
+/// 分别自动为所有类型的共享引用和可变引用实现对应的以 [`ContextWrapper`] 为结果的 [`WithInto`] 特征
 ///
-/// todo 确认用到 ContextWrapper 的地方都有哪些，是否可以删除 ContextWrapper
+/// 虽然 Blanket impl 方式会带来隐式实现，但是若主动控制不滥用也是个不错的选择，暂时保留 ContextWrapper 及其附带的 Blanket impl
 pub trait WithInto<Ctx, Target> {
     fn with_into(self, ctx: Ctx) -> Target;
 }

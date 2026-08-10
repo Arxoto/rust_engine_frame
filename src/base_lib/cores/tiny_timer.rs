@@ -45,12 +45,13 @@ pub trait TickTimer {
     fn tick(&mut self, delta: f64);
 }
 
+/// 可结束计时器
 pub trait FlowingTimerReadonly {
     /// 计时结束
     fn is_finished(&self) -> bool;
 }
 
-/// 有状态计时器
+/// 可结束计时器
 pub trait FlowingTimer: FlowingTimerReadonly {
     /// 重置时间
     fn restart(&mut self);
@@ -59,6 +60,7 @@ pub trait FlowingTimer: FlowingTimerReadonly {
     fn finish(&mut self);
 }
 
+/// 可被冻结的计时器
 pub trait FreezableTimerReadonly {
     /// 是否被冻结
     fn is_frozen(&self) -> bool;
@@ -75,7 +77,7 @@ pub trait FreezableTimer: FreezableTimerReadonly {
 
 /// 可循环触发的计时器
 pub trait CyclicalTimer {
-    /// 触发次数
+    /// 尝试触发一次
     fn try_trigger_once(&mut self) -> bool;
 }
 
@@ -111,18 +113,21 @@ pub mod freezable_tick {
         }
     }
 
+    // 是否暂停透传 tag
     impl<T: TickTimer> FreezableTimerReadonly for ContextWrapper<&FreezableTickTag, &T> {
         fn is_frozen(&self) -> bool {
             self.inner.is_frozen()
         }
     }
 
+    // 是否暂停透传 tag
     impl<T: TickTimer> FreezableTimerReadonly for ContextWrapper<&mut FreezableTickTag, &mut T> {
         fn is_frozen(&self) -> bool {
             self.inner.is_frozen()
         }
     }
 
+    // 暂停功能透传 tag
     impl<T: TickTimer> FreezableTimer for ContextWrapper<&mut FreezableTickTag, &mut T> {
         fn freeze(&mut self) {
             self.inner.freeze();
@@ -133,6 +138,7 @@ pub mod freezable_tick {
         }
     }
 
+    // 时间进度透传 timer
     impl<T: TinyTimer> TinyTimer for ContextWrapper<&FreezableTickTag, &T> {
         fn get_time(&self) -> f64 {
             self.ctx.get_time()
@@ -151,6 +157,7 @@ pub mod freezable_tick {
         }
     }
 
+    // 时间进度透传 timer
     impl<T: TinyTimer> TinyTimer for ContextWrapper<&mut FreezableTickTag, &mut T> {
         fn get_time(&self) -> f64 {
             self.ctx.get_time()
@@ -169,6 +176,7 @@ pub mod freezable_tick {
         }
     }
 
+    // 时间步进被 tag 代理决定是否调用 timer
     impl<T: TickTimer> TickTimer for ContextWrapper<&mut FreezableTickTag, &mut T> {
         fn tick(&mut self, delta: f64) {
             // 时间冻结时不步进
@@ -222,6 +230,7 @@ pub mod few_show_cycle {
         }
     }
 
+    // 是否结束透传 tag
     impl<T: FlowingTimer + CyclicalTimer> FlowingTimerReadonly
         for ContextWrapper<&FewShotCycleTag, &T>
     {
@@ -231,6 +240,7 @@ pub mod few_show_cycle {
         }
     }
 
+    // 是否结束透传 tag
     impl<T: FlowingTimer + CyclicalTimer> FlowingTimerReadonly
         for ContextWrapper<&mut FewShotCycleTag, &mut T>
     {
@@ -240,6 +250,7 @@ pub mod few_show_cycle {
         }
     }
 
+    // 开始结束同时修改 tag 和 timer
     impl<T: FlowingTimer + CyclicalTimer> FlowingTimer
         for ContextWrapper<&mut FewShotCycleTag, &mut T>
     {
@@ -254,10 +265,16 @@ pub mod few_show_cycle {
         }
     }
 
+    // 循环触发同时检查 tag 和 timer
     impl<T: FlowingTimer + CyclicalTimer> CyclicalTimer
         for ContextWrapper<&mut FewShotCycleTag, &mut T>
     {
         fn try_trigger_once(&mut self) -> bool {
+            // 因为 FewShotCycleTag 允许次数只会减小不会增长
+            // 所以当他失败时代表之后的触发也必定失败，因此无需回退前面的 timer
+            // 若 FewShotCycleTag 支持临时增加次数，会导致之后的触发存在一周期的误差
+            // 而重启会同时重启两者的状态，因此没这个问题，因此设计为只支持重启不支持增加
+
             // 先尝试触发计数器，成功后尝试触发有限循环，两者都成功才算成功触发
             self.ctx.try_trigger_once() && self.inner.try_trigger_once()
         }
