@@ -9,12 +9,4 @@ pub mod unify_types;
 
 pub mod timers;
 
-pub mod tiny_timer;
-
-pub mod tick_timer;
-
-pub mod tick_timer_builders;
-
-pub mod static_timer;
-
 pub mod tiny_tags;

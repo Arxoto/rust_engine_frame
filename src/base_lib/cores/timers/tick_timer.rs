@@ -1,3 +1,8 @@
+//! 基于增量累加时间实现的计时器
+//! - 【缺点】长时间累加可能存在误差（每帧 delta 导致的误差累积）
+//! - 每帧调用 `tick` 方法来更新计时器状态，逻辑简单清晰
+//! - 适用于需要知道进度（动画特效）、短生命周期、局部时间调速等场景
+
 use crate::base_lib::cores::timers::tiny_timer::{
     Tickable, TimerControl, TimerProgress, TimerView,
 };

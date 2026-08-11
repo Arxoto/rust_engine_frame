@@ -1,8 +1,10 @@
+//! 参考累加计时器实现的触发器
+
 use crate::base_lib::cores::{
     design_patterns::Union,
     timers::{
         few_shot_times::FewShotTimes,
-        tiny_timer::{CyclicalTrigger, Tickable, TimerControl, TimerView},
+        tiny_timer::{CyclicalTrigger, Tickable, TimerControl, TimerProgress, TimerView},
     },
 };
 
@@ -26,6 +28,25 @@ impl Tickable for InfiniteTickTrigger {
     fn tick(&mut self, delta: f64) {
         // 不限制上限
         self.elapsed += delta
+    }
+}
+
+impl TimerProgress for InfiniteTickTrigger {
+    fn elapsed(&self) -> f64 {
+        // 不考虑经过时间超过周期的情况，应该每帧先尝试触发消费掉余量，而后显示进度
+        self.elapsed
+    }
+
+    fn remaining(&self) -> f64 {
+        self.cycle - self.elapsed()
+    }
+
+    fn duration(&self) -> f64 {
+        self.cycle
+    }
+
+    fn progress(&self) -> f64 {
+        self.elapsed() / self.duration()
     }
 }
 
@@ -75,6 +96,24 @@ impl FewShotTickTrigger {
 impl Tickable for FewShotTickTrigger {
     fn tick(&mut self, delta: f64) {
         self.inf_trigger.tick(delta);
+    }
+}
+
+impl TimerProgress for FewShotTickTrigger {
+    fn elapsed(&self) -> f64 {
+        self.inf_trigger.elapsed()
+    }
+
+    fn remaining(&self) -> f64 {
+        self.inf_trigger.remaining()
+    }
+
+    fn duration(&self) -> f64 {
+        self.inf_trigger.duration()
+    }
+
+    fn progress(&self) -> f64 {
+        self.inf_trigger.progress()
     }
 }
 

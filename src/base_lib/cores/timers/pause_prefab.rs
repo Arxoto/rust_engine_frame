@@ -6,6 +6,7 @@ use crate::base_lib::cores::{
     },
 };
 
+/// 冻结预制体，能对所有计时器类型进行代理，干预 [`Tickable::tick`]
 #[derive(Clone, Debug)]
 pub struct PausePrefab(bool);
 
@@ -34,6 +35,7 @@ impl TimerPauseControl for PausePrefab {
 
 // region: impl for union
 
+// 根据 prefab 决定是否调用 timer tick
 impl<T: Tickable> Tickable for Union<&PausePrefab, &mut T> {
     fn tick(&mut self, delta: f64) {
         if !self.0.is_paused() {
@@ -42,12 +44,14 @@ impl<T: Tickable> Tickable for Union<&PausePrefab, &mut T> {
     }
 }
 
+// 是否暂停透传 prefab
 impl<T> TimerPauseView for Union<&PausePrefab, &T> {
     fn is_paused(&self) -> bool {
         self.0.is_paused()
     }
 }
 
+// 暂停恢复功能透传 prefab
 impl<T> TimerPauseControl for Union<&mut PausePrefab, &T> {
     fn pause(&mut self) {
         self.0.pause();
@@ -58,6 +62,7 @@ impl<T> TimerPauseControl for Union<&mut PausePrefab, &T> {
     }
 }
 
+// 时间进度透传 timer
 impl<T: TimerProgress> TimerProgress for Union<&PausePrefab, &T> {
     fn elapsed(&self) -> f64 {
         self.1.elapsed()
