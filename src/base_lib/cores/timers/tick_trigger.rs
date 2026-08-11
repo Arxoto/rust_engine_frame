@@ -1,5 +1,9 @@
-use crate::base_lib::cores::timers::tiny_timer::{
-    CyclicalTrigger, Tickable, TimerControl, TimerView,
+use crate::base_lib::cores::{
+    design_patterns::Union,
+    timers::{
+        few_shot_times::FewShotTimes,
+        tiny_timer::{CyclicalTrigger, Tickable, TimerControl, TimerView},
+    },
 };
 
 /// 简单无限触发器
@@ -54,51 +58,44 @@ impl CyclicalTrigger for InfiniteTickTrigger {
 }
 
 #[derive(Clone, Debug)]
-pub struct FewShotTrigger {
-    current_time: u32,
-    limit_time: u32,
+pub struct FewShotTickTrigger {
+    few_shot: FewShotTimes,
     inner: InfiniteTickTrigger,
 }
 
-impl FewShotTrigger {
-    pub fn new(cycle: f64, limit_time: u32) -> FewShotTrigger {
+impl FewShotTickTrigger {
+    pub fn new(cycle: f64, limit_time: u32) -> Self {
         Self {
-            current_time: 0,
-            limit_time,
+            few_shot: FewShotTimes::new(limit_time),
             inner: InfiniteTickTrigger::new(cycle),
         }
     }
 }
 
-impl TimerView for FewShotTrigger {
-    fn is_completed(&self) -> bool {
-        self.current_time >= self.limit_time
+impl Tickable for FewShotTickTrigger {
+    fn tick(&mut self, delta: f64) {
+        self.inner.tick(delta);
     }
 }
 
-impl TimerControl for FewShotTrigger {
+impl TimerView for FewShotTickTrigger {
+    fn is_completed(&self) -> bool {
+        Union(&self.few_shot, &self.inner).is_completed()
+    }
+}
+
+impl TimerControl for FewShotTickTrigger {
     fn reset(&mut self) {
-        self.current_time = 0;
-        self.inner.reset();
+        Union(&mut self.few_shot, &mut self.inner).reset()
     }
 
     fn complete(&mut self) {
-        self.current_time = self.limit_time;
-        self.inner.complete();
+        Union(&mut self.few_shot, &mut self.inner).complete()
     }
 }
 
-impl CyclicalTrigger for FewShotTrigger {
+impl CyclicalTrigger for FewShotTickTrigger {
     fn try_trigger_once(&mut self) -> bool {
-        if !self.inner.try_trigger_once() {
-            return false;
-        }
-
-        if self.is_completed() {
-            false
-        } else {
-            self.current_time += 1;
-            true
-        }
+        Union(&mut self.few_shot, &mut self.inner).try_trigger_once()
     }
 }
