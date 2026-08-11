@@ -188,23 +188,23 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
 
 impl<PureTag: FixedName> Tickable for ActionSwitcher<PureTag> {
     fn tick(&mut self, delta: f64) {
-        Union(&self.pause_prefab, &mut self.current_tags).tick(delta);
+        Union::new(&self.pause_prefab, &mut self.current_tags).tick(delta);
     }
 }
 
 impl<PureTag: FixedName> TimerPauseView for ActionSwitcher<PureTag> {
     fn is_paused(&self) -> bool {
-        Union(&self.pause_prefab, &self.current_tags).is_paused()
+        Union::new(&self.pause_prefab, &self.current_tags).is_paused()
     }
 }
 
 impl<PureTag: FixedName> TimerPauseControl for ActionSwitcher<PureTag> {
     fn pause(&mut self) {
-        Union(&mut self.pause_prefab, &self.current_tags).pause();
+        Union::new(&mut self.pause_prefab, &self.current_tags).pause();
     }
 
     fn resume(&mut self) {
-        Union(&mut self.pause_prefab, &self.current_tags).resume();
+        Union::new(&mut self.pause_prefab, &self.current_tags).resume();
     }
 }
 

@@ -1,9 +1,13 @@
 use crate::base_lib::{
     cores::{
-        design_patterns::{Union, UnitedInto}, timers::{
-            static_timer::{StaticTimeline, StaticTimer}, tiny_timer::{Tickable, TimerView},
-        }, unify_types::FixedName,
-    }, eff_attr_prop::{
+        design_patterns::{Union, UnitedInto},
+        timers::{
+            static_timer::{StaticTimeline, StaticTimer},
+            tiny_timer::{Tickable, TimerView},
+        },
+        unify_types::FixedName,
+    },
+    eff_attr_prop::{
         attr_eff::AttrEffect,
         attrs::Attr,
         upsert_container::{Upsert, UpsertContainer, UpsertContainerCleaner},
@@ -55,7 +59,7 @@ fn try_update_attr<S: FixedName>(
 ) {
     effs.delete_ele(|eff| {
         let timer = eff.get_timer();
-        Union(timer, timeline).is_completed()
+        Union::new(timer, timeline).is_completed()
     });
 
     if effs.is_changed() {

@@ -1,7 +1,13 @@
 //! 设计模式抽象
 
 /// 联合体
-pub struct Union<T, U>(pub T, pub U);
+pub struct Union<T, U>(pub(super) T, pub(super) U);
+
+impl<T, U> Union<T, U> {
+    pub fn new(t: T, u: U) -> Self {
+        Union(t, u)
+    }
+}
 
 /// 可转换目标类型
 pub trait UnitedInto<With, Target> {
