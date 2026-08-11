@@ -55,36 +55,36 @@ impl CyclicalTrigger for Union<&mut InfiniteStaticTrigger, &StaticTimeline> {
 #[derive(Clone, Debug)]
 pub struct FewShotStaticTrigger {
     few_shot: FewShotTimes,
-    inner: InfiniteStaticTrigger,
+    inf_tg: InfiniteStaticTrigger,
 }
 
 impl FewShotStaticTrigger {
     pub fn new(timeline: &StaticTimeline, cycle: f64, limit_time: u32) -> Self {
         Self {
             few_shot: FewShotTimes::new(limit_time),
-            inner: InfiniteStaticTrigger::new(timeline, cycle),
+            inf_tg: InfiniteStaticTrigger::new(timeline, cycle),
         }
     }
 }
 
 impl TimerView for Union<&FewShotStaticTrigger, &StaticTimeline> {
     fn is_completed(&self) -> bool {
-        Union(&self.0.few_shot, &Union(&self.0.inner, self.1)).is_completed()
+        Union(&self.0.few_shot, &Union(&self.0.inf_tg, self.1)).is_completed()
     }
 }
 
 impl TimerControl for Union<&mut FewShotStaticTrigger, &StaticTimeline> {
     fn reset(&mut self) {
-        Union(&mut self.0.few_shot, &mut Union(&mut self.0.inner, self.1)).reset()
+        Union(&mut self.0.few_shot, &mut Union(&mut self.0.inf_tg, self.1)).reset()
     }
 
     fn complete(&mut self) {
-        Union(&mut self.0.few_shot, &mut Union(&mut self.0.inner, self.1)).complete()
+        Union(&mut self.0.few_shot, &mut Union(&mut self.0.inf_tg, self.1)).complete()
     }
 }
 
 impl CyclicalTrigger for Union<&mut FewShotStaticTrigger, &StaticTimeline> {
     fn try_trigger_once(&mut self) -> bool {
-        Union(&mut self.0.few_shot, &mut Union(&mut self.0.inner, self.1)).try_trigger_once()
+        Union(&mut self.0.few_shot, &mut Union(&mut self.0.inf_tg, self.1)).try_trigger_once()
     }
 }

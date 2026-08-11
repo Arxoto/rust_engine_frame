@@ -60,42 +60,42 @@ impl CyclicalTrigger for InfiniteTickTrigger {
 #[derive(Clone, Debug)]
 pub struct FewShotTickTrigger {
     few_shot: FewShotTimes,
-    inner: InfiniteTickTrigger,
+    inf_trigger: InfiniteTickTrigger,
 }
 
 impl FewShotTickTrigger {
     pub fn new(cycle: f64, limit_time: u32) -> Self {
         Self {
             few_shot: FewShotTimes::new(limit_time),
-            inner: InfiniteTickTrigger::new(cycle),
+            inf_trigger: InfiniteTickTrigger::new(cycle),
         }
     }
 }
 
 impl Tickable for FewShotTickTrigger {
     fn tick(&mut self, delta: f64) {
-        self.inner.tick(delta);
+        self.inf_trigger.tick(delta);
     }
 }
 
 impl TimerView for FewShotTickTrigger {
     fn is_completed(&self) -> bool {
-        Union(&self.few_shot, &self.inner).is_completed()
+        Union(&self.few_shot, &self.inf_trigger).is_completed()
     }
 }
 
 impl TimerControl for FewShotTickTrigger {
     fn reset(&mut self) {
-        Union(&mut self.few_shot, &mut self.inner).reset()
+        Union(&mut self.few_shot, &mut self.inf_trigger).reset()
     }
 
     fn complete(&mut self) {
-        Union(&mut self.few_shot, &mut self.inner).complete()
+        Union(&mut self.few_shot, &mut self.inf_trigger).complete()
     }
 }
 
 impl CyclicalTrigger for FewShotTickTrigger {
     fn try_trigger_once(&mut self) -> bool {
-        Union(&mut self.few_shot, &mut self.inner).try_trigger_once()
+        Union(&mut self.few_shot, &mut self.inf_trigger).try_trigger_once()
     }
 }
