@@ -1,11 +1,9 @@
 use crate::base_lib::{
     cores::{
-        design_patterns::{WithContext, WithInto},
-        static_timer::{StaticTimeline, StaticTimer},
-        tiny_timer::{FlowingTimerReadonly, TickTimer},
-        unify_types::FixedName,
-    },
-    eff_attr_prop::{
+        design_patterns::{Union, UnitedInto}, timers::{
+            static_timer::{StaticTimeline, StaticTimer}, tiny_timer::{Tickable, TimerView},
+        }, unify_types::FixedName,
+    }, eff_attr_prop::{
         attr_eff::AttrEffect,
         attrs::Attr,
         upsert_container::{Upsert, UpsertContainer, UpsertContainerCleaner},
@@ -45,7 +43,7 @@ pub fn process_tick<S: FixedName>(
         should_restart_timeline &= effs.ele_empty();
     }
     if should_restart_timeline {
-        timeline.restart_timeline();
+        timeline.reset_timeline();
     }
 }
 
@@ -57,7 +55,7 @@ fn try_update_attr<S: FixedName>(
 ) {
     effs.delete_ele(|eff| {
         let timer = eff.get_timer();
-        timer.with_ctx(timeline).is_finished()
+        Union(timer, timeline).is_completed()
     });
 
     if effs.is_changed() {
@@ -69,13 +67,15 @@ fn try_update_attr<S: FixedName>(
 
 /// 老化过期元素
 ///
+/// todo test
+///
 /// 注意，这里约束 &E 让其返回的是所有权，需要测试 E 直接拥有 TinyTickTimer 的情况
-/// 其返回引用应该没有实现 FlowingTimerReadonly 会导致报错
+/// 其返回引用应该没有实现 TimerView 会导致报错
 pub fn clean_expired_element<'a, E, Ctx, Timer>(ll: &'a mut UpsertContainer<E>, ctx: &'a Ctx)
 where
     E: Upsert,
-    for<'b> &'b E: WithInto<&'a Ctx, Timer>,
-    Timer: FlowingTimerReadonly,
+    for<'b> &'b E: UnitedInto<&'a Ctx, Timer>,
+    Timer: TimerView,
 {
-    ll.delete_ele(|ele| ele.with_into(ctx).is_finished());
+    ll.delete_ele(|ele| ele.unite_into(ctx).is_completed());
 }

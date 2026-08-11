@@ -3,9 +3,9 @@
 //! - Operation 操作，对应玩家意图
 //! - Instruction 指令，对应角色控制，从意图中翻译而来
 
-use crate::base_lib::cores::{
-    tick_timer::TinyTickTimer,
-    tiny_timer::{FlowingTimer, FlowingTimerReadonly, TickTimer},
+use crate::base_lib::cores::timers::{
+    tick_timer::TickTimer,
+    tiny_timer::{Tickable, TimerControl, TimerView},
 };
 
 /// 操作 直接对应玩家意图
@@ -15,7 +15,7 @@ pub struct InputOperation<T>(T);
 pub struct InstructionStrictJustOn(bool);
 
 /// 指令 直接控制玩家角色 按键刚刚被按下，预输入缓冲，有容错时间
-pub struct InstructionBufferedJustOn(TinyTickTimer, bool);
+pub struct InstructionBufferedJustOn(TickTimer, bool);
 
 /// 指令 直接控制玩家角色 按键处于按下状态（仅表示当前状态，不关心是否刚刚被摁下）
 pub struct InstructionStateOn(bool);
@@ -102,19 +102,19 @@ impl AbstractInstruction for InstructionStrictJustOn {
 
 impl InstructionBufferedJustOn {
     pub fn new(limit: f64) -> Self {
-        let mut new_one = Self(TinyTickTimer::new(limit), false);
-        new_one.0.finish();
+        let mut new_one = Self(TickTimer::new(limit), false);
+        new_one.0.complete();
         new_one
     }
 
     pub fn consume_instruction(&mut self) {
-        self.0.finish();
+        self.0.complete();
     }
 }
 
 impl ActiveInput for InstructionBufferedJustOn {
     fn is_on(&self) -> bool {
-        !self.0.is_finished()
+        !self.0.is_completed()
     }
 }
 
@@ -122,13 +122,13 @@ impl AbstractInstruction for InstructionBufferedJustOn {
     fn update_by_op(&mut self, operation: &impl ActiveInput) {
         if !self.1 && operation.is_on() {
             // 根据上一帧关闭 这一帧开启 重置时间
-            self.0.restart();
+            self.0.reset();
         }
         self.1 = operation.is_on();
     }
 }
 
-impl TickTimer for InstructionBufferedJustOn {
+impl Tickable for InstructionBufferedJustOn {
     fn tick(&mut self, delta: f64) {
         self.0.tick(delta);
     }

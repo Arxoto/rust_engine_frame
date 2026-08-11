@@ -73,7 +73,7 @@ impl Prop {
 
     /// 风格是把所有修改存入 buffer 然后一把梭哈
     ///
-    /// 应先复制当前值和上下限作为基准，然后计算百分比得出绝对值、推入buffer，之后再 [`Prop::refresh_bounds`] [`Prop::refresh_value`]
+    /// 应先复制当前值和上下限作为基准，然后计算百分比得出绝对值、推入buffer，之后再 [`Prop::refresh_bounds`] [`Prop::apply_bounds`]
     pub fn apply_effs<'a, S: FixedName + 'a, Timer: 'a>(
         &mut self,
         buffer: impl Iterator<Item = &'a PropEffect<S>>,

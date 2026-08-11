@@ -128,9 +128,9 @@ pub mod god_behaviour {}
 /// - 例外，没跳跃但有速度：上一帧非主观原因导致升空，此时仍然可跳，存在逻辑错误
 ///   - 非主观升空即【不可控状态】，通过动作系统覆盖，而郊狼时间一般较短，因此判断无影响
 pub mod in_air_behaviour {
-    use crate::base_lib::cores::{
-        tick_timer::TinyTickTimer,
-        tiny_timer::{FlowingTimer, FlowingTimerReadonly, TickTimer},
+    use crate::base_lib::cores::timers::{
+        tick_timer::TickTimer,
+        tiny_timer::{Tickable, TimerControl, TimerView},
     };
 
     // 不适合使用 类型状态模式 (Type_State_Pattern) ，因为需要被传递，类型都是编译期确定的，无法在一个位置同时存放多种类型
@@ -171,9 +171,9 @@ pub mod in_air_behaviour {
         /// 跳跃状态，一个简单的有限状态机
         jump_stat: JumpStat,
         /// 郊狼时间，跳跃操作体验优化，给予容错时间
-        coyote_time: TinyTickTimer,
+        coyote_time: TickTimer,
         /// 大跳
-        higher_jump: TinyTickTimer,
+        higher_jump: TickTimer,
     }
 
     impl JumpBehaviourHelper {
@@ -183,8 +183,8 @@ pub mod in_air_behaviour {
         pub fn new(coyote_time_limit: f64, higher_jump_duration: f64) -> Self {
             Self {
                 jump_stat: JumpStat::new(),
-                coyote_time: TinyTickTimer::new(coyote_time_limit),
-                higher_jump: TinyTickTimer::new(higher_jump_duration),
+                coyote_time: TickTimer::new(coyote_time_limit),
+                higher_jump: TickTimer::new(higher_jump_duration),
             }
         }
 
@@ -196,9 +196,9 @@ pub mod in_air_behaviour {
         pub fn init(&mut self) {
             self.jump_stat.init();
             // 【未跳跃状态】自动重启郊狼时间
-            self.coyote_time.restart();
+            self.coyote_time.reset();
             // 【未跳跃状态】自动结束大跳时间
-            self.higher_jump.finish();
+            self.higher_jump.complete();
         }
 
         /// 若跳跃进入空中状态，则进入【大跳状态】
@@ -207,18 +207,18 @@ pub mod in_air_behaviour {
         pub fn higher_jump(&mut self) {
             self.jump_stat.higher_jump();
             // 进入【大跳状态】自动结束郊狼时间
-            self.coyote_time.finish();
+            self.coyote_time.complete();
             // 进入【大跳状态】自动重启大跳时间
-            self.higher_jump.restart();
+            self.higher_jump.reset();
         }
 
         /// 若结束【大跳状态】，则【跳跃完成】
         pub fn complete_a_jump(&mut self) {
             self.jump_stat.jumped();
             // 【跳跃完成】自动结束郊狼时间
-            self.coyote_time.finish();
+            self.coyote_time.complete();
             // 【跳跃完成】自动结束大跳时间
-            self.higher_jump.finish();
+            self.higher_jump.complete();
         }
 
         /// 根据当前状态来判断指令能否生效
@@ -231,17 +231,17 @@ pub mod in_air_behaviour {
         /// 若业务侧判断能够直接进行跳跃，则无需调用本方法，本方法之后才应判断二段跳
         pub fn can_coyote_jump(&self) -> bool {
             // 计时与状态始终保持自洽 无需判断状态
-            !self.coyote_time.is_finished()
+            !self.coyote_time.is_completed()
         }
 
         /// 是否在大跳时间内
         pub fn is_higher_jumping(&self) -> bool {
             // 计时与状态始终保持自洽 无需判断状态
-            !self.higher_jump.is_finished()
+            !self.higher_jump.is_completed()
         }
     }
 
-    impl TickTimer for JumpBehaviourHelper {
+    impl Tickable for JumpBehaviourHelper {
         fn tick(&mut self, delta: f64) {
             self.coyote_time.tick(delta);
             self.higher_jump.tick(delta);
@@ -262,9 +262,9 @@ pub mod in_air_behaviour {
 /// - 转身动画，速度很快时输入反方向移动指令，触发转身动画，转身动画播放时取消转向、结束时自动播放奔跑动画
 /// - 根据是否移动切换站立和行走动画
 pub mod on_land_behaviour {
-    use crate::base_lib::cores::{
-        tick_timer::TinyTickTimer,
-        tiny_timer::{FlowingTimer, FlowingTimerReadonly, TickTimer},
+    use crate::base_lib::cores::timers::{
+        tick_timer::TickTimer,
+        tiny_timer::{Tickable, TimerControl, TimerView},
     };
 
     /// 落地受身辅助，动画驱动
@@ -276,7 +276,7 @@ pub mod on_land_behaviour {
     /// 落地立即起跳辅助，计时器和动画驱动
     pub struct ReadyToJump {
         /// 参考 coyote_time ，落地的一段时间内【允许立即跳跃】，跳过起跳动画
-        allow_immediate_jump: TinyTickTimer,
+        allow_immediate_jump: TickTimer,
     }
 
     impl LandingRoll {
@@ -307,15 +307,15 @@ pub mod on_land_behaviour {
     impl ReadyToJump {
         pub fn new(jump_immediately_time: f64) -> Self {
             Self {
-                allow_immediate_jump: TinyTickTimer::new(jump_immediately_time),
+                allow_immediate_jump: TickTimer::new(jump_immediately_time),
             }
         }
 
         pub fn init(&mut self, fall_to_land: bool) {
             if fall_to_land {
-                self.allow_immediate_jump.restart();
+                self.allow_immediate_jump.reset();
             } else {
-                self.allow_immediate_jump.finish();
+                self.allow_immediate_jump.complete();
             }
         }
 
@@ -323,11 +323,11 @@ pub mod on_land_behaviour {
         ///
         /// - ready_to_jump_anim_finished - 当前正在播放起跳动画、且动画播放结束
         pub fn jump_immediately(&self, ready_to_jump_anim_finished: bool) -> bool {
-            ready_to_jump_anim_finished || !self.allow_immediate_jump.is_finished()
+            ready_to_jump_anim_finished || !self.allow_immediate_jump.is_completed()
         }
     }
 
-    impl TickTimer for ReadyToJump {
+    impl Tickable for ReadyToJump {
         fn tick(&mut self, delta: f64) {
             self.allow_immediate_jump.tick(delta);
         }
@@ -353,7 +353,7 @@ pub mod attack_example_behaviour {}
 #[cfg(test)]
 mod tests {
     use crate::base_lib::{
-        cores::tiny_timer::TickTimer,
+        cores::timers::tiny_timer::Tickable,
         motions::behaviours::{
             in_air_behaviour::JumpBehaviourHelper,
             on_land_behaviour::{LandingRoll, ReadyToJump},

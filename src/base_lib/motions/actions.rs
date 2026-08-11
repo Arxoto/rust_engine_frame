@@ -19,13 +19,13 @@
 use rustc_hash::FxHashMap;
 
 use crate::base_lib::cores::{
-    design_patterns::WithContext,
-    tick_timer::TinyTickTimer,
-    tiny_tags::{TinyTag, TinyTagContainer},
-    tiny_timer::{
-        FlowingTimerReadonly, FreezableTimer, FreezableTimerReadonly, TickTimer,
-        freezable_tick::FreezableTickTag,
+    design_patterns::Union,
+    timers::{
+        pause_prefab::PausePrefab,
+        tick_timer::TickTimer,
+        tiny_timer::{Tickable, TimerPauseControl, TimerPauseView, TimerView},
     },
+    tiny_tags::{TinyTag, TinyTagContainer},
     unify_types::FixedName,
 };
 
@@ -72,7 +72,7 @@ impl<PureTag: FixedName> ActionData<PureTag> {
 }
 
 /// tag 集合
-struct ActionTagContainer<PureTag: FixedName>(FxHashMap<PureTag, Option<TinyTickTimer>>);
+struct ActionTagContainer<PureTag: FixedName>(FxHashMap<PureTag, Option<TickTimer>>);
 
 impl<PureTag: FixedName> TinyTagContainer for ActionTagContainer<PureTag> {
     type Element = PureTag;
@@ -82,14 +82,14 @@ impl<PureTag: FixedName> TinyTagContainer for ActionTagContainer<PureTag> {
     }
 }
 
-impl<PureTag: FixedName> TickTimer for ActionTagContainer<PureTag> {
+impl<PureTag: FixedName> Tickable for ActionTagContainer<PureTag> {
     fn tick(&mut self, delta: f64) {
         // 清理过期的 tag
         self.0.retain(|_k, v| {
             if let Some(timer) = v {
                 // 计时生命
                 timer.tick(delta);
-                !timer.is_finished()
+                !timer.is_completed()
             } else {
                 // 无限生命
                 true
@@ -110,7 +110,7 @@ pub struct ActionSwitcher<PureTag: FixedName> {
     current_action_id: i64,
 
     /// 暂停 tag 计时
-    freezable_tick_tag: FreezableTickTag,
+    pause_prefab: PausePrefab,
 }
 
 impl<PureTag: FixedName> ActionSwitcher<PureTag> {
@@ -119,7 +119,7 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
             action_database: FxHashMap::default(),
             current_tags: ActionTagContainer(FxHashMap::default()),
             current_action_id: default_action,
-            freezable_tick_tag: FreezableTickTag::default(),
+            pause_prefab: PausePrefab::default(),
         }
     }
 
@@ -174,7 +174,7 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
     }
 
     /// 事件触发增加有时效性的 tag
-    pub fn upsert_timer_tag(&mut self, tag: PureTag, timer: TinyTickTimer) {
+    pub fn upsert_timer_tag(&mut self, tag: PureTag, timer: TickTimer) {
         self.current_tags.0.insert(tag, Some(timer));
     }
 
@@ -186,33 +186,25 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
 
 // region: impl freezable tick
 
-impl<PureTag: FixedName> TickTimer for ActionSwitcher<PureTag> {
+impl<PureTag: FixedName> Tickable for ActionSwitcher<PureTag> {
     fn tick(&mut self, delta: f64) {
-        self.freezable_tick_tag
-            .with_ctx_mut(&mut self.current_tags)
-            .tick(delta);
+        Union(&self.pause_prefab, &mut self.current_tags).tick(delta);
     }
 }
 
-impl<PureTag: FixedName> FreezableTimerReadonly for ActionSwitcher<PureTag> {
-    fn is_frozen(&self) -> bool {
-        self.freezable_tick_tag
-            .with_ctx(&self.current_tags)
-            .is_frozen()
+impl<PureTag: FixedName> TimerPauseView for ActionSwitcher<PureTag> {
+    fn is_paused(&self) -> bool {
+        Union(&self.pause_prefab, &self.current_tags).is_paused()
     }
 }
 
-impl<PureTag: FixedName> FreezableTimer for ActionSwitcher<PureTag> {
-    fn freeze(&mut self) {
-        self.freezable_tick_tag
-            .with_ctx_mut(&mut self.current_tags)
-            .freeze();
+impl<PureTag: FixedName> TimerPauseControl for ActionSwitcher<PureTag> {
+    fn pause(&mut self) {
+        Union(&mut self.pause_prefab, &self.current_tags).pause();
     }
 
     fn resume(&mut self) {
-        self.freezable_tick_tag
-            .with_ctx_mut(&mut self.current_tags)
-            .resume();
+        Union(&mut self.pause_prefab, &self.current_tags).resume();
     }
 }
 

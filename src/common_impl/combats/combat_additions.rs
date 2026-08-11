@@ -1,6 +1,6 @@
 use crate::base_lib::{
     cores::{
-        static_timer::{StaticTimeline, StaticTimer},
+        timers::static_timer::{StaticTimeline, StaticTimer},
         unify_types::FixedName,
     },
     eff_attr_prop::{
