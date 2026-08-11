@@ -7,6 +7,8 @@ pub mod design_patterns;
 
 pub mod unify_types;
 
+pub mod timers;
+
 pub mod tiny_timer;
 
 pub mod tick_timer;

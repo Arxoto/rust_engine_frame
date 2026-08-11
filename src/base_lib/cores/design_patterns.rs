@@ -1,3 +1,19 @@
+
+/// 联合体
+pub struct Union<T, U>(pub T, pub U);
+
+/// 可转换目标类型
+pub trait UnitedInto<With, Target> {
+    fn unite_into(self, w: With) -> Target;
+}
+
+// 为所有类型默认实现 伪联合体
+impl<T> UnitedInto<(), Union<T, ()>> for T {
+    fn unite_into(self, w: ()) -> Union<T, ()> {
+        Union(self, w)
+    }
+}
+
 /// 统一上下文包装
 pub struct ContextWrapper<I, Ctx> {
     pub inner: I,

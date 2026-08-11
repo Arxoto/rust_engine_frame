@@ -83,6 +83,7 @@ pub trait FreezableTimer: FreezableTimerReadonly {
     fn resume(&mut self);
 }
 
+// todo 然后决策使用要为静态时钟实现触发器版本，如果不要可以让触发器更加具有侵入性一点
 /// 可循环触发的计时器
 pub trait CyclicalTimer {
     /// 尝试触发一次
