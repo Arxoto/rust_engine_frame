@@ -4,7 +4,7 @@ use crate::base_lib::cores::{
 };
 
 #[derive(Clone, Debug)]
-pub struct FewShotTimes {
+pub(super) struct FewShotTimes {
     current: u32,
     limit: u32,
 }
