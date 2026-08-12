@@ -1,8 +1,9 @@
 use crate::base_lib::{
     cores::{
-        design_patterns::{Union, UnitedInto},
+        design_patterns::UnitedInto,
         timers::{
             static_timer::{StaticTimeline, StaticTimer},
+            tick_timer::TickTimer,
             tiny_timer::{HasTimer, Tickable, TimerView},
         },
         unify_types::FixedName,
@@ -67,18 +68,26 @@ fn try_update_attr<S: FixedName>(
 }
 
 /// 老化过期元素
-///
-/// todo test
-///
-/// 注意，这里约束 &E 让其返回的是所有权，需要测试 E 直接拥有 TinyTickTimer 的情况
-/// 其返回引用应该没有实现 TimerView 会导致报错
-pub fn clean_expired_element<'a, E, Timer, Ctx, Target>(
-    ll: &'a mut UpsertContainer<E>,
-    ctx: &'a Ctx,
-) where
-    E: Upsert + HasTimer<Timer = Timer>,
-    for<'b> &'b Timer: UnitedInto<&'a Ctx, Target>,
-    Target: TimerView,
+pub fn clean_expired_element<'a, E, With>(ll: &'a mut UpsertContainer<E>, with: &'a With)
+where
+    E: Upsert + HasTimer,
+    for<'b> &'b <E as HasTimer>::Timer: UnitedInto<&'a With>,
+    for<'b> <&'b <E as HasTimer>::Timer as UnitedInto<&'a With>>::Target: TimerView,
 {
-    ll.delete_ele(|ele| ele.get_timer().unite_into(ctx).is_completed());
+    ll.delete_ele(|ele| {
+        let timer = ele.get_timer();
+        let united_timer = timer.unite_into(with);
+        united_timer.is_completed()
+    });
+}
+
+pub fn asd() {
+    let mut ll = UpsertContainer::<AttrEffect<String, StaticTimer>>::default();
+    let timeline = StaticTimeline::new();
+
+    clean_expired_element(&mut ll, &timeline);
+
+    // let mut ll = UpsertContainer::<AttrEffect<String, TickTimer>>::default();
+
+    // clean_expired_element::<'a, AttrEffect<String, TickTimer>, TickTimer, ()>(&mut ll, &());
 }

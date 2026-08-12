@@ -100,13 +100,17 @@ impl TimerControl for Union<&mut StaticTimer, &StaticTimeline> {
 
 type Stl = StaticTimeline;
 
-impl<'a, 'b> UnitedInto<&'b Stl, Union<&'a StaticTimer, &'b Stl>> for &'a StaticTimer {
+impl<'a, 'b> UnitedInto<&'b Stl> for &'a StaticTimer {
+    type Target = Union<&'a StaticTimer, &'b Stl>;
+
     fn unite_into(self, w: &'b Stl) -> Union<&'a StaticTimer, &'b Stl> {
         Union(self, w)
     }
 }
 
-impl<'a, 'b> UnitedInto<&'b Stl, Union<&'a mut StaticTimer, &'b Stl>> for &'a mut StaticTimer {
+impl<'a, 'b> UnitedInto<&'b Stl> for &'a mut StaticTimer {
+    type Target = Union<&'a mut StaticTimer, &'b Stl>;
+    
     fn unite_into(self, w: &'b Stl) -> Union<&'a mut StaticTimer, &'b Stl> {
         Union(self, w)
     }
