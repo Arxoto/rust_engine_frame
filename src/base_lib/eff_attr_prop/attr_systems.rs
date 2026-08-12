@@ -3,7 +3,7 @@ use crate::base_lib::{
         design_patterns::{Union, UnitedInto},
         timers::{
             static_timer::{StaticTimeline, StaticTimer},
-            tiny_timer::{Tickable, TimerView},
+            tiny_timer::{HasTimer, Tickable, TimerView},
         },
         unify_types::FixedName,
     },
@@ -57,10 +57,7 @@ fn try_update_attr<S: FixedName>(
     effs: &mut UpsertContainer<AttrEffect<S, StaticTimer>>,
     timeline: &StaticTimeline,
 ) {
-    effs.delete_ele(|eff| {
-        let timer = eff.get_timer();
-        Union::new(timer, timeline).is_completed()
-    });
+    effs.delete_ele(|eff| eff.get_timer().of_timer(timeline).is_completed());
 
     if effs.is_changed() {
         effs.reset_changed_flag();
@@ -75,11 +72,13 @@ fn try_update_attr<S: FixedName>(
 ///
 /// 注意，这里约束 &E 让其返回的是所有权，需要测试 E 直接拥有 TinyTickTimer 的情况
 /// 其返回引用应该没有实现 TimerView 会导致报错
-pub fn clean_expired_element<'a, E, Ctx, Timer>(ll: &'a mut UpsertContainer<E>, ctx: &'a Ctx)
-where
-    E: Upsert,
-    for<'b> &'b E: UnitedInto<&'a Ctx, Timer>,
-    Timer: TimerView,
+pub fn clean_expired_element<'a, E, Timer, Ctx, Target>(
+    ll: &'a mut UpsertContainer<E>,
+    ctx: &'a Ctx,
+) where
+    E: Upsert + HasTimer<Timer = Timer>,
+    for<'b> &'b Timer: UnitedInto<&'a Ctx, Target>,
+    Target: TimerView,
 {
-    ll.delete_ele(|ele| ele.unite_into(ctx).is_completed());
+    ll.delete_ele(|ele| ele.get_timer().unite_into(ctx).is_completed());
 }

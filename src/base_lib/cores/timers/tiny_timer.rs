@@ -89,6 +89,15 @@ pub trait CyclicalTrigger {
     fn try_trigger_once(&mut self) -> bool;
 }
 
+/// 拥有计时器，一个类型只能实现一次该特征
+pub trait HasTimer {
+    type Timer;
+
+    fn get_timer(&self) -> &Self::Timer;
+
+    fn get_timer_mut(&mut self) -> &mut Self::Timer;
+}
+
 // region: impl for Union<T, ()>
 
 impl<T: TimerProgress> TimerProgress for Union<&T, ()> {

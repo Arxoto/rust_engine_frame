@@ -1,5 +1,5 @@
 use crate::base_lib::{
-    cores::unify_types::FixedName,
+    cores::{timers::tiny_timer::HasTimer, unify_types::FixedName},
     eff_attr_prop::{
         effects::{Effect, EffectMean, EffectMeaning},
         upsert_container::Upsert,
@@ -42,14 +42,16 @@ impl<S: FixedName, Timer> AttrEffect<S, Timer> {
             duration,
         }
     }
+}
 
-    /// 为了内聚（简化逻辑） 在外部处理过期
-    pub fn get_timer(&self) -> &Timer {
+impl<S: FixedName, Timer> HasTimer for AttrEffect<S, Timer> {
+    type Timer = Timer;
+
+    fn get_timer(&self) -> &Self::Timer {
         &self.duration
     }
 
-    /// 为了内聚（简化逻辑） 在外部处理过期
-    pub fn get_timer_mut(&mut self) -> &mut Timer {
+    fn get_timer_mut(&mut self) -> &mut Self::Timer {
         &mut self.duration
     }
 }

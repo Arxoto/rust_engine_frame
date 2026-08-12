@@ -33,6 +33,47 @@ impl TimerPauseControl for PausePrefab {
     }
 }
 
+// region: fn for union
+
+impl PausePrefab {
+    #[inline]
+    pub fn of_tickable<T: Tickable>(&self, t: &mut T) -> impl Tickable {
+        Union::new(self, t)
+    }
+
+    #[inline]
+    pub fn of_timer_pause_view<T>(&self, t: &T) -> impl TimerPauseView {
+        Union::new(self, t)
+    }
+
+    #[inline]
+    pub fn of_timer_pause_control<T>(&mut self, t: &T) -> impl TimerPauseControl {
+        Union::new(self, t)
+    }
+
+    #[inline]
+    pub fn of_timer_progress<T: TimerProgress>(&self, t: &T) -> impl TimerProgress {
+        Union::new(self, t)
+    }
+
+    #[inline]
+    pub fn of_timer_view<T: TimerView>(&self, t: &T) -> impl TimerView {
+        Union::new(self, t)
+    }
+
+    #[inline]
+    pub fn of_timer_control<T: TimerControl>(&self, t: &mut T) -> impl TimerControl {
+        Union::new(self, t)
+    }
+
+    #[inline]
+    pub fn of_cyclical_trigger<T: CyclicalTrigger>(&self, t: &mut T) -> impl CyclicalTrigger {
+        Union::new(self, t)
+    }
+}
+
+// endregion
+
 // region: impl for union
 
 // 根据 prefab 决定是否调用 timer tick

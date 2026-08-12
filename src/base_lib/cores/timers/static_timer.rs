@@ -48,6 +48,20 @@ impl StaticTimer {
             end_at: timeline.current_time() + duration,
         }
     }
+
+    pub fn of_timer<'a>(
+        &'a self,
+        timeline: &'a StaticTimeline,
+    ) -> Union<&'a Self, &'a StaticTimeline> {
+        Union(self, timeline)
+    }
+
+    pub fn of_timer_mut<'a>(
+        &'a mut self,
+        timeline: &'a StaticTimeline,
+    ) -> Union<&'a mut Self, &'a StaticTimeline> {
+        Union(self, timeline)
+    }
 }
 
 impl TimerProgress for Union<&StaticTimer, &StaticTimeline> {
