@@ -4,6 +4,7 @@
 pub struct Union<T, U>(pub(super) T, pub(super) U);
 
 impl<T, U> Union<T, U> {
+    #[inline]
     pub fn new(t: T, u: U) -> Self {
         Union(t, u)
     }
