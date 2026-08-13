@@ -89,7 +89,7 @@ impl<PureTag: FixedName> Tickable for ActionTagContainer<PureTag> {
             if let Some(timer) = v {
                 // 计时生命
                 timer.tick(delta);
-                !timer.is_completed()
+                !timer.is_completed(())
             } else {
                 // 无限生命
                 true

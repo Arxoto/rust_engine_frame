@@ -196,9 +196,9 @@ pub mod in_air_behaviour {
         pub fn init(&mut self) {
             self.jump_stat.init();
             // 【未跳跃状态】自动重启郊狼时间
-            self.coyote_time.reset();
+            self.coyote_time.reset(());
             // 【未跳跃状态】自动结束大跳时间
-            self.higher_jump.complete();
+            self.higher_jump.complete(());
         }
 
         /// 若跳跃进入空中状态，则进入【大跳状态】
@@ -207,18 +207,18 @@ pub mod in_air_behaviour {
         pub fn higher_jump(&mut self) {
             self.jump_stat.higher_jump();
             // 进入【大跳状态】自动结束郊狼时间
-            self.coyote_time.complete();
+            self.coyote_time.complete(());
             // 进入【大跳状态】自动重启大跳时间
-            self.higher_jump.reset();
+            self.higher_jump.reset(());
         }
 
         /// 若结束【大跳状态】，则【跳跃完成】
         pub fn complete_a_jump(&mut self) {
             self.jump_stat.jumped();
             // 【跳跃完成】自动结束郊狼时间
-            self.coyote_time.complete();
+            self.coyote_time.complete(());
             // 【跳跃完成】自动结束大跳时间
-            self.higher_jump.complete();
+            self.higher_jump.complete(());
         }
 
         /// 根据当前状态来判断指令能否生效
@@ -231,13 +231,13 @@ pub mod in_air_behaviour {
         /// 若业务侧判断能够直接进行跳跃，则无需调用本方法，本方法之后才应判断二段跳
         pub fn can_coyote_jump(&self) -> bool {
             // 计时与状态始终保持自洽 无需判断状态
-            !self.coyote_time.is_completed()
+            !self.coyote_time.is_completed(())
         }
 
         /// 是否在大跳时间内
         pub fn is_higher_jumping(&self) -> bool {
             // 计时与状态始终保持自洽 无需判断状态
-            !self.higher_jump.is_completed()
+            !self.higher_jump.is_completed(())
         }
     }
 
@@ -313,9 +313,9 @@ pub mod on_land_behaviour {
 
         pub fn init(&mut self, fall_to_land: bool) {
             if fall_to_land {
-                self.allow_immediate_jump.reset();
+                self.allow_immediate_jump.reset(());
             } else {
-                self.allow_immediate_jump.complete();
+                self.allow_immediate_jump.complete(());
             }
         }
 
@@ -323,7 +323,7 @@ pub mod on_land_behaviour {
         ///
         /// - ready_to_jump_anim_finished - 当前正在播放起跳动画、且动画播放结束
         pub fn jump_immediately(&self, ready_to_jump_anim_finished: bool) -> bool {
-            ready_to_jump_anim_finished || !self.allow_immediate_jump.is_completed()
+            ready_to_jump_anim_finished || !self.allow_immediate_jump.is_completed(())
         }
     }
 

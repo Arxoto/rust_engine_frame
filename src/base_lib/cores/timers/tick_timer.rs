@@ -3,9 +3,8 @@
 //! - 每帧调用 `tick` 方法来更新计时器状态，逻辑简单清晰
 //! - 适用于需要知道进度（动画特效）、短生命周期、局部时间调速等场景
 
-use crate::base_lib::cores::{
-    design_patterns::{Union, UnitedWith},
-    timers::tiny_timer::{Tickable, TimerControl, TimerProgress, TimerView},
+use crate::base_lib::cores::timers::tiny_timer::{
+    Tickable, TimerControl, TimerProgress, TimerView,
 };
 
 /// 简单计时器
@@ -32,51 +31,41 @@ impl Tickable for TickTimer {
 }
 
 impl TimerProgress for TickTimer {
-    fn elapsed(&self) -> f64 {
+    type Ctx<'a> = ();
+
+    fn elapsed(&self, _: ()) -> f64 {
         self.elapsed
     }
 
-    fn remaining(&self) -> f64 {
+    fn remaining(&self, _: ()) -> f64 {
         self.duration - self.elapsed
     }
 
-    fn duration(&self) -> f64 {
+    fn duration(&self, _: ()) -> f64 {
         self.duration
     }
 
-    fn progress(&self) -> f64 {
+    fn progress(&self, _: ()) -> f64 {
         self.elapsed / self.duration
     }
 }
 
 impl TimerView for TickTimer {
-    fn is_completed(&self) -> bool {
+    type Ctx<'a> = ();
+
+    fn is_completed(&self, _: ()) -> bool {
         self.elapsed >= self.duration
     }
 }
 
 impl TimerControl for TickTimer {
-    fn reset(&mut self) {
+    type Ctx<'a> = ();
+
+    fn reset(&mut self, _: ()) {
         self.elapsed = 0.0
     }
 
-    fn complete(&mut self) {
+    fn complete(&mut self, _: ()) {
         self.elapsed = self.duration
-    }
-}
-
-impl<'a> UnitedWith<()> for &'a TickTimer {
-    type IntoTarget = Union<&'a TickTimer, ()>;
-
-    fn unite_into(self, w: ()) -> Self::IntoTarget {
-        Union(self, w)
-    }
-}
-
-impl<'a> UnitedWith<()> for &'a mut TickTimer {
-    type IntoTarget = Union<&'a mut TickTimer, ()>;
-
-    fn unite_into(self, w: ()) -> Self::IntoTarget {
-        Union(self, w)
     }
 }

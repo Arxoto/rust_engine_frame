@@ -103,18 +103,18 @@ impl AbstractInstruction for InstructionStrictJustOn {
 impl InstructionBufferedJustOn {
     pub fn new(limit: f64) -> Self {
         let mut new_one = Self(TickTimer::new(limit), false);
-        new_one.0.complete();
+        new_one.0.complete(());
         new_one
     }
 
     pub fn consume_instruction(&mut self) {
-        self.0.complete();
+        self.0.complete(());
     }
 }
 
 impl ActiveInput for InstructionBufferedJustOn {
     fn is_on(&self) -> bool {
-        !self.0.is_completed()
+        !self.0.is_completed(())
     }
 }
 
@@ -122,7 +122,7 @@ impl AbstractInstruction for InstructionBufferedJustOn {
     fn update_by_op(&mut self, operation: &impl ActiveInput) {
         if !self.1 && operation.is_on() {
             // 根据上一帧关闭 这一帧开启 重置时间
-            self.0.reset();
+            self.0.reset(());
         }
         self.1 = operation.is_on();
     }

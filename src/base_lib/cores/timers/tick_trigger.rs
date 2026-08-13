@@ -32,43 +32,51 @@ impl Tickable for InfiniteTickTrigger {
 }
 
 impl TimerProgress for InfiniteTickTrigger {
-    fn elapsed(&self) -> f64 {
+    type Ctx<'a> = ();
+
+    fn elapsed(&self, _: ()) -> f64 {
         // 不考虑经过时间超过周期的情况，应该每帧先尝试触发消费掉余量，而后显示进度
         self.elapsed
     }
 
-    fn remaining(&self) -> f64 {
-        self.cycle - self.elapsed()
+    fn remaining(&self, _: ()) -> f64 {
+        self.cycle - self.elapsed(())
     }
 
-    fn duration(&self) -> f64 {
+    fn duration(&self, _: ()) -> f64 {
         self.cycle
     }
 
-    fn progress(&self) -> f64 {
-        self.elapsed() / self.duration()
+    fn progress(&self, _: ()) -> f64 {
+        self.elapsed(()) / self.duration(())
     }
 }
 
 impl TimerView for InfiniteTickTrigger {
-    fn is_completed(&self) -> bool {
+    type Ctx<'a> = ();
+
+    fn is_completed(&self, _: ()) -> bool {
         // 无法结束
         false
     }
 }
 
 impl TimerControl for InfiniteTickTrigger {
-    fn reset(&mut self) {
+    type Ctx<'a> = ();
+
+    fn reset(&mut self, _: ()) {
         self.elapsed = 0.0
     }
 
-    fn complete(&mut self) {
+    fn complete(&mut self, _: ()) {
         // do nothing
     }
 }
 
 impl CyclicalTrigger for InfiniteTickTrigger {
-    fn try_trigger_once(&mut self) -> bool {
+    type Ctx<'a> = ();
+
+    fn try_trigger_once(&mut self, _: ()) -> bool {
         if self.elapsed >= self.cycle {
             self.elapsed -= self.cycle;
             true
@@ -100,41 +108,49 @@ impl Tickable for FewShotTickTrigger {
 }
 
 impl TimerProgress for FewShotTickTrigger {
-    fn elapsed(&self) -> f64 {
-        self.inf_trigger.elapsed()
+    type Ctx<'a> = ();
+
+    fn elapsed(&self, _: ()) -> f64 {
+        self.inf_trigger.elapsed(())
     }
 
-    fn remaining(&self) -> f64 {
-        self.inf_trigger.remaining()
+    fn remaining(&self, _: ()) -> f64 {
+        self.inf_trigger.remaining(())
     }
 
-    fn duration(&self) -> f64 {
-        self.inf_trigger.duration()
+    fn duration(&self, _: ()) -> f64 {
+        self.inf_trigger.duration(())
     }
 
-    fn progress(&self) -> f64 {
-        self.inf_trigger.progress()
+    fn progress(&self, _: ()) -> f64 {
+        self.inf_trigger.progress(())
     }
 }
 
 impl TimerView for FewShotTickTrigger {
-    fn is_completed(&self) -> bool {
-        Union(&self.few_shot, &self.inf_trigger).is_completed()
+    type Ctx<'a> = ();
+
+    fn is_completed(&self, _: ()) -> bool {
+        Union(&self.few_shot, &self.inf_trigger).is_completed(())
     }
 }
 
 impl TimerControl for FewShotTickTrigger {
-    fn reset(&mut self) {
-        Union(&mut self.few_shot, &mut self.inf_trigger).reset()
+    type Ctx<'a> = ();
+
+    fn reset(&mut self, _: ()) {
+        Union(&mut self.few_shot, &mut self.inf_trigger).reset(())
     }
 
-    fn complete(&mut self) {
-        Union(&mut self.few_shot, &mut self.inf_trigger).complete()
+    fn complete(&mut self, _: ()) {
+        Union(&mut self.few_shot, &mut self.inf_trigger).complete(())
     }
 }
 
 impl CyclicalTrigger for FewShotTickTrigger {
-    fn try_trigger_once(&mut self) -> bool {
-        Union(&mut self.few_shot, &mut self.inf_trigger).try_trigger_once()
+    type Ctx<'a> = ();
+
+    fn try_trigger_once(&mut self, _: ()) -> bool {
+        Union(&mut self.few_shot, &mut self.inf_trigger).try_trigger_once(())
     }
 }

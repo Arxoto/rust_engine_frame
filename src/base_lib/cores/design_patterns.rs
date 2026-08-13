@@ -30,6 +30,12 @@
 //!
 //! 介于方案一的“下一代求解器缺”始终没有默认采用，优先选用方案二
 
+// todo 修改上下文依赖都依赖于这个特征
+/// 依赖上下文
+pub trait DependCtx {
+    type Ctx<'a>;
+}
+
 /// 联合体
 pub struct Union<T, U>(pub(super) T, pub(super) U);
 

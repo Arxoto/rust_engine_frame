@@ -5,12 +5,9 @@
 //! - 适用于服务端验证、长期计时，静态时间戳可能需要更换非浮点类型防止误差累积，如 [`std::time::Duration`]
 //! - 数量规模庞大的场景，将大量的循环触发的 TickTimer 转换为 StaticTimer 表示状态和少量触发式 TickTimer 用于结算
 
-use crate::base_lib::cores::{
-    design_patterns::{Union, UnitedWith},
-    timers::{
-        tick_timer::TickTimer,
-        tiny_timer::{TimerControl, TimerProgress, TimerView},
-    },
+use crate::base_lib::cores::timers::{
+    tick_timer::TickTimer,
+    tiny_timer::{TimerControl, TimerProgress, TimerView},
 };
 
 /// 静态计时器的参考时间线，暂停等功能在时间线上实现
@@ -24,12 +21,12 @@ impl StaticTimeline {
     }
 
     pub fn current_time(&self) -> f64 {
-        self.0.elapsed()
+        self.0.elapsed(())
     }
 
     /// 确认没有依赖本时间线的计时器后，【重启时间线】，防止无限累加引起精度丢失
     pub fn reset_timeline(&mut self) {
-        self.0.reset();
+        self.0.reset(());
     }
 }
 
@@ -48,70 +45,44 @@ impl StaticTimer {
             end_at: timeline.current_time() + duration,
         }
     }
+}
 
-    pub fn of_timer<'a>(
-        &'a self,
-        timeline: &'a StaticTimeline,
-    ) -> Union<&'a Self, &'a StaticTimeline> {
-        Union(self, timeline)
+impl TimerProgress for StaticTimer {
+    type Ctx<'a> = &'a StaticTimeline;
+
+    fn elapsed(&self, ctx: &StaticTimeline) -> f64 {
+        self.duration(ctx) - self.remaining(ctx)
     }
 
-    pub fn of_timer_mut<'a>(
-        &'a mut self,
-        timeline: &'a StaticTimeline,
-    ) -> Union<&'a mut Self, &'a StaticTimeline> {
-        Union(self, timeline)
+    fn remaining(&self, ctx: &StaticTimeline) -> f64 {
+        (self.end_at - ctx.current_time()).min(0.0)
+    }
+
+    fn duration(&self, _ctx: &StaticTimeline) -> f64 {
+        self.duration
+    }
+
+    fn progress(&self, ctx: &StaticTimeline) -> f64 {
+        1.0 - self.remaining(ctx) / self.duration(ctx)
     }
 }
 
-impl TimerProgress for Union<&StaticTimer, &StaticTimeline> {
-    fn elapsed(&self) -> f64 {
-        self.duration() - self.remaining()
-    }
+impl TimerView for StaticTimer {
+    type Ctx<'a> = &'a StaticTimeline;
 
-    fn remaining(&self) -> f64 {
-        (self.0.end_at - self.1.current_time()).min(0.0)
-    }
-
-    fn duration(&self) -> f64 {
-        self.0.duration
-    }
-
-    fn progress(&self) -> f64 {
-        1.0 - self.remaining() / self.duration()
+    fn is_completed(&self, ctx: &StaticTimeline) -> bool {
+        ctx.current_time() >= self.end_at
     }
 }
 
-impl TimerView for Union<&StaticTimer, &StaticTimeline> {
-    fn is_completed(&self) -> bool {
-        self.1.current_time() >= self.0.end_at
-    }
-}
+impl TimerControl for StaticTimer {
+    type Ctx<'a> = &'a StaticTimeline;
 
-impl TimerControl for Union<&mut StaticTimer, &StaticTimeline> {
-    fn reset(&mut self) {
-        self.0.end_at = self.1.current_time() + self.0.duration;
+    fn reset(&mut self, ctx: &StaticTimeline) {
+        self.end_at = ctx.current_time() + self.duration;
     }
 
-    fn complete(&mut self) {
-        self.0.end_at = self.1.current_time();
-    }
-}
-
-type Stl = StaticTimeline;
-
-impl<'a, 'b> UnitedWith<&'b Stl> for &'a StaticTimer {
-    type IntoTarget = Union<&'a StaticTimer, &'b Stl>;
-
-    fn unite_into(self, w: &'b Stl) -> Union<&'a StaticTimer, &'b Stl> {
-        Union(self, w)
-    }
-}
-
-impl<'a, 'b> UnitedWith<&'b Stl> for &'a mut StaticTimer {
-    type IntoTarget = Union<&'a mut StaticTimer, &'b Stl>;
-    
-    fn unite_into(self, w: &'b Stl) -> Union<&'a mut StaticTimer, &'b Stl> {
-        Union(self, w)
+    fn complete(&mut self, ctx: &StaticTimeline) {
+        self.end_at = ctx.current_time();
     }
 }

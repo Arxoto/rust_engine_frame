@@ -1,6 +1,5 @@
 use crate::base_lib::{
     cores::{
-        design_patterns::UnitedWith,
         timers::{
             static_timer::{StaticTimeline, StaticTimer},
             tick_timer::TickTimer,
@@ -58,7 +57,7 @@ fn try_update_attr<S: FixedName>(
     effs: &mut UpsertContainer<AttrEffect<S, StaticTimer>>,
     timeline: &StaticTimeline,
 ) {
-    effs.delete_ele(|eff| eff.get_timer().of_timer(timeline).is_completed());
+    effs.delete_ele(|eff| eff.get_timer().is_completed(timeline));
 
     if effs.is_changed() {
         effs.reset_changed_flag();
@@ -68,29 +67,19 @@ fn try_update_attr<S: FixedName>(
 }
 
 /// 老化过期元素
-///
-/// 已知存在问题，也是 Rust 传统类型求解器 (Old Trait Solver) 中最经典的痛点之一
-/// - 高阶生命周期 (HRTB) 与关联类型规范化 (Projection Normalization) 的耦合死锁
-/// - 旧求解器缺乏“延迟承诺”能力。当遇到高阶生命周期 for<'b> 时，它必须“提前”把关联类型 <...>::Target 展开
-/// - 但此时类型推断变量（如 With ）还没确定，导致它去盲目匹配 Blanket Implementation 时触发了歧义，进而编译报错
-pub fn clean_expired_element<E, With>(ll: &mut UpsertContainer<E>, with: With)
+pub fn clean_expired_element<'a, E, Ctx>(ll: &mut UpsertContainer<E>, ctx: Ctx)
 where
+    Ctx: Copy,
     E: Upsert + HasTimer,
-    With: Copy,
-    for<'b> &'b <E as HasTimer>::Timer: UnitedWith<With>,
-    for<'b> <&'b <E as HasTimer>::Timer as UnitedWith<With>>::IntoTarget: TimerView,
+    <E as HasTimer>::Timer: TimerView<Ctx<'a> = Ctx>,
 {
-    ll.delete_ele(|ele| {
-        let timer = ele.get_timer();
-        let united_timer = timer.unite_into(with);
-        united_timer.is_completed()
-    });
+    ll.delete_ele(|ele| ele.get_timer().is_completed(ctx));
 }
 
 pub fn test() {
     let mut ll = UpsertContainer::<AttrEffect<String, StaticTimer>>::default();
-    clean_expired_element::<_, &StaticTimeline>(&mut ll, &StaticTimeline::new());
+    clean_expired_element(&mut ll, &StaticTimeline::new());
 
     let mut ll = UpsertContainer::<AttrEffect<String, TickTimer>>::default();
-    clean_expired_element::<AttrEffect<String, TickTimer>, ()>(&mut ll, ());
+    clean_expired_element(&mut ll, ());
 }

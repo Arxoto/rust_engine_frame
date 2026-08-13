@@ -24,62 +24,56 @@ impl InfiniteStaticTrigger {
             end_at: timeline.current_time() + cycle,
         }
     }
-
-    pub fn of_timer<'a>(
-        &'a self,
-        timeline: &'a StaticTimeline,
-    ) -> Union<&'a Self, &'a StaticTimeline> {
-        Union(self, timeline)
-    }
-
-    pub fn of_timer_mut<'a>(
-        &'a mut self,
-        timeline: &'a StaticTimeline,
-    ) -> Union<&'a mut Self, &'a StaticTimeline> {
-        Union(self, timeline)
-    }
 }
 
-impl TimerProgress for Union<&InfiniteStaticTrigger, &StaticTimeline> {
-    fn elapsed(&self) -> f64 {
+impl TimerProgress for InfiniteStaticTrigger {
+    type Ctx<'a> = &'a StaticTimeline;
+
+    fn elapsed(&self, ctx: &StaticTimeline) -> f64 {
         // 不考虑经过时间超过周期的情况，应该每帧先尝试触发消费掉余量，而后显示进度
-        self.duration() - self.remaining()
+        self.duration(ctx) - self.remaining(ctx)
     }
 
-    fn remaining(&self) -> f64 {
-        self.0.end_at - self.1.current_time()
+    fn remaining(&self, ctx: &StaticTimeline) -> f64 {
+        self.end_at - ctx.current_time()
     }
 
-    fn duration(&self) -> f64 {
-        self.0.cycle
+    fn duration(&self, _ctx: &StaticTimeline) -> f64 {
+        self.cycle
     }
 
-    fn progress(&self) -> f64 {
-        1.0 - self.remaining() / self.duration()
+    fn progress(&self, ctx: &StaticTimeline) -> f64 {
+        1.0 - self.remaining(ctx) / self.duration(ctx)
     }
 }
 
-impl TimerView for Union<&InfiniteStaticTrigger, &StaticTimeline> {
-    fn is_completed(&self) -> bool {
+impl TimerView for InfiniteStaticTrigger {
+    type Ctx<'a> = &'a StaticTimeline;
+
+    fn is_completed(&self, _ctx: &StaticTimeline) -> bool {
         // 无法结束
         false
     }
 }
 
-impl TimerControl for Union<&mut InfiniteStaticTrigger, &StaticTimeline> {
-    fn reset(&mut self) {
-        self.0.end_at = self.1.current_time() + self.0.cycle;
+impl TimerControl for InfiniteStaticTrigger {
+    type Ctx<'a> = &'a StaticTimeline;
+
+    fn reset(&mut self, ctx: &StaticTimeline) {
+        self.end_at = ctx.current_time() + self.cycle;
     }
 
-    fn complete(&mut self) {
+    fn complete(&mut self, _ctx: &StaticTimeline) {
         // do nothing
     }
 }
 
-impl CyclicalTrigger for Union<&mut InfiniteStaticTrigger, &StaticTimeline> {
-    fn try_trigger_once(&mut self) -> bool {
-        if self.0.end_at <= self.1.current_time() {
-            self.0.end_at += self.0.cycle;
+impl CyclicalTrigger for InfiniteStaticTrigger {
+    type Ctx<'a> = &'a StaticTimeline;
+
+    fn try_trigger_once(&mut self, ctx: &StaticTimeline) -> bool {
+        if self.end_at <= ctx.current_time() {
+            self.end_at += self.cycle;
             true
         } else {
             false
@@ -102,24 +96,30 @@ impl FewShotStaticTrigger {
     }
 }
 
-impl TimerView for Union<&FewShotStaticTrigger, &StaticTimeline> {
-    fn is_completed(&self) -> bool {
-        Union(&self.0.few_shot, &Union(&self.0.inf_tg, self.1)).is_completed()
+impl TimerView for FewShotStaticTrigger {
+    type Ctx<'a> = &'a StaticTimeline;
+
+    fn is_completed(&self, _ctx: &StaticTimeline) -> bool {
+        Union(&self.few_shot, &self.inf_tg).is_completed(())
     }
 }
 
-impl TimerControl for Union<&mut FewShotStaticTrigger, &StaticTimeline> {
-    fn reset(&mut self) {
-        Union(&mut self.0.few_shot, &mut Union(&mut self.0.inf_tg, self.1)).reset()
+impl TimerControl for FewShotStaticTrigger {
+    type Ctx<'a> = &'a StaticTimeline;
+
+    fn reset(&mut self, ctx: &StaticTimeline) {
+        Union(&mut self.few_shot, &mut self.inf_tg).reset(ctx)
     }
 
-    fn complete(&mut self) {
-        Union(&mut self.0.few_shot, &mut Union(&mut self.0.inf_tg, self.1)).complete()
+    fn complete(&mut self, ctx: &StaticTimeline) {
+        Union(&mut self.few_shot, &mut self.inf_tg).complete(ctx)
     }
 }
 
-impl CyclicalTrigger for Union<&mut FewShotStaticTrigger, &StaticTimeline> {
-    fn try_trigger_once(&mut self) -> bool {
-        Union(&mut self.0.few_shot, &mut Union(&mut self.0.inf_tg, self.1)).try_trigger_once()
+impl CyclicalTrigger for FewShotStaticTrigger {
+    type Ctx<'a> = &'a StaticTimeline;
+
+    fn try_trigger_once(&mut self, ctx: &StaticTimeline) -> bool {
+        Union(&mut self.few_shot, &mut self.inf_tg).try_trigger_once(ctx)
     }
 }

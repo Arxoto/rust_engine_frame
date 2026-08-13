@@ -38,37 +38,37 @@ impl TimerPauseControl for PausePrefab {
 impl PausePrefab {
     #[inline]
     pub fn of_tickable<T: Tickable>(&self, t: &mut T) -> impl Tickable {
-        Union::new(self, t)
+        Union(self, t)
     }
 
     #[inline]
     pub fn of_timer_pause_view<T>(&self, t: &T) -> impl TimerPauseView {
-        Union::new(self, t)
+        Union(self, t)
     }
 
     #[inline]
     pub fn of_timer_pause_control<T>(&mut self, t: &T) -> impl TimerPauseControl {
-        Union::new(self, t)
+        Union(self, t)
     }
 
     #[inline]
     pub fn of_timer_progress<T: TimerProgress>(&self, t: &T) -> impl TimerProgress {
-        Union::new(self, t)
+        Union(self, t)
     }
 
     #[inline]
     pub fn of_timer_view<T: TimerView>(&self, t: &T) -> impl TimerView {
-        Union::new(self, t)
+        Union(self, t)
     }
 
     #[inline]
     pub fn of_timer_control<T: TimerControl>(&self, t: &mut T) -> impl TimerControl {
-        Union::new(self, t)
+        Union(self, t)
     }
 
     #[inline]
     pub fn of_cyclical_trigger<T: CyclicalTrigger>(&self, t: &mut T) -> impl CyclicalTrigger {
-        Union::new(self, t)
+        Union(self, t)
     }
 }
 
@@ -105,42 +105,50 @@ impl<T> TimerPauseControl for Union<&mut PausePrefab, &T> {
 
 // 时间进度透传 timer
 impl<T: TimerProgress> TimerProgress for Union<&PausePrefab, &T> {
-    fn elapsed(&self) -> f64 {
-        self.1.elapsed()
+    type Ctx<'a> = T::Ctx<'a>;
+
+    fn elapsed<'a>(&self, ctx: Self::Ctx<'a>) -> f64 {
+        self.1.elapsed(ctx)
     }
 
-    fn remaining(&self) -> f64 {
-        self.1.remaining()
+    fn remaining<'a>(&self, ctx: Self::Ctx<'a>) -> f64 {
+        self.1.remaining(ctx)
     }
 
-    fn duration(&self) -> f64 {
-        self.1.duration()
+    fn duration<'a>(&self, ctx: Self::Ctx<'a>) -> f64 {
+        self.1.duration(ctx)
     }
 
-    fn progress(&self) -> f64 {
-        self.1.progress()
+    fn progress<'a>(&self, ctx: Self::Ctx<'a>) -> f64 {
+        self.1.progress(ctx)
     }
 }
 
 impl<T: TimerView> TimerView for Union<&PausePrefab, &T> {
-    fn is_completed(&self) -> bool {
-        self.1.is_completed()
+    type Ctx<'a> = T::Ctx<'a>;
+
+    fn is_completed<'a>(&self, ctx: Self::Ctx<'a>) -> bool {
+        self.1.is_completed(ctx)
     }
 }
 
 impl<T: TimerControl> TimerControl for Union<&PausePrefab, &mut T> {
-    fn reset(&mut self) {
-        self.1.reset();
+    type Ctx<'a> = T::Ctx<'a>;
+
+    fn reset<'a>(&mut self, ctx: Self::Ctx<'a>) {
+        self.1.reset(ctx);
     }
 
-    fn complete(&mut self) {
-        self.1.complete();
+    fn complete<'a>(&mut self, ctx: Self::Ctx<'a>) {
+        self.1.complete(ctx);
     }
 }
 
 impl<T: CyclicalTrigger> CyclicalTrigger for Union<&PausePrefab, &mut T> {
-    fn try_trigger_once(&mut self) -> bool {
-        self.1.try_trigger_once()
+    type Ctx<'a> = T::Ctx<'a>;
+
+    fn try_trigger_once<'a>(&mut self, ctx: Self::Ctx<'a>) -> bool {
+        self.1.try_trigger_once(ctx)
     }
 }
 

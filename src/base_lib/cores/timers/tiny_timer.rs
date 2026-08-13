@@ -19,8 +19,6 @@
 //!
 //! 目前选择组合方案，并对【有限触发】功能做集成实现（他用到的地方比【可暂停】功能少得多）
 
-use crate::base_lib::cores::design_patterns::Union;
-
 /// tick 每帧驱动
 pub trait Tickable {
     /// 时间流逝
@@ -40,32 +38,38 @@ pub trait Tickable {
 
 /// 计时器【进度】只读视图
 pub trait TimerProgress {
+    type Ctx<'a>;
+
     /// 经过多长时间
-    fn elapsed(&self) -> f64;
+    fn elapsed<'a>(&self, ctx: Self::Ctx<'a>) -> f64;
 
     /// 剩余时长
-    fn remaining(&self) -> f64;
+    fn remaining<'a>(&self, ctx: Self::Ctx<'a>) -> f64;
 
     /// 总持续时长
-    fn duration(&self) -> f64;
+    fn duration<'a>(&self, ctx: Self::Ctx<'a>) -> f64;
 
     /// 进度比例
-    fn progress(&self) -> f64;
+    fn progress<'a>(&self, ctx: Self::Ctx<'a>) -> f64;
 }
 
 /// 计时器【状态】只读视图
 pub trait TimerView {
+    type Ctx<'a>;
+
     /// 计时结束
-    fn is_completed(&self) -> bool;
+    fn is_completed<'a>(&self, ctx: Self::Ctx<'a>) -> bool;
 }
 
 /// 计时器【状态】变更控制
 pub trait TimerControl {
+    type Ctx<'a>;
+
     /// 重置计时
-    fn reset(&mut self);
+    fn reset<'a>(&mut self, ctx: Self::Ctx<'a>);
 
     /// 结束计时
-    fn complete(&mut self);
+    fn complete<'a>(&mut self, ctx: Self::Ctx<'a>);
 }
 
 /// 计时器【暂停状态】
@@ -85,8 +89,10 @@ pub trait TimerPauseControl {
 
 /// 循环触发器
 pub trait CyclicalTrigger {
+    type Ctx<'a>;
+
     /// 尝试触发一次
-    fn try_trigger_once(&mut self) -> bool;
+    fn try_trigger_once<'a>(&mut self, ctx: Self::Ctx<'a>) -> bool;
 }
 
 /// 拥有计时器，一个类型只能实现一次该特征
@@ -97,57 +103,3 @@ pub trait HasTimer {
 
     fn get_timer_mut(&mut self) -> &mut Self::Timer;
 }
-
-// region: impl for Union<T, ()>
-
-impl<T: TimerProgress> TimerProgress for Union<&T, ()> {
-    fn elapsed(&self) -> f64 {
-        self.0.elapsed()
-    }
-
-    fn remaining(&self) -> f64 {
-        self.0.remaining()
-    }
-
-    fn duration(&self) -> f64 {
-        self.0.duration()
-    }
-
-    fn progress(&self) -> f64 {
-        self.0.progress()
-    }
-}
-
-impl<T: TimerView> TimerView for Union<&T, ()> {
-    fn is_completed(&self) -> bool {
-        self.0.is_completed()
-    }
-}
-
-impl<T: TimerControl> TimerControl for Union<&mut T, ()> {
-    fn reset(&mut self) {
-        self.0.reset()
-    }
-
-    fn complete(&mut self) {
-        self.0.complete()
-    }
-}
-
-impl<T: TimerPauseView> TimerPauseView for Union<&T, ()> {
-    fn is_paused(&self) -> bool {
-        self.0.is_paused()
-    }
-}
-
-impl<T: TimerPauseControl> TimerPauseControl for Union<&mut T, ()> {
-    fn pause(&mut self) {
-        self.0.pause()
-    }
-
-    fn resume(&mut self) {
-        self.0.resume()
-    }
-}
-
-// endregion
