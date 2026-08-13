@@ -6,7 +6,7 @@
 //! - 数量规模庞大的场景，将大量的循环触发的 TickTimer 转换为 StaticTimer 表示状态和少量触发式 TickTimer 用于结算
 
 use crate::base_lib::cores::{
-    design_patterns::{Union, UnitedInto},
+    design_patterns::{Union, UnitedWith},
     timers::{
         tick_timer::TickTimer,
         tiny_timer::{TimerControl, TimerProgress, TimerView},
@@ -100,16 +100,16 @@ impl TimerControl for Union<&mut StaticTimer, &StaticTimeline> {
 
 type Stl = StaticTimeline;
 
-impl<'a, 'b> UnitedInto<&'b Stl> for &'a StaticTimer {
-    type Target = Union<&'a StaticTimer, &'b Stl>;
+impl<'a, 'b> UnitedWith<&'b Stl> for &'a StaticTimer {
+    type IntoTarget = Union<&'a StaticTimer, &'b Stl>;
 
     fn unite_into(self, w: &'b Stl) -> Union<&'a StaticTimer, &'b Stl> {
         Union(self, w)
     }
 }
 
-impl<'a, 'b> UnitedInto<&'b Stl> for &'a mut StaticTimer {
-    type Target = Union<&'a mut StaticTimer, &'b Stl>;
+impl<'a, 'b> UnitedWith<&'b Stl> for &'a mut StaticTimer {
+    type IntoTarget = Union<&'a mut StaticTimer, &'b Stl>;
     
     fn unite_into(self, w: &'b Stl) -> Union<&'a mut StaticTimer, &'b Stl> {
         Union(self, w)

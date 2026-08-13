@@ -3,8 +3,9 @@
 //! - 每帧调用 `tick` 方法来更新计时器状态，逻辑简单清晰
 //! - 适用于需要知道进度（动画特效）、短生命周期、局部时间调速等场景
 
-use crate::base_lib::cores::timers::tiny_timer::{
-    Tickable, TimerControl, TimerProgress, TimerView,
+use crate::base_lib::cores::{
+    design_patterns::{Union, UnitedWith},
+    timers::tiny_timer::{Tickable, TimerControl, TimerProgress, TimerView},
 };
 
 /// 简单计时器
@@ -61,5 +62,21 @@ impl TimerControl for TickTimer {
 
     fn complete(&mut self) {
         self.elapsed = self.duration
+    }
+}
+
+impl<'a> UnitedWith<()> for &'a TickTimer {
+    type IntoTarget = Union<&'a TickTimer, ()>;
+
+    fn unite_into(self, w: ()) -> Self::IntoTarget {
+        Union(self, w)
+    }
+}
+
+impl<'a> UnitedWith<()> for &'a mut TickTimer {
+    type IntoTarget = Union<&'a mut TickTimer, ()>;
+
+    fn unite_into(self, w: ()) -> Self::IntoTarget {
+        Union(self, w)
     }
 }

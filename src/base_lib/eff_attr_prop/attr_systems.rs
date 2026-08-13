@@ -1,6 +1,6 @@
 use crate::base_lib::{
     cores::{
-        design_patterns::UnitedInto,
+        design_patterns::UnitedWith,
         timers::{
             static_timer::{StaticTimeline, StaticTimer},
             tick_timer::TickTimer,
@@ -77,8 +77,8 @@ pub fn clean_expired_element<E, With>(ll: &mut UpsertContainer<E>, with: With)
 where
     E: Upsert + HasTimer,
     With: Copy,
-    for<'b> &'b <E as HasTimer>::Timer: UnitedInto<With>,
-    for<'b> <&'b <E as HasTimer>::Timer as UnitedInto<With>>::Target: TimerView,
+    for<'b> &'b <E as HasTimer>::Timer: UnitedWith<With>,
+    for<'b> <&'b <E as HasTimer>::Timer as UnitedWith<With>>::IntoTarget: TimerView,
 {
     ll.delete_ele(|ele| {
         let timer = ele.get_timer();
@@ -92,5 +92,5 @@ pub fn test() {
     clean_expired_element::<_, &StaticTimeline>(&mut ll, &StaticTimeline::new());
 
     let mut ll = UpsertContainer::<AttrEffect<String, TickTimer>>::default();
-    clean_expired_element::<_, ()>(&mut ll, ());
+    clean_expired_element::<AttrEffect<String, TickTimer>, ()>(&mut ll, ());
 }
