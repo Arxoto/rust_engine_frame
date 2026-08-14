@@ -19,7 +19,7 @@
 //!
 //! 目前选择组合方案，并对【有限触发】功能做集成实现（他用到的地方比【可暂停】功能少得多）
 
-use crate::base_lib::cores::design_patterns::DependCtx;
+use crate::base_lib::cores::{design_patterns::DependCtx, unify_types::time_type};
 
 /// tick 每帧驱动
 pub trait Tickable {
@@ -35,19 +35,19 @@ pub trait Tickable {
     /// - Godot 推荐，保证逻辑与物理引擎同步，且适配物理插值
     /// - Godot 中，先 _physics_process 而后【物理模拟】，其次 _process 最后【渲染】
     /// - _physics_process 中根据发生事件和业务逻辑生成物理效果，【物理模拟】时使效果生效
-    fn tick(&mut self, delta: f64);
+    fn tick(&mut self, delta: time_type::T);
 }
 
 /// 计时器【进度】只读视图
 pub trait TimerProgress: DependCtx {
     /// 经过多长时间
-    fn elapsed(&self, ctx: Self::Ctx<'_>) -> f64;
+    fn elapsed(&self, ctx: Self::Ctx<'_>) -> time_type::T;
 
     /// 剩余时长
-    fn remaining(&self, ctx: Self::Ctx<'_>) -> f64;
+    fn remaining(&self, ctx: Self::Ctx<'_>) -> time_type::T;
 
     /// 总持续时长
-    fn duration(&self, ctx: Self::Ctx<'_>) -> f64;
+    fn duration(&self, ctx: Self::Ctx<'_>) -> time_type::T;
 
     /// 进度比例
     fn progress(&self, ctx: Self::Ctx<'_>) -> f64;

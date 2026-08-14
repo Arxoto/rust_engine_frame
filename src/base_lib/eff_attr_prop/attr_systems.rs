@@ -5,7 +5,7 @@ use crate::base_lib::{
             tick_timer::TickTimer,
             tiny_timer::{HasTimer, Tickable, TimerView},
         },
-        unify_types::FixedName,
+        unify_types::{FixedName, time_type},
     },
     eff_attr_prop::{
         attr_eff::AttrEffect,
@@ -16,7 +16,7 @@ use crate::base_lib::{
 
 /// todo 改造成更符合 ECS 标准的 System ，各个功能函数分开，老化效果和更新属性的函数也拆开
 pub fn process_tick<S: FixedName>(
-    delta: f64,
+    delta: time_type::T,
     timeline: &mut StaticTimeline,
     cleaner: &mut UpsertContainerCleaner,
     attr_effs: &mut [(&mut Attr, &mut UpsertContainer<AttrEffect<S, StaticTimer>>)],
@@ -33,7 +33,7 @@ pub fn process_tick<S: FixedName>(
     // ===========================
 
     // 清理容器空洞
-    let should_clean_period = UpsertContainerCleaner::get_default_period();
+    let should_clean_period = time_type::DEFAULT_REFRESH_PERIOD;
     let should_clean_hole = cleaner.should_clean_hole(delta, should_clean_period);
     if should_clean_hole {
         for (_, effs) in &mut *attr_effs {

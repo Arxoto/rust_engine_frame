@@ -6,26 +6,27 @@
 use crate::base_lib::cores::{
     design_patterns::DependCtx,
     timers::tiny_timer::{Tickable, TimerControl, TimerProgress, TimerView},
+    unify_types::time_type,
 };
 
 /// 简单计时器
 #[derive(Clone, Debug)]
 pub struct TickTimer {
-    elapsed: f64,
-    duration: f64,
+    elapsed: time_type::T,
+    duration: time_type::T,
 }
 
 impl TickTimer {
-    pub fn new(duration: f64) -> Self {
+    pub fn new(duration: time_type::T) -> Self {
         Self {
-            elapsed: 0.0,
+            elapsed: time_type::ZERO,
             duration,
         }
     }
 }
 
 impl Tickable for TickTimer {
-    fn tick(&mut self, delta: f64) {
+    fn tick(&mut self, delta: time_type::T) {
         // 限制最大值避免超限
         self.elapsed = self.duration.min(self.elapsed + delta)
     }
@@ -36,20 +37,20 @@ impl DependCtx for TickTimer {
 }
 
 impl TimerProgress for TickTimer {
-    fn elapsed(&self, _: ()) -> f64 {
+    fn elapsed(&self, _: ()) -> time_type::T {
         self.elapsed
     }
 
-    fn remaining(&self, _: ()) -> f64 {
+    fn remaining(&self, _: ()) -> time_type::T {
         self.duration - self.elapsed
     }
 
-    fn duration(&self, _: ()) -> f64 {
+    fn duration(&self, _: ()) -> time_type::T {
         self.duration
     }
 
     fn progress(&self, _: ()) -> f64 {
-        self.elapsed / self.duration
+        time_type::to_f64(self.elapsed) / time_type::to_f64(self.duration)
     }
 }
 
@@ -61,7 +62,7 @@ impl TimerView for TickTimer {
 
 impl TimerControl for TickTimer {
     fn reset(&mut self, _: ()) {
-        self.elapsed = 0.0
+        self.elapsed = time_type::ZERO
     }
 
     fn complete(&mut self, _: ()) {

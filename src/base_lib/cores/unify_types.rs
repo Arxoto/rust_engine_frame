@@ -1,8 +1,59 @@
 //! 为【引擎运行时的内部标识符】抽象统一接口，兼容接入不同引擎
-//! 
+//!
 //! 使用 Trait Alias 简化复杂的 trait 约束，提高代码可读性和一致性
 //!
 //! 使用 New Type 创建有明确语义的新类型，增强类型安全性和封装性
+
+/// 抽象的时间类型
+#[cfg(feature = "time_type_f64")]
+pub mod time_type {
+    pub type T = f64;
+
+    pub const ZERO: T = 0.0;
+
+    pub const MAX: T = f64::MAX;
+
+    /// 默认 5s 刷新一次
+    pub const DEFAULT_REFRESH_PERIOD: T = 5.0;
+
+    /// 计算比例时始终为 float 类型
+    #[inline(always)]
+    pub const fn to_f64(v: T) -> f64 {
+        v
+    }
+
+    /// [WARNING!!!] use in test
+    #[inline(always)]
+    pub const fn unit<const V: u32>() -> T {
+        1.0 * V as f64
+    }
+}
+
+#[cfg(feature = "time_type_duration")]
+pub mod time_type {
+    use std::time::Duration;
+
+    pub type T = Duration;
+
+    pub const ZERO: T = Duration::ZERO;
+
+    pub const MAX: T = Duration::MAX;
+
+    /// 默认 5s 刷新一次
+    pub const DEFAULT_REFRESH_PERIOD: T = Duration::from_secs(5);
+
+    /// 计算比例时始终为 float 类型
+    #[inline(always)]
+    pub const fn to_f64(v: T) -> f64 {
+        v.as_secs_f64()
+    }
+
+    /// [WARNING!!!] use in test
+    #[inline(always)]
+    pub const fn unit<const V: u32>() -> T {
+        Duration::from_secs(V as u64)
+    }
+}
 
 /// 一般用作【引擎运行时的内部标识符】，需要被唯一标识、快速比较
 ///

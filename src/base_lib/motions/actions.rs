@@ -26,7 +26,7 @@ use crate::base_lib::cores::{
         tiny_timer::{Tickable, TimerPauseControl, TimerPauseView, TimerView},
     },
     tiny_tags::{PureTagContainer, TinyTag},
-    unify_types::FixedName,
+    unify_types::{FixedName, time_type},
 };
 
 /// 动作数据
@@ -85,7 +85,7 @@ impl<PureTag: FixedName> PureTagContainer for ActionTags<PureTag> {
 }
 
 impl<PureTag: FixedName> Tickable for ActionTags<PureTag> {
-    fn tick(&mut self, delta: f64) {
+    fn tick(&mut self, delta: time_type::T) {
         // 清理过期的 tag
         self.0.retain(|_k, v| {
             if let Some(timer) = v {
@@ -189,7 +189,7 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
 // region: impl freezable tick
 
 impl<PureTag: FixedName> Tickable for ActionSwitcher<PureTag> {
-    fn tick(&mut self, delta: f64) {
+    fn tick(&mut self, delta: time_type::T) {
         Union::new(&self.pause_prefab, &mut self.current_tags).tick(delta);
     }
 }

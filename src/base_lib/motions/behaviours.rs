@@ -128,9 +128,12 @@ pub mod god_behaviour {}
 /// - 例外，没跳跃但有速度：上一帧非主观原因导致升空，此时仍然可跳，存在逻辑错误
 ///   - 非主观升空即【不可控状态】，通过动作系统覆盖，而郊狼时间一般较短，因此判断无影响
 pub mod in_air_behaviour {
-    use crate::base_lib::cores::timers::{
-        tick_timer::TickTimer,
-        tiny_timer::{Tickable, TimerControl, TimerView},
+    use crate::base_lib::cores::{
+        timers::{
+            tick_timer::TickTimer,
+            tiny_timer::{Tickable, TimerControl, TimerView},
+        },
+        unify_types::time_type,
     };
 
     // 不适合使用 类型状态模式 (Type_State_Pattern) ，因为需要被传递，类型都是编译期确定的，无法在一个位置同时存放多种类型
@@ -180,7 +183,7 @@ pub mod in_air_behaviour {
         /// 必须先 [`Self::init`] 才能使用
         ///
         /// 郊狼时间参考值 0.1s
-        pub fn new(coyote_time_limit: f64, higher_jump_duration: f64) -> Self {
+        pub fn new(coyote_time_limit: time_type::T, higher_jump_duration: time_type::T) -> Self {
             Self {
                 jump_stat: JumpStat::new(),
                 coyote_time: TickTimer::new(coyote_time_limit),
@@ -242,7 +245,7 @@ pub mod in_air_behaviour {
     }
 
     impl Tickable for JumpBehaviourHelper {
-        fn tick(&mut self, delta: f64) {
+        fn tick(&mut self, delta: time_type::T) {
             self.coyote_time.tick(delta);
             self.higher_jump.tick(delta);
         }
@@ -262,9 +265,12 @@ pub mod in_air_behaviour {
 /// - 转身动画，速度很快时输入反方向移动指令，触发转身动画，转身动画播放时取消转向、结束时自动播放奔跑动画
 /// - 根据是否移动切换站立和行走动画
 pub mod on_land_behaviour {
-    use crate::base_lib::cores::timers::{
-        tick_timer::TickTimer,
-        tiny_timer::{Tickable, TimerControl, TimerView},
+    use crate::base_lib::cores::{
+        timers::{
+            tick_timer::TickTimer,
+            tiny_timer::{Tickable, TimerControl, TimerView},
+        },
+        unify_types::time_type,
     };
 
     /// 落地受身辅助，动画驱动
@@ -305,7 +311,7 @@ pub mod on_land_behaviour {
     }
 
     impl ReadyToJump {
-        pub fn new(jump_immediately_time: f64) -> Self {
+        pub fn new(jump_immediately_time: time_type::T) -> Self {
             Self {
                 allow_immediate_jump: TickTimer::new(jump_immediately_time),
             }
@@ -328,7 +334,7 @@ pub mod on_land_behaviour {
     }
 
     impl Tickable for ReadyToJump {
-        fn tick(&mut self, delta: f64) {
+        fn tick(&mut self, delta: time_type::T) {
             self.allow_immediate_jump.tick(delta);
         }
     }
@@ -353,7 +359,7 @@ pub mod attack_example_behaviour {}
 #[cfg(test)]
 mod tests {
     use crate::base_lib::{
-        cores::timers::tiny_timer::Tickable,
+        cores::{timers::tiny_timer::Tickable, unify_types::time_type},
         motions::behaviours::{
             in_air_behaviour::JumpBehaviourHelper,
             on_land_behaviour::{LandingRoll, ReadyToJump},
@@ -362,32 +368,33 @@ mod tests {
 
     #[test]
     fn test_in_air_jump() {
-        let mut jump_behaviour_helper = JumpBehaviourHelper::new(0.1, 0.4);
+        let mut jump_behaviour_helper =
+            JumpBehaviourHelper::new(time_type::unit::<1>(), time_type::unit::<4>());
 
         // 计时尽量长，先业务后 tick
         jump_behaviour_helper.init();
         assert!(jump_behaviour_helper.can_coyote_jump()); // 未跳跃，允许郊狼跳跃
         assert!(!jump_behaviour_helper.is_higher_jumping()); // 未跳跃，不在大跳时间内
-        jump_behaviour_helper.tick(0.3);
+        jump_behaviour_helper.tick(time_type::unit::<3>());
 
         assert!(!jump_behaviour_helper.can_coyote_jump()); // 郊狼时间结束
         assert!(!jump_behaviour_helper.is_higher_jumping()); // 未跳跃，不在大跳时间内
         jump_behaviour_helper.higher_jump(); // 二段跳强制跳跃
         assert!(!jump_behaviour_helper.can_coyote_jump()); // 大跳，无法触发郊狼跳跃
         assert!(jump_behaviour_helper.is_higher_jumping()); // 大跳进行中
-        jump_behaviour_helper.tick(1.0);
+        jump_behaviour_helper.tick(time_type::unit::<10>());
 
         assert!(!jump_behaviour_helper.can_coyote_jump());
         assert!(!jump_behaviour_helper.is_higher_jumping()); // 大跳结束
         jump_behaviour_helper.higher_jump(); // 又一次二段跳
-        jump_behaviour_helper.tick(0.2);
+        jump_behaviour_helper.tick(time_type::unit::<2>());
 
         assert!(!jump_behaviour_helper.can_coyote_jump()); // 大跳，无法触发郊狼跳跃
         assert!(jump_behaviour_helper.is_higher_jumping()); // 大跳仍在进行中
         jump_behaviour_helper.complete_a_jump(); // 主动结束大跳
         assert!(!jump_behaviour_helper.can_coyote_jump());
         assert!(!jump_behaviour_helper.is_higher_jumping()); // 大跳结束
-        jump_behaviour_helper.tick(1.0);
+        jump_behaviour_helper.tick(time_type::unit::<1>());
     }
 
     #[test]
@@ -447,7 +454,7 @@ mod tests {
 
     #[test]
     fn test_ready_to_jump() {
-        let mut ready_to_jump = ReadyToJump::new(0.2);
+        let mut ready_to_jump = ReadyToJump::new(time_type::unit::<2>());
 
         // 计时尽量长，先业务后 tick
 
@@ -462,7 +469,7 @@ mod tests {
             .jump_immediately(playing_ready_to_jump_anim && ready_to_jump_anim_finished);
         assert!(can_jump);
         // but not jump
-        ready_to_jump.tick(0.1);
+        ready_to_jump.tick(time_type::unit::<1>());
 
         // tick
         let playing_ready_to_jump_anim = false;
@@ -471,7 +478,7 @@ mod tests {
             .jump_immediately(playing_ready_to_jump_anim && ready_to_jump_anim_finished);
         assert!(can_jump);
         // but not jump, ready_to_jump 时间窗过期
-        ready_to_jump.tick(0.1);
+        ready_to_jump.tick(time_type::unit::<1>());
 
         // tick
         let playing_ready_to_jump_anim = false;
@@ -480,7 +487,7 @@ mod tests {
             .jump_immediately(playing_ready_to_jump_anim && ready_to_jump_anim_finished);
         assert!(!can_jump);
         // want jump, play ready_to_jump anim
-        ready_to_jump.tick(0.1);
+        ready_to_jump.tick(time_type::unit::<1>());
 
         // tick
         let playing_ready_to_jump_anim = true;
@@ -489,7 +496,7 @@ mod tests {
             .jump_immediately(playing_ready_to_jump_anim && ready_to_jump_anim_finished);
         assert!(!can_jump);
         // playing ready_to_jump anim
-        ready_to_jump.tick(0.1);
+        ready_to_jump.tick(time_type::unit::<1>());
 
         // tick
         let playing_ready_to_jump_anim = true;
@@ -498,7 +505,7 @@ mod tests {
             .jump_immediately(playing_ready_to_jump_anim && ready_to_jump_anim_finished);
         assert!(can_jump);
         // ready_to_jump anim finished, do jump
-        ready_to_jump.tick(0.1);
+        ready_to_jump.tick(time_type::unit::<1>());
 
         // exit on_land behaviour
     }

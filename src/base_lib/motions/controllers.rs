@@ -3,9 +3,12 @@
 //! - Operation 操作，对应玩家意图
 //! - Instruction 指令，对应角色控制，从意图中翻译而来
 
-use crate::base_lib::cores::timers::{
-    tick_timer::TickTimer,
-    tiny_timer::{Tickable, TimerControl, TimerView},
+use crate::base_lib::cores::{
+    timers::{
+        tick_timer::TickTimer,
+        tiny_timer::{Tickable, TimerControl, TimerView},
+    },
+    unify_types::time_type,
 };
 
 /// 操作 直接对应玩家意图
@@ -101,7 +104,7 @@ impl AbstractInstruction for InstructionStrictJustOn {
 // region: InstructionBufferedOnce
 
 impl InstructionBufferedJustOn {
-    pub fn new(limit: f64) -> Self {
+    pub fn new(limit: time_type::T) -> Self {
         let mut new_one = Self(TickTimer::new(limit), false);
         new_one.0.complete(());
         new_one
@@ -129,7 +132,7 @@ impl AbstractInstruction for InstructionBufferedJustOn {
 }
 
 impl Tickable for InstructionBufferedJustOn {
-    fn tick(&mut self, delta: f64) {
+    fn tick(&mut self, delta: time_type::T) {
         self.0.tick(delta);
     }
 }
@@ -208,8 +211,8 @@ mod tests {
     fn buffered_just_on() {
         // 图形化表示输入动作与预输入缓冲窗口
         // 缓冲和动作的组合，包含“缓冲窗口长”、“动作持续长”、“动作覆盖缓冲窗口”
-        const UNIT_TIME: f64 = 1.0; // 单位时间
-        const INPUT_BUFFER_WINDOWS: f64 = 4.0; // 预输入缓冲窗口 4 个单位时间
+        const UNIT_TIME: time_type::T = time_type::unit::<1>(); // 单位时间
+        const INPUT_BUFFER_WINDOWS: time_type::T = time_type::unit::<4>(); // 预输入缓冲窗口 4 个单位时间
         let input_buf = "+---  +---       +--+--- "; // 输入缓冲 + 表示触发 - 表示持续
         let input_tag = "+++---++++++-----++-++---"; // 输入动作 + 表示摁下 - 表示释放
 

@@ -7,18 +7,19 @@ use crate::base_lib::cores::{
         static_timer::StaticTimeline,
         tiny_timer::{CyclicalTrigger, TimerControl, TimerProgress, TimerView},
     },
+    unify_types::time_type,
 };
 
 #[derive(Clone, Debug)]
 pub struct InfiniteStaticTrigger {
     /// 周期
-    cycle: f64,
+    cycle: time_type::T,
     /// 下个触发时刻
-    end_at: f64,
+    end_at: time_type::T,
 }
 
 impl InfiniteStaticTrigger {
-    pub fn new(timeline: &StaticTimeline, cycle: f64) -> Self {
+    pub fn new(timeline: &StaticTimeline, cycle: time_type::T) -> Self {
         Self {
             cycle,
             end_at: timeline.current_time() + cycle,
@@ -31,21 +32,21 @@ impl DependCtx for InfiniteStaticTrigger {
 }
 
 impl TimerProgress for InfiniteStaticTrigger {
-    fn elapsed(&self, ctx: &StaticTimeline) -> f64 {
+    fn elapsed(&self, ctx: &StaticTimeline) -> time_type::T {
         // 不考虑经过时间超过周期的情况，应该每帧先尝试触发消费掉余量，而后显示进度
         self.duration(ctx) - self.remaining(ctx)
     }
 
-    fn remaining(&self, ctx: &StaticTimeline) -> f64 {
+    fn remaining(&self, ctx: &StaticTimeline) -> time_type::T {
         self.end_at - ctx.current_time()
     }
 
-    fn duration(&self, _ctx: &StaticTimeline) -> f64 {
+    fn duration(&self, _ctx: &StaticTimeline) -> time_type::T {
         self.cycle
     }
 
     fn progress(&self, ctx: &StaticTimeline) -> f64 {
-        1.0 - self.remaining(ctx) / self.duration(ctx)
+        1.0 - time_type::to_f64(self.remaining(ctx)) / time_type::to_f64(self.duration(ctx))
     }
 }
 
@@ -84,7 +85,7 @@ pub struct FewShotStaticTrigger {
 }
 
 impl FewShotStaticTrigger {
-    pub fn new(timeline: &StaticTimeline, cycle: f64, limit_time: u32) -> Self {
+    pub fn new(timeline: &StaticTimeline, cycle: time_type::T, limit_time: u32) -> Self {
         Self {
             few_shot: FewShotTimes::new(limit_time),
             inf_tg: InfiniteStaticTrigger::new(timeline, cycle),

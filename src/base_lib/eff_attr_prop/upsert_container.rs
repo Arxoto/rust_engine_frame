@@ -2,6 +2,8 @@
 
 use std::{fmt::Debug, hash::Hash};
 
+use crate::base_lib::cores::unify_types::time_type;
+
 /// 可合并类型
 pub trait Upsert {
     type Id: Eq + Hash + Clone + Debug;
@@ -154,19 +156,14 @@ impl<E: Upsert> UpsertContainer<E> {
 /// 集合定时清理工具
 #[derive(Debug, Default)]
 pub struct UpsertContainerCleaner {
-    do_clean_time: f64,
+    do_clean_time: time_type::T,
 }
 
 impl UpsertContainerCleaner {
-    /// 默认 5s 刷新一次
-    pub const fn get_default_period() -> f64 {
-        5.0
-    }
-
-    pub fn should_clean_hole(&mut self, delta: f64, period: f64) -> bool {
+    pub fn should_clean_hole(&mut self, delta: time_type::T, period: time_type::T) -> bool {
         self.do_clean_time += delta;
         if self.do_clean_time > period {
-            self.do_clean_time = 0.0;
+            self.do_clean_time = time_type::ZERO;
             true
         } else {
             false

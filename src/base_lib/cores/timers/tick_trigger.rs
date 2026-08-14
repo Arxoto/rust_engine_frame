@@ -6,26 +6,27 @@ use crate::base_lib::cores::{
         few_shot_times::FewShotTimes,
         tiny_timer::{CyclicalTrigger, Tickable, TimerControl, TimerProgress, TimerView},
     },
+    unify_types::time_type,
 };
 
 /// 简单无限触发器
 #[derive(Clone, Debug)]
 pub struct InfiniteTickTrigger {
-    elapsed: f64,
-    cycle: f64,
+    elapsed: time_type::T,
+    cycle: time_type::T,
 }
 
 impl InfiniteTickTrigger {
-    pub fn new(cycle: f64) -> Self {
+    pub fn new(cycle: time_type::T) -> Self {
         Self {
-            elapsed: 0.0,
+            elapsed: time_type::ZERO,
             cycle,
         }
     }
 }
 
 impl Tickable for InfiniteTickTrigger {
-    fn tick(&mut self, delta: f64) {
+    fn tick(&mut self, delta: time_type::T) {
         // 不限制上限
         self.elapsed += delta
     }
@@ -36,21 +37,21 @@ impl DependCtx for InfiniteTickTrigger {
 }
 
 impl TimerProgress for InfiniteTickTrigger {
-    fn elapsed(&self, _: ()) -> f64 {
+    fn elapsed(&self, _: ()) -> time_type::T {
         // 不考虑经过时间超过周期的情况，应该每帧先尝试触发消费掉余量，而后显示进度
         self.elapsed
     }
 
-    fn remaining(&self, _: ()) -> f64 {
+    fn remaining(&self, _: ()) -> time_type::T {
         self.cycle - self.elapsed(())
     }
 
-    fn duration(&self, _: ()) -> f64 {
+    fn duration(&self, _: ()) -> time_type::T {
         self.cycle
     }
 
     fn progress(&self, _: ()) -> f64 {
-        self.elapsed(()) / self.duration(())
+        time_type::to_f64(self.elapsed(())) / time_type::to_f64(self.duration(()))
     }
 }
 
@@ -63,7 +64,7 @@ impl TimerView for InfiniteTickTrigger {
 
 impl TimerControl for InfiniteTickTrigger {
     fn reset(&mut self, _: ()) {
-        self.elapsed = 0.0
+        self.elapsed = time_type::ZERO
     }
 
     fn complete(&mut self, _: ()) {
@@ -89,7 +90,7 @@ pub struct FewShotTickTrigger {
 }
 
 impl FewShotTickTrigger {
-    pub fn new(cycle: f64, limit_time: u32) -> Self {
+    pub fn new(cycle: time_type::T, limit_time: u32) -> Self {
         Self {
             few_shot: FewShotTimes::new(limit_time),
             inf_trigger: InfiniteTickTrigger::new(cycle),
@@ -98,7 +99,7 @@ impl FewShotTickTrigger {
 }
 
 impl Tickable for FewShotTickTrigger {
-    fn tick(&mut self, delta: f64) {
+    fn tick(&mut self, delta: time_type::T) {
         self.inf_trigger.tick(delta);
     }
 }
@@ -108,15 +109,15 @@ impl DependCtx for FewShotTickTrigger {
 }
 
 impl TimerProgress for FewShotTickTrigger {
-    fn elapsed(&self, _: ()) -> f64 {
+    fn elapsed(&self, _: ()) -> time_type::T {
         self.inf_trigger.elapsed(())
     }
 
-    fn remaining(&self, _: ()) -> f64 {
+    fn remaining(&self, _: ()) -> time_type::T {
         self.inf_trigger.remaining(())
     }
 
-    fn duration(&self, _: ()) -> f64 {
+    fn duration(&self, _: ()) -> time_type::T {
         self.inf_trigger.duration(())
     }
 

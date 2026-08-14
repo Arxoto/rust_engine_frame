@@ -4,9 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = ["godotext"]
+default = ["time_type_f64", "godotext"]
+
+time_type_f64 = [] # 定义时间类型为 f64
+time_type_duration = [] # 定义时间类型为 Duration
+
 baselib = []
 commonimpl = ["baselib"]
+
 # 这里依赖子特性或者依赖包都可以
 godotext = ["commonimpl", "godot"]
 bevyproj = ["commonimpl", "bevy"]

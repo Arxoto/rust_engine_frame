@@ -1,7 +1,7 @@
 use crate::base_lib::{
     cores::{
         timers::static_timer::{StaticTimeline, StaticTimer},
-        unify_types::FixedName,
+        unify_types::{FixedName, time_type},
     },
     eff_attr_prop::{
         attr_eff::AttrEffect,
@@ -57,7 +57,7 @@ impl<S: FixedName> CombatAdditionAttr<S> {
         }
     }
 
-    pub fn process_tick(&mut self, delta: f64) {
+    pub fn process_tick(&mut self, delta: time_type::T) {
         attr_systems::process_tick(
             delta,
             &mut self.timeline,

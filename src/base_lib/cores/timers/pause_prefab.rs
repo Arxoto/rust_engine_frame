@@ -4,6 +4,7 @@ use crate::base_lib::cores::{
         CyclicalTrigger, Tickable, TimerControl, TimerPauseControl, TimerPauseView, TimerProgress,
         TimerView,
     },
+    unify_types::time_type,
 };
 
 /// 冻结预制体，能对所有计时器类型进行代理，干预 [`Tickable::tick`]
@@ -82,7 +83,7 @@ impl PausePrefab {
 
 // 根据 prefab 决定是否调用 timer tick
 impl<T: Tickable> Tickable for Union<&PausePrefab, &mut T> {
-    fn tick(&mut self, delta: f64) {
+    fn tick(&mut self, delta: time_type::T) {
         if !self.0.is_paused() {
             self.1.tick(delta);
         }
@@ -117,15 +118,15 @@ impl<T: DependCtx> DependCtx for Union<&PausePrefab, &mut T> {
 
 // 时间进度透传 timer
 impl<T: TimerProgress> TimerProgress for Union<&PausePrefab, &T> {
-    fn elapsed(&self, ctx: Self::Ctx<'_>) -> f64 {
+    fn elapsed(&self, ctx: Self::Ctx<'_>) -> time_type::T {
         self.1.elapsed(ctx)
     }
 
-    fn remaining(&self, ctx: Self::Ctx<'_>) -> f64 {
+    fn remaining(&self, ctx: Self::Ctx<'_>) -> time_type::T {
         self.1.remaining(ctx)
     }
 
-    fn duration(&self, ctx: Self::Ctx<'_>) -> f64 {
+    fn duration(&self, ctx: Self::Ctx<'_>) -> time_type::T {
         self.1.duration(ctx)
     }
 
