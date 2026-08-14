@@ -29,10 +29,6 @@ impl<T: FixedName> TinyTag<T> {
             TinyTag::And3(t1, t2, t3) => {
                 ll.check_condition(t1) && ll.check_condition(t2) && ll.check_condition(t3)
             }
-            // // 嵌套结构
-            // TinyTag::AbstractNot(t) => !t.check_condition(ll),
-            // TinyTag::AbstractOr(t1, t2) => t1.check_condition(ll) || t2.check_condition(ll),
-            // TinyTag::AbstractAnd(t1, t2) => t1.check_condition(ll) && t2.check_condition(ll),
         }
     }
 }

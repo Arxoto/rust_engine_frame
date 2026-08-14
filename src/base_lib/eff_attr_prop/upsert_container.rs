@@ -50,7 +50,7 @@ impl<E: Upsert> UpsertContainer<E> {
     }
 
     /// 查询效果，返回 opt 包裹的效果槽位，槽位逻辑上不可能为空
-    fn locate_slot<F>(ll: &mut Vec<Option<E>>, find_logic: F) -> Option<&mut Option<E>>
+    fn locate_slot<F>(ll: &mut [Option<E>], find_logic: F) -> Option<&mut Option<E>>
     where
         F: Fn(&E) -> bool,
     {

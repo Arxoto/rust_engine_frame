@@ -151,10 +151,10 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
         }
 
         if let Some(candidates) = candidates {
-            return self.do_switch_action(candidates.id);
+            self.do_switch_action(candidates.id)
         } else {
             // 空不切换
-            return self.current_action_id;
+            self.current_action_id
         }
     }
 
@@ -163,7 +163,7 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
         if let Some(new_action) = self.action_database.get(&action_id) {
             if let Some(old_action) = self.action_database.get(&self.current_action_id) {
                 for tag in &old_action.state_tags {
-                    self.current_tags.0.remove(&tag);
+                    self.current_tags.0.remove(tag);
                 }
             }
             self.current_action_id = action_id;
@@ -172,7 +172,7 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
                 self.current_tags.0.insert(tag.clone(), None);
             }
         }
-        return self.current_action_id;
+        self.current_action_id
     }
 
     /// 事件触发增加有时效性的 tag

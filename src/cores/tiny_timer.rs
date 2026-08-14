@@ -19,7 +19,7 @@ impl TinyTimer {
     }
 
     /// 重新计时
-    /// 
+    ///
     /// ```
     /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
     /// let mut timer = TinyTimer::new(5.0);
@@ -34,7 +34,7 @@ impl TinyTimer {
     }
 
     /// 暂停 pause/freeze
-    /// 
+    ///
     /// ```
     /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
     /// let mut timer = TinyTimer::new(5.0);
@@ -48,7 +48,7 @@ impl TinyTimer {
     }
 
     /// 继续计时
-    /// 
+    ///
     /// ```
     /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
     /// let mut timer = TinyTimer::new(5.0);
@@ -65,7 +65,7 @@ impl TinyTimer {
     }
 
     /// 时间流逝
-    /// 
+    ///
     /// ```
     /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
     /// let mut timer = TinyTimer::new(5.0);
@@ -84,7 +84,7 @@ impl TinyTimer {
     }
 
     /// 计时器是否暂停
-    /// 
+    ///
     /// ```
     /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
     /// let mut timer = TinyTimer::new(5.0);
@@ -97,7 +97,7 @@ impl TinyTimer {
     }
 
     /// 计时器是否正在计时
-    /// 
+    ///
     /// ```
     /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
     /// let mut timer = TinyTimer::new(5.0);
@@ -110,7 +110,7 @@ impl TinyTimer {
     }
 
     /// 计时进行中 未结束
-    /// 
+    ///
     /// ```
     /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
     /// let mut timer = TinyTimer::new(5.0);
@@ -127,7 +127,7 @@ impl TinyTimer {
     }
 
     /// 计时结束
-    /// 
+    ///
     /// ```
     /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
     /// let mut timer = TinyTimer::new(5.0);
@@ -141,7 +141,7 @@ impl TinyTimer {
     }
 
     /// 计时未结束
-    /// 
+    ///
     /// ```
     /// # use rust_engine_frame::cores::tiny_timer::TinyTimer;
     /// let mut timer = TinyTimer::new(5.0);

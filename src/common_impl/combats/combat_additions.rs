@@ -39,6 +39,12 @@ pub struct CombatAdditionAttr<S: FixedName> {
     pub cleaner: UpsertContainerCleaner,
 }
 
+impl<S: FixedName> Default for CombatAdditionAttr<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<S: FixedName> CombatAdditionAttr<S> {
     pub fn new() -> Self {
         Self {

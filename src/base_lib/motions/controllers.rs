@@ -75,6 +75,12 @@ impl ActiveInput for InputOperation<f64> {
 
 // region: impl InstructionStrictOnce
 
+impl Default for InstructionStrictJustOn {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InstructionStrictJustOn {
     pub fn new() -> Self {
         Self(false)
@@ -141,6 +147,12 @@ impl Tickable for InstructionBufferedJustOn {
 
 // region: impl InstructionStateOn
 
+impl Default for InstructionStateOn {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InstructionStateOn {
     pub fn new() -> Self {
         Self(false)
@@ -162,6 +174,12 @@ impl AbstractInstruction for InstructionStateOn {
 // endregion
 
 // region: InstructionStillKeep
+
+impl Default for InstructionStillKeep {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl InstructionStillKeep {
     pub fn new() -> Self {

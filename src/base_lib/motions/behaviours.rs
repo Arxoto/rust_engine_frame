@@ -285,6 +285,12 @@ pub mod on_land_behaviour {
         allow_immediate_jump: TickTimer,
     }
 
+    impl Default for LandingRoll {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl LandingRoll {
         pub fn new() -> Self {
             Self {

@@ -7,14 +7,13 @@ use crate::base_lib::cores::{
     unify_types::time_type,
 };
 
-/// 冻结预制体，能对所有计时器类型进行代理，干预 [`Tickable::tick`]
+/// 冻结预制体（默认不冻结），能对所有计时器类型进行代理，干预 [`Tickable::tick`]
 #[derive(Clone, Debug)]
 pub struct PausePrefab(bool);
 
 impl Default for PausePrefab {
     fn default() -> Self {
-        // 默认不冻结
-        Self(false)
+        Self::new()
     }
 }
 
@@ -37,6 +36,11 @@ impl TimerPauseControl for PausePrefab {
 // region: fn for union
 
 impl PausePrefab {
+    pub fn new() -> Self {
+        // 默认不冻结
+        Self(false)
+    }
+
     #[inline]
     pub fn of_tickable<T: Tickable>(&self, t: &mut T) -> impl Tickable {
         Union(self, t)

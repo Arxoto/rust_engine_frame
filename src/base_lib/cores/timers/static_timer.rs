@@ -18,6 +18,12 @@ use crate::base_lib::cores::{
 #[derive(Clone, Debug)]
 pub struct StaticTimeline(pub TickTimer);
 
+impl Default for StaticTimeline {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StaticTimeline {
     /// 创建一个永不停止的计时器 用作静态计时器的基准
     pub fn new() -> Self {
