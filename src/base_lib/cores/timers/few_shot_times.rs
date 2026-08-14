@@ -1,5 +1,5 @@
 use crate::base_lib::cores::{
-    design_patterns::Union,
+    design_patterns::{DependCtx, Union},
     timers::tiny_timer::{CyclicalTrigger, TimerControl, TimerView},
 };
 
@@ -18,11 +18,16 @@ impl FewShotTimes {
     // todo 参考 PausePrefab 实现 Union 包装函数
 }
 
-// todo 统一上下文依赖
-impl<T> TimerView for Union<&FewShotTimes, &T> {
-    type Ctx<'a> = ();
+impl<T: DependCtx> DependCtx for Union<&FewShotTimes, &T> {
+    type Ctx<'a> = T::Ctx<'a>;
+}
 
-    fn is_completed(&self, _: ()) -> bool {
+impl<T: DependCtx> DependCtx for Union<&mut FewShotTimes, &mut T> {
+    type Ctx<'a> = T::Ctx<'a>;
+}
+
+impl<T: DependCtx> TimerView for Union<&FewShotTimes, &T> {
+    fn is_completed(&self, _: T::Ctx<'_>) -> bool {
         // 只关注有限循环本身，真实的触发器可能是无限循环的，对应判断可能会存在异常
         self.0.current >= self.0.limit
     }
@@ -30,14 +35,12 @@ impl<T> TimerView for Union<&FewShotTimes, &T> {
 
 // 开始结束同时修改 prefab 和 timer
 impl<T: TimerControl> TimerControl for Union<&mut FewShotTimes, &mut T> {
-    type Ctx<'a> = T::Ctx<'a>;
-
-    fn reset<'a>(&mut self, ctx: Self::Ctx<'a>) {
+    fn reset(&mut self, ctx: Self::Ctx<'_>) {
         self.0.current = 0;
         self.1.reset(ctx);
     }
 
-    fn complete<'a>(&mut self, ctx: Self::Ctx<'a>) {
+    fn complete(&mut self, ctx: Self::Ctx<'_>) {
         self.0.current = self.0.limit;
         self.1.complete(ctx);
     }
@@ -45,9 +48,7 @@ impl<T: TimerControl> TimerControl for Union<&mut FewShotTimes, &mut T> {
 
 // 循环触发同时检查 prefab 和 timer
 impl<T: CyclicalTrigger> CyclicalTrigger for Union<&mut FewShotTimes, &mut T> {
-    type Ctx<'a> = T::Ctx<'a>;
-
-    fn try_trigger_once<'a>(&mut self, ctx: Self::Ctx<'a>) -> bool {
+    fn try_trigger_once(&mut self, ctx: Self::Ctx<'_>) -> bool {
         // 因为 FewShotTimes 允许次数只会减小不会增长
         // 所以当他失败时代表之后的触发也必定失败，因此无需回退前面的 timer
         // 若 FewShotTimes 支持临时增加次数，会导致之后的触发存在一周期的误差
@@ -59,7 +60,7 @@ impl<T: CyclicalTrigger> CyclicalTrigger for Union<&mut FewShotTimes, &mut T> {
         }
 
         let u = Union(&*self.0, &*self.1);
-        if u.is_completed(()) {
+        if u.is_completed(ctx) {
             false
         } else {
             self.0.current += 1;

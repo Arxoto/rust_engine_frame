@@ -1,7 +1,7 @@
 //! 参考静态计时器实现的触发器
 
 use crate::base_lib::cores::{
-    design_patterns::Union,
+    design_patterns::{DependCtx, Union},
     timers::{
         few_shot_times::FewShotTimes,
         static_timer::StaticTimeline,
@@ -26,9 +26,11 @@ impl InfiniteStaticTrigger {
     }
 }
 
-impl TimerProgress for InfiniteStaticTrigger {
+impl DependCtx for InfiniteStaticTrigger {
     type Ctx<'a> = &'a StaticTimeline;
+}
 
+impl TimerProgress for InfiniteStaticTrigger {
     fn elapsed(&self, ctx: &StaticTimeline) -> f64 {
         // 不考虑经过时间超过周期的情况，应该每帧先尝试触发消费掉余量，而后显示进度
         self.duration(ctx) - self.remaining(ctx)
@@ -48,8 +50,6 @@ impl TimerProgress for InfiniteStaticTrigger {
 }
 
 impl TimerView for InfiniteStaticTrigger {
-    type Ctx<'a> = &'a StaticTimeline;
-
     fn is_completed(&self, _ctx: &StaticTimeline) -> bool {
         // 无法结束
         false
@@ -57,8 +57,6 @@ impl TimerView for InfiniteStaticTrigger {
 }
 
 impl TimerControl for InfiniteStaticTrigger {
-    type Ctx<'a> = &'a StaticTimeline;
-
     fn reset(&mut self, ctx: &StaticTimeline) {
         self.end_at = ctx.current_time() + self.cycle;
     }
@@ -69,8 +67,6 @@ impl TimerControl for InfiniteStaticTrigger {
 }
 
 impl CyclicalTrigger for InfiniteStaticTrigger {
-    type Ctx<'a> = &'a StaticTimeline;
-
     fn try_trigger_once(&mut self, ctx: &StaticTimeline) -> bool {
         if self.end_at <= ctx.current_time() {
             self.end_at += self.cycle;
@@ -96,17 +92,17 @@ impl FewShotStaticTrigger {
     }
 }
 
-impl TimerView for FewShotStaticTrigger {
+impl DependCtx for FewShotStaticTrigger {
     type Ctx<'a> = &'a StaticTimeline;
+}
 
-    fn is_completed(&self, _ctx: &StaticTimeline) -> bool {
-        Union(&self.few_shot, &self.inf_tg).is_completed(())
+impl TimerView for FewShotStaticTrigger {
+    fn is_completed(&self, ctx: &StaticTimeline) -> bool {
+        Union(&self.few_shot, &self.inf_tg).is_completed(ctx)
     }
 }
 
 impl TimerControl for FewShotStaticTrigger {
-    type Ctx<'a> = &'a StaticTimeline;
-
     fn reset(&mut self, ctx: &StaticTimeline) {
         Union(&mut self.few_shot, &mut self.inf_tg).reset(ctx)
     }
@@ -117,8 +113,6 @@ impl TimerControl for FewShotStaticTrigger {
 }
 
 impl CyclicalTrigger for FewShotStaticTrigger {
-    type Ctx<'a> = &'a StaticTimeline;
-
     fn try_trigger_once(&mut self, ctx: &StaticTimeline) -> bool {
         Union(&mut self.few_shot, &mut self.inf_tg).try_trigger_once(ctx)
     }

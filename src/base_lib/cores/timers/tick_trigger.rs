@@ -1,7 +1,7 @@
 //! 参考累加计时器实现的触发器
 
 use crate::base_lib::cores::{
-    design_patterns::Union,
+    design_patterns::{DependCtx, Union},
     timers::{
         few_shot_times::FewShotTimes,
         tiny_timer::{CyclicalTrigger, Tickable, TimerControl, TimerProgress, TimerView},
@@ -31,9 +31,11 @@ impl Tickable for InfiniteTickTrigger {
     }
 }
 
-impl TimerProgress for InfiniteTickTrigger {
+impl DependCtx for InfiniteTickTrigger {
     type Ctx<'a> = ();
+}
 
+impl TimerProgress for InfiniteTickTrigger {
     fn elapsed(&self, _: ()) -> f64 {
         // 不考虑经过时间超过周期的情况，应该每帧先尝试触发消费掉余量，而后显示进度
         self.elapsed
@@ -53,8 +55,6 @@ impl TimerProgress for InfiniteTickTrigger {
 }
 
 impl TimerView for InfiniteTickTrigger {
-    type Ctx<'a> = ();
-
     fn is_completed(&self, _: ()) -> bool {
         // 无法结束
         false
@@ -62,8 +62,6 @@ impl TimerView for InfiniteTickTrigger {
 }
 
 impl TimerControl for InfiniteTickTrigger {
-    type Ctx<'a> = ();
-
     fn reset(&mut self, _: ()) {
         self.elapsed = 0.0
     }
@@ -74,8 +72,6 @@ impl TimerControl for InfiniteTickTrigger {
 }
 
 impl CyclicalTrigger for InfiniteTickTrigger {
-    type Ctx<'a> = ();
-
     fn try_trigger_once(&mut self, _: ()) -> bool {
         if self.elapsed >= self.cycle {
             self.elapsed -= self.cycle;
@@ -107,9 +103,11 @@ impl Tickable for FewShotTickTrigger {
     }
 }
 
-impl TimerProgress for FewShotTickTrigger {
+impl DependCtx for FewShotTickTrigger {
     type Ctx<'a> = ();
+}
 
+impl TimerProgress for FewShotTickTrigger {
     fn elapsed(&self, _: ()) -> f64 {
         self.inf_trigger.elapsed(())
     }
@@ -128,16 +126,12 @@ impl TimerProgress for FewShotTickTrigger {
 }
 
 impl TimerView for FewShotTickTrigger {
-    type Ctx<'a> = ();
-
     fn is_completed(&self, _: ()) -> bool {
         Union(&self.few_shot, &self.inf_trigger).is_completed(())
     }
 }
 
 impl TimerControl for FewShotTickTrigger {
-    type Ctx<'a> = ();
-
     fn reset(&mut self, _: ()) {
         Union(&mut self.few_shot, &mut self.inf_trigger).reset(())
     }
@@ -148,8 +142,6 @@ impl TimerControl for FewShotTickTrigger {
 }
 
 impl CyclicalTrigger for FewShotTickTrigger {
-    type Ctx<'a> = ();
-
     fn try_trigger_once(&mut self, _: ()) -> bool {
         Union(&mut self.few_shot, &mut self.inf_trigger).try_trigger_once(())
     }

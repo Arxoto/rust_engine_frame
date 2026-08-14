@@ -5,9 +5,12 @@
 //! - 适用于服务端验证、长期计时，静态时间戳可能需要更换非浮点类型防止误差累积，如 [`std::time::Duration`]
 //! - 数量规模庞大的场景，将大量的循环触发的 TickTimer 转换为 StaticTimer 表示状态和少量触发式 TickTimer 用于结算
 
-use crate::base_lib::cores::timers::{
-    tick_timer::TickTimer,
-    tiny_timer::{TimerControl, TimerProgress, TimerView},
+use crate::base_lib::cores::{
+    design_patterns::DependCtx,
+    timers::{
+        tick_timer::TickTimer,
+        tiny_timer::{TimerControl, TimerProgress, TimerView},
+    },
 };
 
 /// 静态计时器的参考时间线，暂停等功能在时间线上实现
@@ -47,9 +50,11 @@ impl StaticTimer {
     }
 }
 
-impl TimerProgress for StaticTimer {
+impl DependCtx for StaticTimer {
     type Ctx<'a> = &'a StaticTimeline;
+}
 
+impl TimerProgress for StaticTimer {
     fn elapsed(&self, ctx: &StaticTimeline) -> f64 {
         self.duration(ctx) - self.remaining(ctx)
     }
@@ -68,16 +73,12 @@ impl TimerProgress for StaticTimer {
 }
 
 impl TimerView for StaticTimer {
-    type Ctx<'a> = &'a StaticTimeline;
-
     fn is_completed(&self, ctx: &StaticTimeline) -> bool {
         ctx.current_time() >= self.end_at
     }
 }
 
 impl TimerControl for StaticTimer {
-    type Ctx<'a> = &'a StaticTimeline;
-
     fn reset(&mut self, ctx: &StaticTimeline) {
         self.end_at = ctx.current_time() + self.duration;
     }

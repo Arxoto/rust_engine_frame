@@ -1,5 +1,5 @@
 use crate::base_lib::cores::{
-    design_patterns::Union,
+    design_patterns::{DependCtx, Union},
     timers::tiny_timer::{
         CyclicalTrigger, Tickable, TimerControl, TimerPauseControl, TimerPauseView, TimerProgress,
         TimerView,
@@ -103,51 +103,51 @@ impl<T> TimerPauseControl for Union<&mut PausePrefab, &T> {
     }
 }
 
+impl<T: DependCtx> DependCtx for Union<&PausePrefab, &T> {
+    type Ctx<'a> = T::Ctx<'a>;
+}
+
+impl<T: DependCtx> DependCtx for Union<&PausePrefab, &mut T> {
+    type Ctx<'a> = T::Ctx<'a>;
+}
+
 // 时间进度透传 timer
 impl<T: TimerProgress> TimerProgress for Union<&PausePrefab, &T> {
-    type Ctx<'a> = T::Ctx<'a>;
-
-    fn elapsed<'a>(&self, ctx: Self::Ctx<'a>) -> f64 {
+    fn elapsed(&self, ctx: Self::Ctx<'_>) -> f64 {
         self.1.elapsed(ctx)
     }
 
-    fn remaining<'a>(&self, ctx: Self::Ctx<'a>) -> f64 {
+    fn remaining(&self, ctx: Self::Ctx<'_>) -> f64 {
         self.1.remaining(ctx)
     }
 
-    fn duration<'a>(&self, ctx: Self::Ctx<'a>) -> f64 {
+    fn duration(&self, ctx: Self::Ctx<'_>) -> f64 {
         self.1.duration(ctx)
     }
 
-    fn progress<'a>(&self, ctx: Self::Ctx<'a>) -> f64 {
+    fn progress(&self, ctx: Self::Ctx<'_>) -> f64 {
         self.1.progress(ctx)
     }
 }
 
 impl<T: TimerView> TimerView for Union<&PausePrefab, &T> {
-    type Ctx<'a> = T::Ctx<'a>;
-
-    fn is_completed<'a>(&self, ctx: Self::Ctx<'a>) -> bool {
+    fn is_completed(&self, ctx: Self::Ctx<'_>) -> bool {
         self.1.is_completed(ctx)
     }
 }
 
 impl<T: TimerControl> TimerControl for Union<&PausePrefab, &mut T> {
-    type Ctx<'a> = T::Ctx<'a>;
-
-    fn reset<'a>(&mut self, ctx: Self::Ctx<'a>) {
+    fn reset(&mut self, ctx: Self::Ctx<'_>) {
         self.1.reset(ctx);
     }
 
-    fn complete<'a>(&mut self, ctx: Self::Ctx<'a>) {
+    fn complete(&mut self, ctx: Self::Ctx<'_>) {
         self.1.complete(ctx);
     }
 }
 
 impl<T: CyclicalTrigger> CyclicalTrigger for Union<&PausePrefab, &mut T> {
-    type Ctx<'a> = T::Ctx<'a>;
-
-    fn try_trigger_once<'a>(&mut self, ctx: Self::Ctx<'a>) -> bool {
+    fn try_trigger_once(&mut self, ctx: Self::Ctx<'_>) -> bool {
         self.1.try_trigger_once(ctx)
     }
 }

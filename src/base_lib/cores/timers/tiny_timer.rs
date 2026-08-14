@@ -19,6 +19,8 @@
 //!
 //! 目前选择组合方案，并对【有限触发】功能做集成实现（他用到的地方比【可暂停】功能少得多）
 
+use crate::base_lib::cores::design_patterns::DependCtx;
+
 /// tick 每帧驱动
 pub trait Tickable {
     /// 时间流逝
@@ -37,39 +39,33 @@ pub trait Tickable {
 }
 
 /// 计时器【进度】只读视图
-pub trait TimerProgress {
-    type Ctx<'a>;
-
+pub trait TimerProgress: DependCtx {
     /// 经过多长时间
-    fn elapsed<'a>(&self, ctx: Self::Ctx<'a>) -> f64;
+    fn elapsed(&self, ctx: Self::Ctx<'_>) -> f64;
 
     /// 剩余时长
-    fn remaining<'a>(&self, ctx: Self::Ctx<'a>) -> f64;
+    fn remaining(&self, ctx: Self::Ctx<'_>) -> f64;
 
     /// 总持续时长
-    fn duration<'a>(&self, ctx: Self::Ctx<'a>) -> f64;
+    fn duration(&self, ctx: Self::Ctx<'_>) -> f64;
 
     /// 进度比例
-    fn progress<'a>(&self, ctx: Self::Ctx<'a>) -> f64;
+    fn progress(&self, ctx: Self::Ctx<'_>) -> f64;
 }
 
 /// 计时器【状态】只读视图
-pub trait TimerView {
-    type Ctx<'a>;
-
+pub trait TimerView: DependCtx {
     /// 计时结束
-    fn is_completed<'a>(&self, ctx: Self::Ctx<'a>) -> bool;
+    fn is_completed(&self, ctx: Self::Ctx<'_>) -> bool;
 }
 
 /// 计时器【状态】变更控制
-pub trait TimerControl {
-    type Ctx<'a>;
-
+pub trait TimerControl: DependCtx {
     /// 重置计时
-    fn reset<'a>(&mut self, ctx: Self::Ctx<'a>);
+    fn reset(&mut self, ctx: Self::Ctx<'_>);
 
     /// 结束计时
-    fn complete<'a>(&mut self, ctx: Self::Ctx<'a>);
+    fn complete(&mut self, ctx: Self::Ctx<'_>);
 }
 
 /// 计时器【暂停状态】
@@ -88,11 +84,9 @@ pub trait TimerPauseControl {
 }
 
 /// 循环触发器
-pub trait CyclicalTrigger {
-    type Ctx<'a>;
-
+pub trait CyclicalTrigger: DependCtx {
     /// 尝试触发一次
-    fn try_trigger_once<'a>(&mut self, ctx: Self::Ctx<'a>) -> bool;
+    fn try_trigger_once(&mut self, ctx: Self::Ctx<'_>) -> bool;
 }
 
 /// 拥有计时器，一个类型只能实现一次该特征
