@@ -9,7 +9,7 @@
 //!
 //! ## 方案一
 //!
-//! 基于联合体 [`Union`] 和转换联合体类型 [`UnitedWith`] 实现，当无需依赖上下文时，实现 [`UnitedWith<()>`] 即可
+//! 基于联合体 [`Union`] 和转换目标类型 [`WithInto`] 实现，当无需依赖上下文时，实现 [`WithInto<()>`] 即可
 //!
 //! 缺陷，也即 Rust 传统类型求解器 (Old Trait Solver) 中最经典的痛点之一
 //! - 高阶生命周期 (HRTB) 与关联类型规范化 (Projection Normalization) 的耦合死锁
@@ -46,15 +46,15 @@ impl<T, U> Union<T, U> {
 }
 
 /// 可转换目标类型
-pub trait UnitedWith<Ctx> {
-    type IntoTarget;
+pub trait WithInto<Ctx> {
+    type Target;
 
-    fn unite_into(self, ctx: Ctx) -> Self::IntoTarget;
+    fn with_into(self, ctx: Ctx) -> Self::Target;
 }
 
-/// 案例，揭示如何通过 [`UnitedWith`] 兼容【依赖上下文】和【无需上下文】的类型
-/// - 【依赖上下文】 [`UnitedWith<Ctx>`]
-/// - 【无需上下文】 [`UnitedWith<()>`]
+/// 案例，揭示如何通过 [`WithInto`] 兼容【依赖上下文】和【无需上下文】的类型
+/// - 【依赖上下文】 [`WithInto<Ctx>`]
+/// - 【无需上下文】 [`WithInto<()>`]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -65,10 +65,10 @@ mod tests {
     }
 
     // Blanket impl 为所有类型默认实现 伪联合体
-    impl<T: private::Sealed> UnitedWith<()> for T {
-        type IntoTarget = Union<T, ()>;
+    impl<T: private::Sealed> WithInto<()> for T {
+        type Target = Union<T, ()>;
 
-        fn unite_into(self, w: ()) -> Union<T, ()> {
+        fn with_into(self, w: ()) -> Union<T, ()> {
             Union(self, w)
         }
     }
@@ -113,10 +113,10 @@ mod tests {
     where
         With: Copy,
         E: HasInner,
-        for<'a> &'a <E as HasInner>::Inner: UnitedWith<With>,
-        for<'a> <&'a <E as HasInner>::Inner as UnitedWith<With>>::IntoTarget: AnyTrait,
+        for<'a> &'a <E as HasInner>::Inner: WithInto<With>,
+        for<'a> <&'a <E as HasInner>::Inner as WithInto<With>>::Target: AnyTrait,
     {
-        anything.get_inner().unite_into(with).do_something();
+        anything.get_inner().with_into(with).do_something();
     }
 
     /// 可变函数定义
@@ -124,10 +124,10 @@ mod tests {
     where
         With: Copy,
         E: HasInner,
-        for<'a> &'a mut <E as HasInner>::Inner: UnitedWith<With>,
-        for<'a> <&'a mut <E as HasInner>::Inner as UnitedWith<With>>::IntoTarget: AnyTraitMut,
+        for<'a> &'a mut <E as HasInner>::Inner: WithInto<With>,
+        for<'a> <&'a mut <E as HasInner>::Inner as WithInto<With>>::Target: AnyTraitMut,
     {
-        anything.get_inner_mut().unite_into(with).do_something_mut();
+        anything.get_inner_mut().with_into(with).do_something_mut();
     }
 
     #[test]
@@ -152,18 +152,18 @@ mod tests {
 
         // region: impl UnitedInto<With>
 
-        impl<'a, 'b> UnitedWith<&'b FooWith> for &'a Foo {
-            type IntoTarget = Union<&'a Foo, &'b FooWith>;
+        impl<'a, 'b> WithInto<&'b FooWith> for &'a Foo {
+            type Target = Union<&'a Foo, &'b FooWith>;
 
-            fn unite_into(self, w: &'b FooWith) -> Union<&'a Foo, &'b FooWith> {
+            fn with_into(self, w: &'b FooWith) -> Union<&'a Foo, &'b FooWith> {
                 Union(self, w)
             }
         }
 
-        impl<'a, 'b> UnitedWith<&'b FooWith> for &'a mut Foo {
-            type IntoTarget = Union<&'a mut Foo, &'b FooWith>;
+        impl<'a, 'b> WithInto<&'b FooWith> for &'a mut Foo {
+            type Target = Union<&'a mut Foo, &'b FooWith>;
 
-            fn unite_into(self, w: &'b FooWith) -> Union<&'a mut Foo, &'b FooWith> {
+            fn with_into(self, w: &'b FooWith) -> Union<&'a mut Foo, &'b FooWith> {
                 Union(self, w)
             }
         }
