@@ -35,8 +35,10 @@ impl StaticTimeline {
     }
 
     /// 确认没有依赖本时间线的计时器后，【重启时间线】，防止无限累加引起精度丢失
-    pub fn reset_timeline(&mut self) {
+    pub fn reset_timeline_and_get_diff(&mut self) -> time_type::T {
+        let diff = self.current_time();
         self.0.reset(());
+        diff
     }
 }
 
@@ -54,6 +56,16 @@ impl StaticTimer {
             duration,
             end_at: timeline.current_time() + duration,
         }
+    }
+
+    #[cfg(feature = "time_type_f64")]
+    pub fn fix_timeline_diff(&mut self, diff: time_type::T) {
+        self.end_at -= diff;
+    }
+
+    #[cfg(feature = "time_type_duration")]
+    pub fn fix_timeline_diff(&mut self, diff: time_type::T) {
+        self.end_at = self.end_at.saturating_sub(diff)
     }
 }
 

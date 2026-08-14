@@ -16,6 +16,11 @@ pub mod time_type {
     /// 默认 5s 刷新一次
     pub const DEFAULT_REFRESH_PERIOD: T = 5.0;
 
+    /// f64 本身精度足够高，基本能够忽略累加值过大导致的一帧 delta 的精度丢失
+    ///
+    /// 这里以一年为例演示如何重置时间线
+    pub const RESET_TIMELINE_PERIOD: T = 365.0 * 24.0 * 60.0 * 60.0;
+
     /// 计算比例时始终为 float 类型
     #[inline(always)]
     pub const fn to_f64(v: T) -> f64 {
@@ -41,6 +46,11 @@ pub mod time_type {
 
     /// 默认 5s 刷新一次
     pub const DEFAULT_REFRESH_PERIOD: T = Duration::from_secs(5);
+
+    /// f64 本身精度足够高，基本能够忽略累加值过大导致的一帧 delta 的精度丢失
+    ///
+    /// 这里以一年为例演示如何重置时间线
+    pub const RESET_TIMELINE_PERIOD: T = Duration::from_hours(365 * 24);
 
     /// 计算比例时始终为 float 类型
     #[inline(always)]

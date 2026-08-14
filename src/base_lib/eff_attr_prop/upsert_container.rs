@@ -44,12 +44,18 @@ impl<E: Upsert> Default for UpsertContainer<E> {
 }
 
 impl<E: Upsert> UpsertContainer<E> {
-    /// 遍历效果
+    /// 只读遍历
     pub fn iter_ele(&self) -> impl Iterator<Item = &E> {
         self.ll.iter().filter_map(|e| e.as_ref())
     }
 
-    /// 查询效果，返回 opt 包裹的效果槽位，槽位逻辑上不可能为空
+    /// 可变遍历
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut E> {
+        // 无法保证在可变遍历的情况下保证更新顺序排序
+        self.ll.iter_mut().filter_map(|e| e.as_mut())
+    }
+
+    /// 定位插槽，返回 opt 包裹的效果槽位，槽位逻辑上不可能为空
     fn locate_slot<F>(ll: &mut [Option<E>], find_logic: F) -> Option<&mut Option<E>>
     where
         F: Fn(&E) -> bool,
@@ -57,7 +63,7 @@ impl<E: Upsert> UpsertContainer<E> {
         ll.iter_mut().find(|e| e.as_ref().is_some_and(&find_logic))
     }
 
-    /// 尝试添加效果，若已有效果则对其进行修改，如进行堆叠操作等，修改后的效果会被排到最后
+    /// 添加或更新，若已有效果则对其进行修改，如进行堆叠操作等，修改后的效果会被排到最后
     pub fn upsert_ele<F>(&mut self, new_ele: E, update_logic: F)
     where
         F: Fn(&mut E, &E),
@@ -68,7 +74,7 @@ impl<E: Upsert> UpsertContainer<E> {
             if let Some(old_ele) = old_ele_slot {
                 update_logic(old_ele, &new_ele);
 
-                // // 若需要保证更新顺序：刷新后后置，旧槽位置空
+                // // 若实现更新顺序排序：刷新后后置，旧槽位置空
                 // let merged_ele = old_ele_slot.take();
                 // self.ll.push(merged_ele);
                 // self.hole_count += 1;
@@ -80,7 +86,7 @@ impl<E: Upsert> UpsertContainer<E> {
         self.changed_flag = true;
     }
 
-    /// 删除效果（幂等：重复删除无副作用）
+    /// 删除（幂等：重复删除无副作用）
     pub fn delete_ele<F>(&mut self, find_logic: F) -> bool
     where
         F: Fn(&E) -> bool,
@@ -100,6 +106,7 @@ impl<E: Upsert> UpsertContainer<E> {
     where
         F: Fn(&E) -> bool,
     {
+        // 若实现更新顺序排序，需要先 take 然后后置
         if let Some(ele_slot) = Self::locate_slot(&mut self.ll, find_logic) {
             self.changed_flag = true;
             ele_slot.as_mut()
