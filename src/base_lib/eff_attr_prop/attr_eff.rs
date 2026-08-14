@@ -65,7 +65,7 @@ pub struct AttrEffId<S: FixedName> {
 impl<S: FixedName, Timer> Upsert for AttrEffect<S, Timer> {
     type Id = AttrEffId<S>;
 
-    fn get_id(&self) -> Self::Id {
+    fn gen_id(&self) -> Self::Id {
         AttrEffId {
             eff: self.eff.get_effect_name().clone(),
             from: self.eff.get_from_name().clone(),

@@ -25,7 +25,7 @@ use crate::base_lib::cores::{
         tick_timer::TickTimer,
         tiny_timer::{Tickable, TimerPauseControl, TimerPauseView, TimerView},
     },
-    tiny_tags::{TinyTag, TinyTagContainer},
+    tiny_tags::{PureTagContainer, TinyTag},
     unify_types::FixedName,
 };
 
@@ -71,18 +71,20 @@ impl<PureTag: FixedName> ActionData<PureTag> {
     }
 }
 
-/// tag 集合
-struct ActionTagContainer<PureTag: FixedName>(FxHashMap<PureTag, Option<TickTimer>>);
+/// action-tag 集合
+///
+/// 选择 [`TickTimer`] 是考虑到部分标签的暂停机制可以独立
+struct ActionTags<PureTag: FixedName>(FxHashMap<PureTag, Option<TickTimer>>);
 
-impl<PureTag: FixedName> TinyTagContainer for ActionTagContainer<PureTag> {
-    type Element = PureTag;
+impl<PureTag: FixedName> PureTagContainer for ActionTags<PureTag> {
+    type PureTag = PureTag;
 
-    fn check_condition(&self, pure_tag: &Self::Element) -> bool {
+    fn check_condition(&self, pure_tag: &Self::PureTag) -> bool {
         self.0.contains_key(pure_tag)
     }
 }
 
-impl<PureTag: FixedName> Tickable for ActionTagContainer<PureTag> {
+impl<PureTag: FixedName> Tickable for ActionTags<PureTag> {
     fn tick(&mut self, delta: f64) {
         // 清理过期的 tag
         self.0.retain(|_k, v| {
@@ -104,7 +106,7 @@ pub struct ActionSwitcher<PureTag: FixedName> {
     action_database: FxHashMap<i64, ActionData<PureTag>>,
 
     /// 通过 tag 控制动作切换，业务实现层可在通用模块（共同逻辑）和动作模块（独特逻辑）分别定制刷新 tag 逻辑
-    current_tags: ActionTagContainer<PureTag>,
+    current_tags: ActionTags<PureTag>,
 
     /// 当前动作 id
     current_action_id: i64,
@@ -117,7 +119,7 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
     pub fn new(default_action: i64) -> Self {
         Self {
             action_database: FxHashMap::default(),
-            current_tags: ActionTagContainer(FxHashMap::default()),
+            current_tags: ActionTags(FxHashMap::default()),
             current_action_id: default_action,
             pause_prefab: PausePrefab::default(),
         }

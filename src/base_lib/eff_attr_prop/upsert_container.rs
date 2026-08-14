@@ -7,7 +7,7 @@ pub trait Upsert {
     type Id: Eq + Hash + Clone + Debug;
 
     /// 获取 id ，为能够自由组合字段，返回克隆后的所有权
-    fn get_id(&self) -> Self::Id;
+    fn gen_id(&self) -> Self::Id;
 
     /// 为快速比较，避免多次获取 id 引起不必要的克隆
     fn matched_id(&self, id: &Self::Id) -> bool;
@@ -18,8 +18,8 @@ pub trait Upsert {
 
 /// 持久效果的容器
 /// - 根据插入顺序排序，不是更新顺序
-/// - 【重要】需要手动遍历判断效果的 Timer 是否过期
-/// - 【重要】外部手动定时刷新
+/// - 【重要】为防止空洞数过多，建议手动定时刷新
+/// - 【重要】若元素有过期老化，需要手动遍历判断
 #[derive(Debug)]
 pub struct UpsertContainer<E: Upsert> {
     /// 实际持有的效果

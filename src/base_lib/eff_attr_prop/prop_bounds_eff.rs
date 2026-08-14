@@ -65,8 +65,8 @@ impl<S: FixedName, Timer> PropBoundsEffect<S, Timer> {
 impl<S: FixedName, Timer> Upsert for PropBoundsEffect<S, Timer> {
     type Id = AttrEffId<S>;
 
-    fn get_id(&self) -> Self::Id {
-        self.eff.get_id()
+    fn gen_id(&self) -> Self::Id {
+        self.eff.gen_id()
     }
 
     fn matched_id(&self, id: &Self::Id) -> bool {
