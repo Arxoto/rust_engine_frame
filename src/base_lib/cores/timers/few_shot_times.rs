@@ -15,7 +15,23 @@ impl FewShotTimes {
         Self { current: 0, limit }
     }
 
-    // todo 参考 PausePrefab 实现 Union 包装函数
+    #[rustfmt::skip]
+    #[inline]
+    pub fn of_timer_view<'a, T: DependCtx>(&self, t: &T) -> impl TimerView<Ctx<'a> = T::Ctx<'a>> {
+        Union(self, t)
+    }
+
+    #[rustfmt::skip]
+    #[inline]
+    pub fn of_timer_control<'a, T: TimerControl>(&mut self, t: &mut T) -> impl TimerControl<Ctx<'a> = T::Ctx<'a>> {
+        Union(self, t)
+    }
+
+    #[rustfmt::skip]
+    #[inline]
+    pub fn of_cyclical_trigger<'a, T: CyclicalTrigger>(&mut self, t: &mut T) -> impl CyclicalTrigger<Ctx<'a> = T::Ctx<'a>> {
+        Union(self, t)
+    }
 }
 
 impl<T: DependCtx> DependCtx for Union<&FewShotTimes, &T> {

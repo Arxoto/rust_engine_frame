@@ -1,7 +1,7 @@
 //! 参考静态计时器实现的触发器
 
 use crate::base_lib::cores::{
-    design_patterns::{DependCtx, Union},
+    design_patterns::DependCtx,
     timers::{
         few_shot_times::FewShotTimes,
         static_timer::StaticTimeline,
@@ -97,23 +97,27 @@ impl DependCtx for FewShotStaticTrigger {
 }
 
 impl TimerView for FewShotStaticTrigger {
+    #[rustfmt::skip]
     fn is_completed(&self, ctx: &StaticTimeline) -> bool {
-        Union(&self.few_shot, &self.inf_tg).is_completed(ctx)
+        self.few_shot.of_timer_view(&self.inf_tg).is_completed(ctx)
     }
 }
 
 impl TimerControl for FewShotStaticTrigger {
+    #[rustfmt::skip]
     fn reset(&mut self, ctx: &StaticTimeline) {
-        Union(&mut self.few_shot, &mut self.inf_tg).reset(ctx)
+        self.few_shot.of_timer_control(&mut self.inf_tg).reset(ctx)
     }
 
+    #[rustfmt::skip]
     fn complete(&mut self, ctx: &StaticTimeline) {
-        Union(&mut self.few_shot, &mut self.inf_tg).complete(ctx)
+        self.few_shot.of_timer_control(&mut self.inf_tg).complete(ctx)
     }
 }
 
 impl CyclicalTrigger for FewShotStaticTrigger {
+    #[rustfmt::skip]
     fn try_trigger_once(&mut self, ctx: &StaticTimeline) -> bool {
-        Union(&mut self.few_shot, &mut self.inf_tg).try_trigger_once(ctx)
+        self.few_shot.of_cyclical_trigger(&mut self.inf_tg).try_trigger_once(ctx)
     }
 }

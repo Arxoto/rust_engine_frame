@@ -1,7 +1,7 @@
 //! 参考累加计时器实现的触发器
 
 use crate::base_lib::cores::{
-    design_patterns::{DependCtx, Union},
+    design_patterns::DependCtx,
     timers::{
         few_shot_times::FewShotTimes,
         tiny_timer::{CyclicalTrigger, Tickable, TimerControl, TimerProgress, TimerView},
@@ -126,23 +126,27 @@ impl TimerProgress for FewShotTickTrigger {
 }
 
 impl TimerView for FewShotTickTrigger {
+    #[rustfmt::skip]
     fn is_completed(&self, _: ()) -> bool {
-        Union(&self.few_shot, &self.inf_trigger).is_completed(())
+        self.few_shot.of_timer_view(&self.inf_trigger).is_completed(())
     }
 }
 
 impl TimerControl for FewShotTickTrigger {
+    #[rustfmt::skip]
     fn reset(&mut self, _: ()) {
-        Union(&mut self.few_shot, &mut self.inf_trigger).reset(())
+        self.few_shot.of_timer_control(&mut self.inf_trigger).reset(())
     }
 
+    #[rustfmt::skip]
     fn complete(&mut self, _: ()) {
-        Union(&mut self.few_shot, &mut self.inf_trigger).complete(())
+        self.few_shot.of_timer_control(&mut self.inf_trigger).complete(())
     }
 }
 
 impl CyclicalTrigger for FewShotTickTrigger {
+    #[rustfmt::skip]
     fn try_trigger_once(&mut self, _: ()) -> bool {
-        Union(&mut self.few_shot, &mut self.inf_trigger).try_trigger_once(())
+        self.few_shot.of_cyclical_trigger(&mut self.inf_trigger).try_trigger_once(())
     }
 }

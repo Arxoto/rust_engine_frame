@@ -51,23 +51,27 @@ impl PausePrefab {
         Union(self, t)
     }
 
+    #[rustfmt::skip]
     #[inline]
-    pub fn of_timer_progress<T: TimerProgress>(&self, t: &T) -> impl TimerProgress {
+    pub fn of_timer_progress<'a, T: TimerProgress>(&self, t: &T) -> impl TimerProgress<Ctx<'a> = T::Ctx<'a>> {
         Union(self, t)
     }
 
+    #[rustfmt::skip]
     #[inline]
-    pub fn of_timer_view<T: TimerView>(&self, t: &T) -> impl TimerView {
+    pub fn of_timer_view<'a, T: TimerView>(&self, t: &T) -> impl TimerView<Ctx<'a> = T::Ctx<'a>> {
         Union(self, t)
     }
 
+    #[rustfmt::skip]
     #[inline]
-    pub fn of_timer_control<T: TimerControl>(&self, t: &mut T) -> impl TimerControl {
+    pub fn of_timer_control<'a, T: TimerControl>(&self, t: &mut T) -> impl TimerControl<Ctx<'a> = T::Ctx<'a>> {
         Union(self, t)
     }
 
+    #[rustfmt::skip]
     #[inline]
-    pub fn of_cyclical_trigger<T: CyclicalTrigger>(&self, t: &mut T) -> impl CyclicalTrigger {
+    pub fn of_cyclical_trigger<'a, T: CyclicalTrigger>(&self, t: &mut T) -> impl CyclicalTrigger<Ctx<'a> = T::Ctx<'a>> {
         Union(self, t)
     }
 }
