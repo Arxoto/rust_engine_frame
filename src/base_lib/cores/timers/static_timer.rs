@@ -27,7 +27,7 @@ impl Default for StaticTimeline {
 impl StaticTimeline {
     /// 创建一个永不停止的计时器 用作静态计时器的基准
     pub fn new() -> Self {
-        Self(TickTimer::new(time_type::MAX))
+        Self(TickTimer::new(time_type::INFINITY))
     }
 
     pub fn current_time(&self) -> time_type::T {
@@ -55,6 +55,13 @@ impl StaticTimer {
         Self {
             duration,
             end_at: timeline.current_time() + duration,
+        }
+    }
+
+    pub fn inf() -> Self {
+        Self {
+            duration: time_type::INFINITY,
+            end_at: time_type::INFINITY,
         }
     }
 
@@ -104,5 +111,17 @@ impl TimerControl for StaticTimer {
 
     fn complete(&mut self, ctx: &StaticTimeline) {
         self.end_at = ctx.current_time();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_func() {
+        // 对于 MAX 来说 0.1 太小了，比起 INF 更接近 MAX ，因此相加仍然等于 MAX
+        assert!(!(f64::MAX + 0.1).is_infinite());
+        assert_eq!(f64::MAX + 0.1, f64::MAX);
+        assert_ne!(f64::MAX + 0.1, f64::INFINITY);
     }
 }

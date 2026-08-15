@@ -78,5 +78,3 @@ impl<S: FixedName> CombatAdditionAttr<S> {
         );
     }
 }
-
-// todo for combat_additions

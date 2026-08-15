@@ -14,16 +14,24 @@
 /// 注意：若允许不同来源的效果可叠加，那么必然会导致伤害结算存在误差：叠加产生的额外收益算谁的，这划分给谁都不合适，也许可以算成团队收益
 #[derive(Clone, Debug)]
 pub struct Effect<S> {
-    /// 效果来源，一般用于结算记录
+    /// 效果来源，始终是角色名称，一般用于结算记录
     from_name: S,
-    /// 效果名称，用作事件触发时主要根据名称生效作用
+    /// 效果名称，一般与来源效果名称相关，用作事件触发时主要根据名称生效作用
     effect_name: S,
     /// 效果值，部分效果的生效不取决于该值，但仍可根据正负判断是否增益
     effect_value: f64,
 }
 
 impl<S> Effect<S> {
-    pub fn new<T: Into<S>>(from_name: T, effect_name: T, effect_value: f64) -> Self {
+    pub fn new(from_name: S, effect_name: S, effect_value: f64) -> Self {
+        Self {
+            from_name,
+            effect_name,
+            effect_value,
+        }
+    }
+
+    pub fn new_form<T: Into<S>>(from_name: T, effect_name: T, effect_value: f64) -> Self {
         let from_name: S = from_name.into();
         let effect_name: S = effect_name.into();
         Self {

@@ -23,6 +23,13 @@ impl TickTimer {
             duration,
         }
     }
+
+    pub fn inf() -> Self {
+        Self {
+            elapsed: time_type::ZERO,
+            duration: time_type::INFINITY,
+        }
+    }
 }
 
 impl Tickable for TickTimer {

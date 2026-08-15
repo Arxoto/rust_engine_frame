@@ -16,6 +16,15 @@ pub trait Upsert {
 
     /// 为快速比较，避免多次获取 id 引起不必要的克隆
     fn has_same_id(&self, other: &Self) -> bool;
+
+    /// 直接替换，若想实现特殊效果（效果堆叠等）自己实现
+    #[inline]
+    fn replace(old: &mut Self, new: Self)
+    where
+        Self: Sized,
+    {
+        *old = new;
+    }
 }
 
 /// 持久效果的容器
@@ -66,13 +75,13 @@ impl<E: Upsert> UpsertContainer<E> {
     /// 添加或更新，若已有效果则对其进行修改，如进行堆叠操作等，修改后的效果会被排到最后
     pub fn upsert_ele<F>(&mut self, new_ele: E, update_logic: F)
     where
-        F: Fn(&mut E, &E),
+        F: Fn(&mut E, E),
     {
         let located_slot = Self::locate_slot(&mut self.ll, |ele| ele.has_same_id(&new_ele));
         if let Some(old_ele_slot) = located_slot {
             // 槽位逻辑上不可能为空
             if let Some(old_ele) = old_ele_slot {
-                update_logic(old_ele, &new_ele);
+                update_logic(old_ele, new_ele);
 
                 // // 若实现更新顺序排序：刷新后后置，旧槽位置空
                 // let merged_ele = old_ele_slot.take();

@@ -11,7 +11,8 @@ pub mod time_type {
 
     pub const ZERO: T = 0.0;
 
-    pub const MAX: T = f64::MAX;
+    /// 不会抛出异常
+    pub const INFINITY: T = f64::INFINITY;
 
     /// 默认 5s 刷新一次
     pub const DEFAULT_REFRESH_PERIOD: T = 5.0;
@@ -42,7 +43,8 @@ pub mod time_type {
 
     pub const ZERO: T = Duration::ZERO;
 
-    pub const MAX: T = Duration::MAX;
+    /// 超出上限会抛出异常
+    pub const INFINITY: T = Duration::MAX;
 
     /// 默认 5s 刷新一次
     pub const DEFAULT_REFRESH_PERIOD: T = Duration::from_secs(5);

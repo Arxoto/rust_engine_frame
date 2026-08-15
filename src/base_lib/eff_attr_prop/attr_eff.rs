@@ -28,7 +28,7 @@ pub enum AttrEffectType {
 pub struct AttrEffect<S: FixedName, Timer> {
     /// 效果类型 对应公式变量
     eff_type: AttrEffectType,
-    /// 效果（来源：角色；名称：BUFF名称及其效果）
+    /// 效果
     eff: Effect<S>,
     /// 持续时间（可以不用计时器，而是计数器或者BUFF列表，通过空判断是否结束）
     duration: Timer,
