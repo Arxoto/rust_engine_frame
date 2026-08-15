@@ -1,6 +1,6 @@
 use godot::prelude::*;
 
-use crate::cores::unify_type::{FixedName, FixedString};
+use crate::base_lib::cores::unify_types::FixedName;
 
 /// same as [`FixedName`]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
@@ -26,7 +26,7 @@ impl From<FixedNameWrapper> for StringName {
 
 impl FixedName for FixedNameWrapper {}
 
-/// same as [`FixedString`]
+/// same as [`FixedName`]
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Default)]
 pub struct FixedStringWrapper(pub GString);
 
@@ -48,4 +48,4 @@ impl From<FixedStringWrapper> for GString {
     }
 }
 
-impl FixedString for FixedStringWrapper {}
+impl FixedName for FixedStringWrapper {}

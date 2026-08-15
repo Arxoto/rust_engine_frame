@@ -14,6 +14,19 @@
 //! - 类别
 //!   - Entropy 熵（炎热寒冷）
 //!   - Electric 电势能
+//!
+//! todo 可立即实现
+//! - 根据内禀属性初始化三维
+//! - 根据外赋属性生成护盾（影响最大值和当前值）
+//! - 装载奥术护盾和替身护盾
+//! - 花费能量和尝试花费 try_cost_magicka
+//! - 削韧 冲击-平衡 cut_stamina
+//!
+//! todo 后续系统性实现
+//! - 实现角色周期性效果
+//! - 生命值以最大值的百分比进行恢复
+//! - 平衡以固定值进行恢复 受击后延迟一段时间继续恢复
+//! - 能量以固定值削减 增长后延迟一段时间继续削减
 
 use crate::base_lib::{
     cores::{timers::static_timer::StaticTimer, unify_types::FixedName},
