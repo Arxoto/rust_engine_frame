@@ -246,20 +246,33 @@ pub mod damage_system {
         ]
     }
 
+    pub struct DamageAppliedAttrProps<'a> {
+        pub source_strength: &'a Strength,
+        pub source_belief: &'a Belief,
+        pub source_magicka: &'a Magicka,
+        pub source_weapon_sharp: &'a WeaponSharp,
+        pub source_weapon_mass: &'a WeaponMass,
+        pub target_armor_soft: &'a ArmorSoft,
+    }
+
     /// 对合并后的伤害效果计算伤害
     pub fn apply_damages<S: FixedName>(
         dmg_effs: [(DamageType, Option<Effect<S>>); 6],
-        source_strength: &Strength,
-        source_belief: &Belief,
-        source_magicka: &Magicka,
-        source_weapon_sharp: &WeaponSharp,
-        source_weapon_mass: &WeaponMass,
-        target_armor_soft: &ArmorSoft,
+        damage_applied_attr_props: DamageAppliedAttrProps,
         target_health: &mut Health,
         target_shield_substitute: &mut ShieldSubstitute,
         target_shield_defence: &mut ShieldDefence,
         target_shield_arcane: &mut ShieldArcane,
     ) -> DamageInfo<S> {
+        let DamageAppliedAttrProps {
+            source_strength,
+            source_belief,
+            source_magicka,
+            source_weapon_sharp,
+            source_weapon_mass,
+            target_armor_soft,
+        } = damage_applied_attr_props;
+
         let mut dmg_info: DamageInfo<S> = DamageInfo::default();
         for (dmg_type, dmg_eff) in dmg_effs {
             if let Some(dmg_eff) = dmg_eff {
