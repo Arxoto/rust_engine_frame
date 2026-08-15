@@ -3,29 +3,14 @@ use crate::base_lib::{
     eff_attr_prop::{
         attr_eff::AttrModifier,
         attrs::Attr,
-        effects::EffectMeaning,
         prop_bounds_eff::{PropBoundsEffect, PropBoundsEffectTarget},
-        prop_eff::PropEffect,
     },
 };
 
-#[derive(Debug, Default)]
-pub struct PropAlterResult<S: FixedName> {
-    /// 本次应用效果中的第一个有害来源
-    pub first_bad: Option<S>,
-    /// 当前值是否小于等于零（若最小值大于零则等于 false ）
-    pub current_le_zero: bool,
-}
-
-impl<S: FixedName> PropAlterResult<S> {
-    /// 因什么导致的清零（返回造成有害效果的来源）
-    pub fn le_zero_by(&self) -> Option<&S> {
-        if self.current_le_zero {
-            self.first_bad.as_ref()
-        } else {
-            None
-        }
-    }
+#[derive(Debug)]
+pub struct PropAlterResult {
+    /// 实际生效值
+    pub real_eff_val: f64,
 }
 
 /// property 属性 一般用作角色资源槽 可被效果影响
@@ -45,6 +30,20 @@ impl Prop {
         }
     }
 
+    pub fn get_max(&self) -> f64 {
+        self.upper.get_current()
+    }
+
+    pub fn get_current(&self) -> f64 {
+        self.current
+    }
+
+    /// 如：判断当前血量是否为零，然后记录致命来源
+    pub fn current_is_zero(&self) -> bool {
+        self.current == 0.0
+    }
+
+    /// 应用上下限
     fn apply_bounds(&mut self) {
         let mut value = self.current;
         value = self.upper.get_current().min(value);
@@ -52,6 +51,8 @@ impl Prop {
         self.current = value;
     }
 
+    /// 刷新上下限数值
+    ///
     /// 【注意】不会自动应用上下限，只会需手动调用
     pub fn refresh_bounds<'a, S: FixedName + 'a, Timer: 'a>(
         &mut self,
@@ -71,27 +72,30 @@ impl Prop {
         self.lower.apply_modify(&lower_modifier);
     }
 
-    /// 风格是把所有修改存入 buffer 然后一把梭哈
+    /// 考虑到伤害公式的计算，这里只支持绝对值
     ///
-    /// 应先复制当前值和上下限作为基准，然后计算百分比得出绝对值、推入buffer，之后再 [`Prop::refresh_bounds`] [`Prop::apply_bounds`]
-    pub fn apply_effs<'a, S: FixedName + 'a, Timer: 'a>(
-        &mut self,
-        buffer: impl Iterator<Item = &'a PropEffect<S>>,
-    ) -> PropAlterResult<S> {
-        let mut first_bad: Option<S> = None;
+    /// 建议先把所有伤害 eff 先聚合后，再一次进行计算
+    ///
+    /// - 有助于：减少计算次数，并且防止血量本身较多时的单次治疗超上限
+    /// - 不适用：血量护盾这种不同伤害类型影响不同层级的复杂逻辑
+    ///
+    /// 应先复制当前值和上下限作为基准，然后计算百分比得出绝对值、推入伤害队列，之后再 [`Prop::refresh_bounds`] [`Prop::apply_bounds`]
+    pub fn apply_eff(&mut self, eff_val: f64) -> PropAlterResult {
+        let old_value = self.current;
 
-        for ele in buffer {
-            if first_bad.is_none() && ele.which_nature().is_bad() {
-                first_bad = Some(ele.get_from_name().clone());
-            }
-            self.current += ele.get_effect_value();
-        }
-
+        self.current += eff_val;
         self.apply_bounds();
 
-        PropAlterResult {
-            first_bad,
-            current_le_zero: self.current <= 0.0,
+        let real_eff_val = self.current - old_value;
+        PropAlterResult { real_eff_val }
+    }
+
+    /// 只有当前值足够才会去应用效果（如法力不够则施放失败）
+    pub fn apply_eff_checked(&mut self, eff_val: f64, ge: f64) -> Option<PropAlterResult> {
+        if self.current + eff_val >= ge {
+            Some(self.apply_eff(eff_val))
+        } else {
+            None
         }
     }
 }

@@ -41,7 +41,11 @@ impl<S> Effect<S> {
         }
     }
 
-    // region: getter
+    // region: getter setter
+
+    pub fn own_from_eff_name(self) -> (S, S) {
+        (self.from_name, self.effect_name)
+    }
 
     pub fn get_from_name(&self) -> &S {
         &self.from_name
@@ -53,6 +57,10 @@ impl<S> Effect<S> {
 
     pub fn get_effect_value(&self) -> f64 {
         self.effect_value
+    }
+
+    pub fn set_effect_value(&mut self, v: f64) {
+        self.effect_value = v;
     }
 
     // endregion

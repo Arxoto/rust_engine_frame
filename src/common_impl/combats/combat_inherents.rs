@@ -10,11 +10,8 @@ use crate::base_lib::{
 /// 气力
 pub struct Strength(pub Attr);
 
-/// 气力属性效果
-pub struct StrengthEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);
-
 /// 信念
 pub struct Belief(pub Attr);
 
-/// 信念属性效果
+pub struct StrengthEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);
 pub struct BeliefEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);

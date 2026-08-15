@@ -10,29 +10,20 @@ use crate::base_lib::{
 /// 武器锋利度
 pub struct WeaponSharp(pub Attr);
 
-/// 武器锋利度属性效果
-pub struct WeaponSharpEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);
-
 /// 武器质量
 pub struct WeaponMass(pub Attr);
-
-/// 武器质量属性效果
-pub struct WeaponMassEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);
 
 /// 盔甲坚韧
 pub struct ArmorHard(pub Attr);
 
-/// 盔甲坚韧属性效果
-pub struct ArmorHardEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);
-
 /// 盔甲柔韧
 pub struct ArmorSoft(pub Attr);
-
-/// 盔甲柔韧属性效果
-pub struct ArmorSoftEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);
 
 /// 盔甲质量
 pub struct ArmorMass(pub Attr);
 
-/// 盔甲质量属性效果
+pub struct WeaponSharpEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);
+pub struct WeaponMassEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);
+pub struct ArmorHardEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);
+pub struct ArmorSoftEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);
 pub struct ArmorMassEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);
