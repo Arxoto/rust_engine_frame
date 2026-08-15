@@ -191,4 +191,236 @@ impl UpsertContainerCleaner {
     }
 }
 
-// todo test clean, test hole_count
+#[cfg(test)]
+mod tests {
+    use crate::base_lib::cores::unify_types::time_type;
+
+    use super::*;
+
+    /// 测试用的最小效果类型
+    #[derive(Debug)]
+    struct TestEff {
+        id: u32,
+        val: f64,
+    }
+
+    impl TestEff {
+        fn new(id: u32) -> Self {
+            Self { id, val: 0.0 }
+        }
+    }
+
+    impl Upsert for TestEff {
+        type Id = u32;
+
+        fn gen_id(&self) -> Self::Id {
+            self.id
+        }
+
+        fn matched_id(&self, id: &Self::Id) -> bool {
+            self.id == *id
+        }
+
+        fn has_same_id(&self, other: &Self) -> bool {
+            self.id == other.id
+        }
+    }
+
+    /// 删除指定 id 的辅助函数
+    fn delete_by_id<E: Upsert<Id = u32>>(container: &mut UpsertContainer<E>, id: u32) -> bool {
+        container.delete_ele(|e| e.gen_id() == id)
+    }
+
+    /// upsert：新增元素并标记脏
+    #[test]
+    fn test_upsert_add() {
+        let mut c = UpsertContainer::<TestEff>::default();
+        assert!(c.ele_empty());
+        assert!(!c.is_changed());
+
+        c.upsert_ele(TestEff::new(1), |_, _| {});
+        c.upsert_ele(TestEff::new(2), |_, _| {});
+        assert_eq!(c.ele_len(), 2);
+        assert!(!c.ele_empty());
+        assert!(c.is_changed());
+    }
+
+    /// upsert：同 id 更新而非新增，且更新逻辑生效
+    #[test]
+    fn test_upsert_update_same_id() {
+        let mut c = UpsertContainer::<TestEff>::default();
+        c.upsert_ele(TestEff::new(1), |_, _| {});
+        c.upsert_ele(TestEff { id: 1, val: 3.0 }, |old, new| old.val += new.val);
+
+        assert_eq!(c.ele_len(), 1);
+        let eff = c.iter_ele().next().unwrap();
+        assert_eq!(eff.val, 3.0);
+    }
+
+    /// upsert：同 id 重复插入不会增加个数
+    #[test]
+    fn test_upsert_idempotent_count() {
+        let mut c = UpsertContainer::<TestEff>::default();
+        c.upsert_ele(TestEff::new(1), |_, _| {});
+        c.upsert_ele(TestEff::new(1), |_, _| {});
+        c.upsert_ele(TestEff::new(1), |_, _| {});
+        assert_eq!(c.ele_len(), 1);
+    }
+
+    /// delete：删除成功返回 true 并产生空洞
+    #[test]
+    fn test_delete_marks_hole() {
+        let mut c = UpsertContainer::<TestEff>::default();
+        c.upsert_ele(TestEff::new(1), |_, _| {});
+        c.upsert_ele(TestEff::new(2), |_, _| {});
+
+        assert!(delete_by_id(&mut c, 1));
+        assert_eq!(c.ele_len(), 1);
+        assert_eq!(c.hole_count, 1);
+        // 底层数组长度不变，产生空洞
+        assert_eq!(c.ll.len(), 2);
+    }
+
+    /// delete：重复删除幂等，返回 false
+    #[test]
+    fn test_delete_idempotent() {
+        let mut c = UpsertContainer::<TestEff>::default();
+        c.upsert_ele(TestEff::new(1), |_, _| {});
+
+        assert!(delete_by_id(&mut c, 1));
+        assert!(!delete_by_id(&mut c, 1));
+        assert_eq!(c.hole_count, 1);
+        assert_eq!(c.ele_len(), 0);
+    }
+
+    /// 空洞数过少（< 3）不回收
+    #[test]
+    fn test_clean_hole_too_few_no_op() {
+        let mut c = UpsertContainer::<TestEff>::default();
+        for id in 0..8 {
+            c.upsert_ele(TestEff::new(id), |_, _| {});
+        }
+        delete_by_id(&mut c, 0);
+        delete_by_id(&mut c, 1);
+        assert_eq!(c.hole_count, 2);
+
+        c.try_clean_hole();
+        assert_eq!(c.hole_count, 2);
+        assert_eq!(c.ll.len(), 8);
+        assert_eq!(c.ele_len(), 6);
+    }
+
+    /// 空洞率达到 25% 时回收
+    #[test]
+    fn test_clean_hole_at_ratio() {
+        let mut c = UpsertContainer::<TestEff>::default();
+        for id in 0..8 {
+            c.upsert_ele(TestEff::new(id), |_, _| {});
+        }
+        delete_by_id(&mut c, 0);
+        delete_by_id(&mut c, 1);
+        delete_by_id(&mut c, 2);
+        assert_eq!(c.hole_count, 3);
+
+        c.try_clean_hole();
+        assert_eq!(c.hole_count, 0);
+        assert_eq!(c.ll.len(), 5);
+        assert_eq!(c.ele_len(), 5);
+    }
+
+    /// 空洞率不足 25% 时不回收
+    #[test]
+    fn test_clean_hole_below_ratio_no_op() {
+        let mut c = UpsertContainer::<TestEff>::default();
+        for id in 0..20 {
+            c.upsert_ele(TestEff::new(id), |_, _| {});
+        }
+        delete_by_id(&mut c, 0);
+        delete_by_id(&mut c, 1);
+        delete_by_id(&mut c, 2);
+        assert_eq!(c.hole_count, 3);
+
+        c.try_clean_hole();
+        // 3 * 4 = 12 < 20，不回收
+        assert_eq!(c.hole_count, 3);
+        assert_eq!(c.ll.len(), 20);
+    }
+
+    /// 空洞数超过 50 时无条件回收（忽略空洞率）
+    #[test]
+    fn test_clean_hole_overflow_clean() {
+        let mut c = UpsertContainer::<TestEff>::default();
+        for id in 0..400 {
+            c.upsert_ele(TestEff::new(id), |_, _| {});
+        }
+        for id in 0..51 {
+            delete_by_id(&mut c, id);
+        }
+        assert_eq!(c.hole_count, 51);
+        assert_eq!(c.ll.len(), 400);
+
+        c.try_clean_hole();
+        assert_eq!(c.hole_count, 0);
+        assert_eq!(c.ll.len(), 349);
+    }
+
+    /// 回收不影响迭代顺序与内容
+    #[test]
+    fn test_clean_hole_preserves_order() {
+        let mut c = UpsertContainer::<TestEff>::default();
+        for id in 0..8 {
+            c.upsert_ele(TestEff { id, val: id as f64 }, |_, _| {});
+        }
+        delete_by_id(&mut c, 0);
+        delete_by_id(&mut c, 2);
+        delete_by_id(&mut c, 4);
+
+        let order_before: Vec<u32> = c.iter_ele().map(|e| e.id).collect();
+        c.try_clean_hole();
+        let order_after: Vec<u32> = c.iter_ele().map(|e| e.id).collect();
+
+        assert_eq!(order_before, order_after);
+        assert_eq!(order_after, vec![1, 3, 5, 6, 7]);
+    }
+
+    /// 回收不改变数组容量
+    #[test]
+    fn test_clean_hole_keeps_capacity() {
+        let mut c = UpsertContainer::<TestEff>::default();
+        for id in 0..8 {
+            c.upsert_ele(TestEff::new(id), |_, _| {});
+        }
+        let cap_before = c.ll.capacity();
+        for id in 0..3 {
+            delete_by_id(&mut c, id);
+        }
+
+        c.try_clean_hole();
+        assert_eq!(c.ll.capacity(), cap_before);
+    }
+
+    /// 定时清理器：时间累积超过周期才触发并重置
+    #[test]
+    fn test_cleaner_should_clean_hole_period() {
+        let mut cleaner = UpsertContainerCleaner::default();
+        let period = time_type::unit::<5>();
+        // 累积 5s 刚好等于周期，不触发
+        for _ in 0..5 {
+            assert!(!cleaner.should_clean_hole(time_type::unit::<1>(), period));
+        }
+        // 超过周期，触发并重置
+        assert!(cleaner.should_clean_hole(time_type::unit::<1>(), period));
+        assert!(!cleaner.should_clean_hole(time_type::unit::<1>(), period));
+    }
+
+    /// 定时清理器：自定义周期
+    #[test]
+    fn test_cleaner_custom_period() {
+        let mut cleaner = UpsertContainerCleaner::default();
+        let period = time_type::unit::<2>();
+        assert!(!cleaner.should_clean_hole(time_type::unit::<1>(), period));
+        assert!(!cleaner.should_clean_hole(time_type::unit::<1>(), period)); // 恰好 2s，不触发
+        assert!(cleaner.should_clean_hole(time_type::unit::<1>(), period)); // 3s > 2s，触发
+        assert!(!cleaner.should_clean_hole(time_type::unit::<1>(), period)); // 已重置
+    }
+}
