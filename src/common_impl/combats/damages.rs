@@ -20,14 +20,6 @@ pub struct DamageInfo<S: FixedName> {
     pub first_hurt_heal_from_eff: Option<(S, S)>,
 }
 
-impl<S: FixedName> Default for DamageInfo<S> {
-    fn default() -> Self {
-        Self {
-            first_hurt_heal_from_eff: None,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct DamageEffect<S: FixedName> {
     dmg_type: DamageType,
@@ -62,6 +54,14 @@ pub enum DamageCalc {
     MaxPer,
 }
 
+impl<S: FixedName> Default for DamageInfo<S> {
+    fn default() -> Self {
+        Self {
+            first_hurt_heal_from_eff: None,
+        }
+    }
+}
+
 impl DamageType {
     /// 能否对血量造成伤害（剔除破盾类型）
     pub fn is_hurt_heal(&self) -> bool {
@@ -72,6 +72,24 @@ impl DamageType {
             DamageType::MagickaArcane => true,
             DamageType::BrokeShieldDefence => false,
             DamageType::BrokeShieldArcane => false,
+        }
+    }
+}
+
+pub struct MagickaEnergyLevel(f64, f64, f64);
+
+impl MagickaEnergyLevel {
+    pub const fn new(l0: f64, l1: f64, l2: f64) -> MagickaEnergyLevel {
+        MagickaEnergyLevel(l0, l1, l2)
+    }
+
+    pub fn max_energy(&self, v: f64) -> f64 {
+        if v <= self.0 {
+            self.0
+        } else if v <= self.1 {
+            self.1
+        } else {
+            self.2
         }
     }
 }
@@ -101,7 +119,11 @@ impl DamageType {
 ///   - 伤害 [`Health`]
 /// - 物理剪切 [`DamageType::PhysicsShear`]
 ///   - 伤害 [`Health`] [`ShieldSubstitute`] [`ShieldDefence`]
-/// - todo
+/// - 物理冲击 [`DamageType::PhysicsImpact`]
+///   - 伤害 [`Health`] [`ShieldSubstitute`]
+/// - 魔法奥术 [`DamageType::MagickaArcane`]
+///   - 伤害 [`Health`] [`ShieldSubstitute`] [`ShieldArcane`]
+/// - 不考虑破盾伤害，与上面相似
 ///
 /// ## 伤害成长
 ///
@@ -114,7 +136,12 @@ impl DamageType {
 ///   - 直接正相关 [`Strength`] * [`WeaponSharp`]
 ///   - 其中 [`WeaponSharp`] 为武器固有属性，随角色成长增长，但是设计边际递减
 ///   - 近似正相关 [`Strength`]
-/// - todo
+/// - 物理冲击 [`DamageType::PhysicsImpact`]
+///   - 直接正相关 [`Strength`] * [`WeaponMass`] / [`ArmorSoft`]
+///   - 其中 [`WeaponMass`] 和 [`ArmorSoft`] 均为武器盔甲固有属性，都设计边际递减
+///   - 近似正相关 [`Strength`]
+/// - 魔法奥术 [`DamageType::MagickaArcane`]
+///   - 直接正相关 [`Belief`]
 ///
 /// 伤害成长 与 受伤上限 数值平衡分析（玩家受击角度）
 /// （根据伤害类型找到针对的资源条、再找到相关的成长属性，对比伤害成长来源，二者是否能相互抵消）
@@ -123,11 +150,23 @@ impl DamageType {
 ///   - 受伤上限 正相关 [`Strength`]
 ///   - 伤害成长 正相关 [`Strength`] or [`Belief`]
 ///   - 对于 [`Strength`] 成长是平衡的
-///   - 对于 [`Belief`] 成长不平衡，可以为其设计替死效果，算作差异性
+///   - 对于 [`Belief`] 成长【受击者不利】，算作差异性，不在此系统弥补
+///   - 由于其不平衡性，应注意避免数值膨胀，并在其他机制弥补，如：替死法术、冲击韧性机制、远程拉扯等
 /// - 物理剪切 [`DamageType::PhysicsShear`]
-///   - 受伤上限 正相关 [`Strength`] or [`Belief`]
+///   - 受伤上限 正相关 [`Strength`] * 2 + [`Belief`]
 ///   - 伤害成长 正相关 [`Strength`]
-///   - todo
+///   - 对于 [`Strength`] 成长是平衡的
+///   - 对于 [`Belief`] 成长【攻击者不利】，可令法术附带该类伤害
+/// - 物理冲击 [`DamageType::PhysicsImpact`]
+///   - 受伤上限 正相关 [`Strength`] + [`Belief`]
+///   - 伤害成长 正相关 [`Strength`]
+///   - 对于 [`Strength`] 成长是平衡的
+///   - 对于 [`Belief`] 成长【攻击者不利】，可令法术附带该类伤害
+/// - 魔法奥术 [`DamageType::MagickaArcane`]
+///   - 受伤上限 正相关 [`Belief`] * 2 + [`Strength`]
+///   - 伤害成长 正相关 [`Belief`]
+///   - 对于 [`Strength`] 成长【攻击者不利】，可令武器附带该类伤害
+///   - 对于 [`Belief`] 成长是平衡的
 pub mod damage_system {
     use super::*;
 
@@ -323,23 +362,5 @@ pub mod damage_system {
     /// [`ArmorHard`] 影响 [`ShieldDefence`]
     pub fn calc_defence_shield(armor_hard: &ArmorHard) -> f64 {
         armor_hard.0.get_current()
-    }
-}
-
-pub struct MagickaEnergyLevel(f64, f64, f64);
-
-impl MagickaEnergyLevel {
-    pub const fn new(l0: f64, l1: f64, l2: f64) -> MagickaEnergyLevel {
-        MagickaEnergyLevel(l0, l1, l2)
-    }
-
-    pub fn max_energy(&self, v: f64) -> f64 {
-        if v <= self.0 {
-            self.0
-        } else if v <= self.1 {
-            self.1
-        } else {
-            self.2
-        }
     }
 }
