@@ -1,58 +1,20 @@
+//! 内禀属性
+//!
+//! 字段设为 pub 支持拆分平铺到实体中去
+
 use crate::base_lib::{
-    cores::{
-        timers::static_timer::{StaticTimeline, StaticTimer},
-        unify_types::{FixedName, time_type},
-    },
-    eff_attr_prop::{
-        attr_eff::AttrEffect,
-        attr_systems,
-        attrs::Attr,
-        upsert_container::{UpsertContainer, UpsertContainerCleaner},
-    },
+    cores::{timers::static_timer::StaticTimer, unify_types::FixedName},
+    eff_attr_prop::{attr_eff::AttrEffect, attrs::Attr, upsert_container::UpsertContainer},
 };
 
-/// 内禀属性
-///
-/// 字段设为 pub 支持拆分平铺到实体中去
-pub struct CombatInherentAttr<S: FixedName> {
-    /// 气力
-    pub strength: Attr,
-    /// 信念
-    pub belief: Attr,
+/// 气力
+pub struct Strength(pub Attr);
 
-    /// 气力效果集
-    pub strength_effs: UpsertContainer<AttrEffect<S, StaticTimer>>,
-    /// 信念效果集
-    pub belief_effs: UpsertContainer<AttrEffect<S, StaticTimer>>,
+/// 气力属性效果
+pub struct StrengthEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);
 
-    /// 时间线
-    pub timeline: StaticTimeline,
+/// 信念
+pub struct Belief(pub Attr);
 
-    /// 定时清理
-    pub cleaner: UpsertContainerCleaner,
-}
-
-impl<S: FixedName> CombatInherentAttr<S> {
-    pub fn new(strength: f64, belief: f64) -> Self {
-        Self {
-            strength: Attr::new(strength),
-            belief: Attr::new(belief),
-            strength_effs: UpsertContainer::default(),
-            belief_effs: UpsertContainer::default(),
-            timeline: StaticTimeline::new(),
-            cleaner: UpsertContainerCleaner::default(),
-        }
-    }
-
-    pub fn process_tick(&mut self, delta: time_type::T) {
-        attr_systems::process_tick(
-            delta,
-            &mut self.timeline,
-            &mut self.cleaner,
-            &mut [
-                (&mut self.strength, &mut self.strength_effs),
-                (&mut self.belief, &mut self.belief_effs),
-            ],
-        );
-    }
-}
+/// 信念属性效果
+pub struct BeliefEffs<S: FixedName>(pub UpsertContainer<AttrEffect<S, StaticTimer>>);

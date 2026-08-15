@@ -81,7 +81,7 @@ impl Prop {
         let mut first_bad: Option<S> = None;
 
         for ele in buffer {
-            if ele.which_nature().is_bad() && first_bad.is_none() {
+            if first_bad.is_none() && ele.which_nature().is_bad() {
                 first_bad = Some(ele.get_from_name().clone());
             }
             self.current += ele.get_effect_value();

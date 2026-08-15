@@ -2,7 +2,7 @@ use crate::base_lib::{
     cores::{
         timers::{
             static_timer::{StaticTimeline, StaticTimer},
-            tiny_timer::{HasTimer, Tickable, TimerView},
+            tiny_timer::{HasTimer, TimerView},
         },
         unify_types::{FixedName, time_type},
     },
@@ -12,37 +12,6 @@ use crate::base_lib::{
         upsert_container::{Upsert, UpsertContainer, UpsertContainerCleaner},
     },
 };
-
-/// 适用于面向对象去调用
-///
-/// - ECS 的 System 模式直接使用内部的函数
-pub fn process_tick<S: FixedName>(
-    delta: time_type::T,
-    timeline: &mut StaticTimeline,
-    cleaner: &mut UpsertContainerCleaner,
-    attr_effs: &mut [(&mut Attr, &mut UpsertContainer<AttrEffect<S, StaticTimer>>)],
-) {
-    timeline.0.tick(delta);
-
-    for (attr, effs) in &mut *attr_effs {
-        clean_expired_element(effs, timeline);
-        try_refresh_dirty_attr(attr, effs);
-    }
-
-    // 【规整处理，业务无关】
-
-    // 惰性迭代器
-    let ll = attr_effs.iter_mut().map(|(_, effs)| &mut **effs);
-    try_clean_hole(delta, ll, cleaner);
-
-    // 基本不会需要重置时间线，注释掉
-    // let timers_iter = attr_effs
-    //     .iter_mut()
-    //     .map(|(_, effs)| &mut **effs)
-    //     .flat_map(|effs| effs.iter_mut())
-    //     .map(|eff| eff.get_timer_mut());
-    // try_reset_timeline(timeline, timers_iter);
-}
 
 /// 老化过期元素
 pub fn clean_expired_element<'a, E, Ctx>(ll: &mut UpsertContainer<E>, ctx: Ctx)
@@ -115,10 +84,11 @@ pub fn try_reset_timeline<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::base_lib::cores::timers::tick_timer::TickTimer;
+    use crate::base_lib::cores::timers::{tick_timer::TickTimer, tiny_timer::Tickable};
 
     use super::*;
 
+    /// 同时支持 [`StaticTimer`] [`TickTimer`]
     #[test]
     fn test_clean_expired_element() {
         let mut attr = Attr::default();
@@ -130,5 +100,39 @@ mod tests {
         let mut effs = UpsertContainer::<AttrEffect<String, TickTimer>>::default();
         clean_expired_element(&mut effs, ());
         try_refresh_dirty_attr(&mut attr, &mut effs);
+    }
+
+    /// 一个面向对象的写法样例
+    #[test]
+    fn example_process_tick() {
+        type S = String;
+        type AttrEffs = UpsertContainer<AttrEffect<S, StaticTimer>>;
+        let delta: time_type::T = time_type::ZERO;
+        let timeline: &mut StaticTimeline = &mut StaticTimeline::default();
+        let cleaner: &mut UpsertContainerCleaner = &mut UpsertContainerCleaner::default();
+        let attr_effs: &mut [(&mut Attr, &mut AttrEffs)] = &mut [];
+
+        // do process_tick
+
+        timeline.0.tick(delta);
+
+        for (attr, effs) in &mut *attr_effs {
+            clean_expired_element(effs, timeline);
+            try_refresh_dirty_attr(attr, effs);
+        }
+
+        // 【规整处理，业务无关】
+
+        // 惰性迭代器
+        let ll = attr_effs.iter_mut().map(|(_, effs)| &mut **effs);
+        try_clean_hole(delta, ll, cleaner);
+
+        // 基本不会需要重置时间线，实际不用写
+        let timers_iter = attr_effs
+            .iter_mut()
+            .map(|(_, effs)| &mut **effs)
+            .flat_map(|effs| effs.iter_mut())
+            .map(|eff| eff.get_timer_mut());
+        try_reset_timeline(timeline, timers_iter);
     }
 }
