@@ -32,10 +32,10 @@ Status: ready-for-agent
 
 - **计时器加深,保留方案二**:`DependCtx` 关联类型方案是既定选型(见 `design_patterns.rs`),不加反转。~~为 `Ctx = ()` 提供 blanket impl 消除 `(())` 税~~(**已否决,issue 02 决议**):最小样例实证(rustc 1.94/edition 2024)显示 blanket impl 无法改变方法签名;扩展 trait/core-trait 同名方法触发 E0034 歧义(方法解析先按名后按 arity),内禀遮蔽触发 E0061 且要求全量迁移+方法写两份,改名(`elapsed_with`)或拆互斥 trait 会加概念/破坏统一抽象。结论:`(())` 调用点保留,不再追求消除。
 - **合并 trait:已否决(issue 01 决议)**。理由:(1) `TimerProgress`/`TimerView` 是「进度模型」与「完成状态」两种能力,`FewShotStaticTrigger` 只实现后者,证明拆分必要;(2) `TimerControl`/`CyclicalTrigger` 同理,`TickTimer`/`StaticTimer` 无循环触发能力;(3) 暂停 View/Control 拆分符合「只读可变分离」原则。保留 8 个 trait 拆分。可选的清理(未纳入决议):删除暂停 Union 死代理。
-- **`WithInto`**:降为私有或删除(若 `motions/actions.rs` 仍用 `Union::new`,保留 `Union` 本身)。
+- **`WithInto`**:定义移入 `design_patterns.rs` 的单元测试 mod,不再作为 crate 公开 trait;原有测试脚手架(`test_foo`/`test_bar`、`auto_do_something*`、blanket impl)保留为「方案一曾如何实现」的可运行参考。理由:方案一是未采用的备选,其 old-solver 缺陷与「显式标注类型」workaround 是历史记录,无需活代码承载;但保留为可运行参考比删除更稳妥,支持未来(solver 再进化)重估。`Union` 保留(`motions/actions.rs` 生产用 `Union::new`),构造统一为 `Union::new` 单写法:元组构造(`Union(a, b)`)在 few_shot_times.rs / pause_prefab.rs / design_patterns.rs 测试内全部替换;字段保持 `pub(super)`(prefab 代理直接访问 `.0`/`.1`,如 pause_prefab.rs,不可收私有)。
 - **删除测试**:加深的验收标准是"删除过度拆分后,复杂度集中在计时器模块内部,而非散落调用方"(删除测试通过)。
-- **`UpsertContainer` 语义统一**:倾向"任何修改都置脏";若代价过大,则提供显式 `begin_batch`/`end_batch` API 使批量修改也纳入脏跟踪。`UpsertContainerCleaner` 与清理周期常量收进容器或容器模块;新增默认合并策略方法(如 `upsert_replace`)。
-- **`animations.rs`**:并入 `motions.rs` 时把"动画播放器结束信号自动衔接下一段动画"的设计保留为模块文档;删除时同步移除 CLAUDE.md 对应条目。
+- **`UpsertContainer` 语义统一**:**任何可能的修改都置脏,不论实际是否改动**(决议)。`iter_mut` 创建即置脏;`select_mut_ele` 命中即置脏;`upsert_ele`/`delete_ele` 成功即置脏;`delete_ele` miss(无匹配元素)不置脏。理由:唯一「改了但无需重算」的场景是重置时间线(经 `iter_mut` 改计时器、效果数值不变),按年一次,为此付一次重算可接受;换取语义简单一致、杜绝经 `iter_mut` 静默绕过 `try_refresh_dirty_attr`。压力测试 `changed` 模型同步更新。`UpsertContainerCleaner` **保留独立类型**(ECS 一实体多容器、一个 cleaner 触发多个容器是真实需求,不并入容器),自持默认周期(引用 `time_type::DEFAULT_REFRESH_PERIOD`,可构造覆盖),新增 `clean_holes(delta, containers_iter)` 单一编排入口;`attr_systems::try_clean_hole` 删除或退化为薄委托。新增 `UpsertContainer::upsert_replace(new_ele)` 默认合并策略方法,`equips.rs` 改用它。
+- **`animations.rs`**:并入 `motions.rs`(决议)——声明 `pub mod animations;`,动画过渡设计保留为该模块文档;同步更新 CLAUDE.md 对应段落,消除「Re-integrate or delete」悬置。
 - 所有改动保持引擎无关;不引入新 trait/宏生成方案(宏方案已在 `tiny_timer.rs` 模块文档中否决)。
 
 ## Testing Decisions
