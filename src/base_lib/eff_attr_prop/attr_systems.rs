@@ -35,7 +35,7 @@ pub fn try_refresh_dirty_attr<S: FixedName, Timer>(
     }
 }
 
-/// 清理容器空洞【规整处理，业务无关】
+/// 清理容器空洞【规整处理，业务无关】(薄委托于 [`UpsertContainerCleaner::clean_holes`])
 ///
 /// ```
 /// # use rust_engine_frame::base_lib::cores::timers::static_timer::StaticTimer;
@@ -59,13 +59,7 @@ pub fn try_clean_hole<'a, E: Upsert + 'a>(
     ll: impl Iterator<Item = &'a mut UpsertContainer<E>>,
     cleaner: &mut UpsertContainerCleaner,
 ) {
-    let should_clean_period = time_type::DEFAULT_REFRESH_PERIOD;
-    let should_clean_hole = cleaner.should_clean_hole(delta, should_clean_period);
-    if should_clean_hole {
-        for effs in ll {
-            cleaner.do_clean_hole(effs);
-        }
-    }
+    cleaner.clean_holes(delta, ll);
 }
 
 /// 重置时间线（使用 f64 或 Duration 作为时间类型，基本无需重置时间线）

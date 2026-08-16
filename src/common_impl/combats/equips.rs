@@ -109,7 +109,7 @@ mod equip_system {
         eff_attr_prop::{
             attr_eff::{AttrEffId, AttrEffect, AttrEffectType},
             effects::Effect,
-            upsert_container::{Upsert, UpsertContainer},
+            upsert_container::UpsertContainer,
         },
     };
 
@@ -135,9 +135,7 @@ mod equip_system {
             Effect::new(char_name.clone(), equip_name.clone(), equip_value),
             StaticTimer::inf(),
         );
-        effs.upsert_ele(attr_eff, |old, new| {
-            Upsert::replace(old, new);
-        });
+        effs.upsert_replace(attr_eff);
     }
 }
 

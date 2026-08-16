@@ -58,9 +58,11 @@ impl<E: Upsert> UpsertContainer<E> {
         self.ll.iter().filter_map(|e| e.as_ref())
     }
 
-    /// 可变遍历
+    /// 可变遍历(修改即置脏契约:创建即置脏,不论是否实际修改;只读请走 [`Self::iter_ele`])
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut E> {
+        // 任何可能的修改都置脏,不论实际是否改动;创建迭代器即置脏
         // 无法保证在可变遍历的情况下保证更新顺序排序
+        self.changed_flag = true;
         self.ll.iter_mut().filter_map(|e| e.as_mut())
     }
 
@@ -95,6 +97,11 @@ impl<E: Upsert> UpsertContainer<E> {
         self.changed_flag = true;
     }
 
+    /// 添加或更新:同 id 整体替换为 new(默认合并策略,即 [`Upsert::replace`]),无则新增
+    pub fn upsert_replace(&mut self, new_ele: E) {
+        self.upsert_ele(new_ele, Upsert::replace);
+    }
+
     /// 删除（幂等：重复删除无副作用）
     pub fn delete_ele<F>(&mut self, find_logic: F) -> bool
     where
@@ -110,7 +117,7 @@ impl<E: Upsert> UpsertContainer<E> {
         }
     }
 
-    /// 查询以更新（无论是否修改都会标记容器内元素被修改，因此应避免只读查询，尽量通过容器实现，或单独实现只读查询）
+    /// 查询以更新(修改即置脏契约:命中即置脏,不论是否实际修改;只读请走 [`Self::iter_ele`])
     pub fn select_mut_ele<F>(&mut self, find_logic: F) -> Option<&mut E>
     where
         F: Fn(&E) -> bool,
@@ -169,16 +176,31 @@ impl<E: Upsert> UpsertContainer<E> {
     }
 }
 
-/// 集合定时清理工具
-#[derive(Debug, Default)]
+/// 集合定时清理工具:自持默认周期(time_type::DEFAULT_REFRESH_PERIOD),可构造覆盖
+#[derive(Debug)]
 pub struct UpsertContainerCleaner {
     do_clean_time: time_type::T,
+    period: time_type::T,
+}
+
+impl Default for UpsertContainerCleaner {
+    fn default() -> Self {
+        Self::new(time_type::DEFAULT_REFRESH_PERIOD)
+    }
 }
 
 impl UpsertContainerCleaner {
-    pub fn should_clean_hole(&mut self, delta: time_type::T, period: time_type::T) -> bool {
+    pub fn new(period: time_type::T) -> Self {
+        Self {
+            do_clean_time: time_type::ZERO,
+            period,
+        }
+    }
+
+    /// 累加 delta,超过周期触发并重置
+    pub fn should_clean_hole(&mut self, delta: time_type::T) -> bool {
         self.do_clean_time += delta;
-        if self.do_clean_time > period {
+        if self.do_clean_time > self.period {
             self.do_clean_time = time_type::ZERO;
             true
         } else {
@@ -186,8 +208,17 @@ impl UpsertContainerCleaner {
         }
     }
 
-    pub fn do_clean_hole<E: Upsert>(&mut self, container: &mut UpsertContainer<E>) {
-        container.try_clean_hole();
+    /// 单一编排入口:按周期累加,到期时对迭代到的每个容器执行清洞
+    pub fn clean_holes<'a, E: Upsert + 'a>(
+        &mut self,
+        delta: time_type::T,
+        containers: impl Iterator<Item = &'a mut UpsertContainer<E>>,
+    ) {
+        if self.should_clean_hole(delta) {
+            for c in containers {
+                c.try_clean_hole();
+            }
+        }
     }
 }
 
@@ -265,6 +296,39 @@ mod tests {
         c.upsert_ele(TestEff::new(1), |_, _| {});
         c.upsert_ele(TestEff::new(1), |_, _| {});
         assert_eq!(c.ele_len(), 1);
+    }
+
+    /// 修改即置脏契约:iter_mut 创建即置脏,即使没有实际修改;空容器亦然
+    #[test]
+    fn test_iter_mut_sets_dirty() {
+        let mut c = UpsertContainer::<TestEff>::default();
+        c.upsert_ele(TestEff::new(1), |_, _| {});
+        c.reset_changed_flag();
+        assert!(!c.is_changed());
+
+        for _ in c.iter_mut() {} // 仅遍历,不改动
+        assert!(c.is_changed(), "iter_mut 创建即置脏(修改即置脏契约)");
+
+        // 空容器:创建迭代器同样置脏
+        let mut empty = UpsertContainer::<TestEff>::default();
+        assert!(!empty.is_changed());
+        for _ in empty.iter_mut() {}
+        assert!(empty.is_changed());
+    }
+
+    /// 默认合并策略:upsert_replace 同 id 整体替换为 new,无则新增
+    #[test]
+    fn test_upsert_replace() {
+        let mut c = UpsertContainer::<TestEff>::default();
+        c.upsert_replace(TestEff { id: 1, val: 1.0 });
+        c.upsert_replace(TestEff { id: 2, val: 2.0 });
+        assert_eq!(c.ele_len(), 2);
+
+        // 同 id 整体替换为 new,个数不变,数值为新值
+        c.upsert_replace(TestEff { id: 1, val: 9.0 });
+        assert_eq!(c.ele_len(), 2);
+        assert_eq!(c.iter_ele().find(|e| e.id == 1).unwrap().val, 9.0);
+        assert!(c.is_changed());
     }
 
     /// delete：删除成功返回 true 并产生空洞
@@ -399,29 +463,64 @@ mod tests {
         assert_eq!(c.ll.capacity(), cap_before);
     }
 
-    /// 定时清理器：时间累积超过周期才触发并重置
+    /// 定时清理器:默认周期 = time_type::DEFAULT_REFRESH_PERIOD(5s),累积超过才触发并重置
     #[test]
-    fn test_cleaner_should_clean_hole_period() {
+    fn test_cleaner_default_period() {
         let mut cleaner = UpsertContainerCleaner::default();
-        let period = time_type::unit::<5>();
         // 累积 5s 刚好等于周期，不触发
         for _ in 0..5 {
-            assert!(!cleaner.should_clean_hole(time_type::unit::<1>(), period));
+            assert!(!cleaner.should_clean_hole(time_type::unit::<1>()));
         }
         // 超过周期，触发并重置
-        assert!(cleaner.should_clean_hole(time_type::unit::<1>(), period));
-        assert!(!cleaner.should_clean_hole(time_type::unit::<1>(), period));
+        assert!(cleaner.should_clean_hole(time_type::unit::<1>()));
+        assert!(!cleaner.should_clean_hole(time_type::unit::<1>()));
     }
 
-    /// 定时清理器：自定义周期
+    /// 定时清理器:自定义周期(构造覆盖默认)
     #[test]
     fn test_cleaner_custom_period() {
-        let mut cleaner = UpsertContainerCleaner::default();
-        let period = time_type::unit::<2>();
-        assert!(!cleaner.should_clean_hole(time_type::unit::<1>(), period));
-        assert!(!cleaner.should_clean_hole(time_type::unit::<1>(), period)); // 恰好 2s，不触发
-        assert!(cleaner.should_clean_hole(time_type::unit::<1>(), period)); // 3s > 2s，触发
-        assert!(!cleaner.should_clean_hole(time_type::unit::<1>(), period)); // 已重置
+        let mut cleaner = UpsertContainerCleaner::new(time_type::unit::<2>());
+        assert!(!cleaner.should_clean_hole(time_type::unit::<1>()));
+        assert!(!cleaner.should_clean_hole(time_type::unit::<1>())); // 恰好 2s，不触发
+        assert!(cleaner.should_clean_hole(time_type::unit::<1>())); // 3s > 2s，触发
+        assert!(!cleaner.should_clean_hole(time_type::unit::<1>())); // 已重置
+    }
+
+    /// 单一编排入口:clean_holes 按周期累加,到期时对迭代到的每个容器执行清洞
+    #[test]
+    fn test_clean_holes_orchestrates_containers() {
+        let mut cleaner = UpsertContainerCleaner::new(time_type::unit::<3>());
+        let mut c1 = UpsertContainer::<TestEff>::default();
+        let mut c2 = UpsertContainer::<TestEff>::default();
+        for id in 0..6 {
+            c1.upsert_ele(TestEff::new(id), |_, _| {});
+            c2.upsert_ele(TestEff::new(id), |_, _| {});
+        }
+        // 每个容器挖出 3 个空洞(6 槽中的 50%,越过 <3 提前返回且达到 25% 阈值)
+        delete_by_id(&mut c1, 0);
+        delete_by_id(&mut c1, 1);
+        delete_by_id(&mut c1, 2);
+        delete_by_id(&mut c2, 0);
+        delete_by_id(&mut c2, 1);
+        delete_by_id(&mut c2, 2);
+        assert_eq!(c1.hole_count, 3);
+        assert_eq!(c2.hole_count, 3);
+
+        // 周期未到:不清理
+        cleaner.clean_holes(
+            time_type::unit::<2>(),
+            [&mut c1, &mut c2].iter_mut().map(|c| &mut **c),
+        );
+        assert_eq!(c1.hole_count, 3);
+        assert_eq!(c2.hole_count, 3);
+
+        // 累计超过周期:迭代到的每个容器都被清理
+        cleaner.clean_holes(
+            time_type::unit::<2>(),
+            [&mut c1, &mut c2].iter_mut().map(|c| &mut **c),
+        );
+        assert_eq!(c1.hole_count, 0);
+        assert_eq!(c2.hole_count, 0);
     }
 
     /// 确定性伪随机数生成器（LCG），保证压力测试可复现
@@ -549,7 +648,10 @@ mod tests {
                         changed = true;
                     }
                 }
-                85..=89 => do_iter_mut(&mut c),
+                85..=89 => {
+                    do_iter_mut(&mut c);
+                    changed = true; // 修改即置脏契约:iter_mut 创建即置脏
+                }
                 90..=96 => c.try_clean_hole(),
                 // 97..=99 => 重置脏标记
                 _ => {
