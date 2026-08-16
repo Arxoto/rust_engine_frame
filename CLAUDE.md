@@ -108,7 +108,7 @@ The **combat design/balance spec** lives across the module docs of `combats.rs` 
 - `equips.rs` — `EquipWeapon`/`EquipArmor`: equipment data that generates 外赋属性 effects.
 - `damages.rs` — damage pipeline: `DamageEffectBuffer`/`DamageEffect`/`DamageInfo` (death-cause tracking) with `DamageType` (KarmaTruth 真实 / PhysicsShear 物理剪切 / PhysicsImpact 物理冲击 / MagickaArcane 魔法奥术 / BrokeShieldDefence 防护破盾 / BrokeShieldArcane 奥术破盾), `DamageCalc` (Val/CurPer/MaxPer), and `MagickaEnergyLevel`. The nested `damage_system` module carries the formulas and spec: `merge_damages` (每帧同类型伤害合并), `apply_damages`, `calc_damage_scale`, `calc_health_max`, `calc_magicka_value`/`calc_magicka_max`, `calc_defence_shield`.
 
-The combat structs **deliberately use `pub` fields** so they can be split/flattened onto ECS entities — this is the documented exception to the minimize-`pub` convention.
+The combat structs **deliberately use `pub` fields** so they can be split/flattened onto ECS entities.
 
 ### `src/godot_ext_impl/` — gated by `feature = "godotext"`
 
@@ -119,11 +119,6 @@ The combat structs **deliberately use `pub` fields** so they can be split/flatte
 ## Key Conventions
 
 - **`DependCtx`/`Union` composition** — implement new timer/behavior traits via the associated-type `DependCtx` bound, and build prefab tags as `Union` proxies with delegating impls. Don't invent a new wrapper pattern; read `base_lib/cores/design_patterns.rs` and `timers/pause_prefab.rs` first.
-- **Minimize `pub` fields** — Prefer `pub(crate)` or accessor methods. Use `// pub-external` comment marker on fields that legitimately need to be public. Check violations:
-  ```bash
-  grep -r 'pub ' src/ | grep -v 'pub mod' | grep -v 'pub fn' | grep -v 'pub struct' | grep -v 'pub enum' | grep -v 'pub trait' | grep -v 'pub type' | grep -v '// pub-external'
-  ```
-  Exception: ECS component structs in `common_impl/combats/` use `pub` fields deliberately for entity flattening.
 - **HashMap performance** — Use `rustc-hash` (`FxHashMap`) for game-critical paths. Small datasets (<~30 elements) may be faster with `Vec` linear search. Pre-allocate with `with_capacity(capacity.next_power_of_two())`; if the element count is known in advance, add a comment/marker explaining it. Check violations: `grep -r 'with_capacity' . | grep -v 'next_power_of_two'`
 - **New Type pattern** — Wrap external types to implement crate traits (orphan rule workaround). See `godot_ext_impl/adapter.rs` and the tests in `base_lib/cores/unify_types.rs`.
 - **Effect stacking is upsert, not accumulate** — `UpsertContainer` matches by `(effect_name, from_name)`; re-applying the same id overwrites the existing effect rather than stacking separate instances. Damage-source tracking is therefore not precise.

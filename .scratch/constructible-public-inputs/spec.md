@@ -37,7 +37,7 @@ Status: ready-for-agent
 
 ## Implementation Decisions
 
-- **构造路径以公开 API 形式提供,不引入新抽象**:为 `DamageEffect`/`DamageEffectBuffer` 增加公开构造函数或 builder;字段保持私有,或遵循 combats 结构体"pub-external"(ECS 展平)例外按需公开。
+- **构造路径以公开 API 形式提供,不引入新抽象**:为 `DamageEffect`/`DamageEffectBuffer` 增加公开构造函数或 builder;字段公开或私有按需而定。
 - **`ActionData`** 增加公开构造函数(或 builder),包含 `id`、`priority`、进入条件 `TinyTag`、`state_tags`;`order`(注册顺序)由 `register_action` 注册时自动赋值,无需作为入参。
 - **`PlayerCharacterController`** 增加公开构造器(入参为 `PlayerInput`)与必要的只读访问;若保持黑盒,需提供可演示的公开方法。
 - **`Prop`** 将 `apply_bounds` 提升为公开方法(或提供等价的公开 re-clamp 方法),并修正文档,使承诺的序列真正可执行。
