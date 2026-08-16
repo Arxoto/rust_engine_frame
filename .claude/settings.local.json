@@ -6,6 +6,8 @@
       "Bash(cargo test *)",
       "Bash(cargo check *)",
       "Bash(cargo build *)",
+      "Bash(cargo --version)",
+      "Bash(rustc --version)",
       "Bash(grep -v \"//\")"
     ]
   }

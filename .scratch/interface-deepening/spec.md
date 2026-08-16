@@ -12,14 +12,14 @@ Status: ready-for-agent
 
 ## Solution
 
-- **计时器**:**trait 面不合并(否决「收拢 trait 面」方向,决议见 issue 01)** —— 各 trait 的能力边界有真实语义:`TimerProgress`=进度模型 vs `TimerView`=完成状态(`FewShotStaticTrigger` 是「仅状态、无进度」的现成反例);`TimerControl` vs `CyclicalTrigger`(`TickTimer`/`StaticTimer` 无循环触发);暂停 View/Control 的只读可变分离。合并会把不同能力耦合、强迫仅实现单能力的类型实现无语义方法。实际交付:补全 `FewShotStaticTrigger` 的 `TimerProgress`(透传内层 `InfiniteStaticTrigger`)。`Ctx = ()` 的 `(())` 调用税与 `WithInto` 处理仍按 issue 02/03 推进。**保留 `StaticTimeline`/`StaticTimer` 上下文机制** —— 它是"无引擎依赖 + 长期效果"的承重结构(与 README 项目介绍一致)。
+- **计时器**:**trait 面不合并(否决「收拢 trait 面」方向,决议见 issue 01)** —— 各 trait 的能力边界有真实语义:`TimerProgress`=进度模型 vs `TimerView`=完成状态(`FewShotStaticTrigger` 是「仅状态、无进度」的现成反例);`TimerControl` vs `CyclicalTrigger`(`TickTimer`/`StaticTimer` 无循环触发);暂停 View/Control 的只读可变分离。合并会把不同能力耦合、强迫仅实现单能力的类型实现无语义方法。实际交付:补全 `FewShotStaticTrigger` 的 `TimerProgress`(透传内层 `InfiniteStaticTrigger`)。`(())` 调用税**保留**(issue 02 决议:「blanket impl 消税」不可实现,`(())` 是统一抽象方案二的可见代价);`WithInto` 处理仍按 issue 03 推进。**保留 `StaticTimeline`/`StaticTimer` 上下文机制** —— 它是"无引擎依赖 + 长期效果"的承重结构(与 README 项目介绍一致)。
 - **`UpsertContainer`**:统一 dirty 语义(或提供显式批量 API),将清洞调度收进容器,提供默认合并策略方法,并用测试钉住契约。
 - **`animations.rs`**:并入 `motions.rs`(保留动画过渡设计文档)或删除,并同步更新 CLAUDE.md。
 
 ## User Stories
 
 1. As 一个游戏上层调用方, I want 使用计时器只需理解少量概念, so that 接入成本降低。
-2. As 一个游戏上层调用方, I want 无上下文类型无需显式传 `(())`, so that 调用更自然。
+2. As 一个游戏上层调用方, I want 无上下文类型无需显式传 `(())`, so that 调用更自然。**(已关闭:issue 02 决议不实施,`(())` 保留为统一抽象的可见代价。)**
 3. As 一个框架贡献者, I want 新增一个 prefab 只需少量 impl 块, so that 扩展成本降低。
 4. As 一个框架贡献者, I want 不再需要为 `WithInto`(方案一残留)维护公开接口, so that 概念面收敛。
 5. As 一个游戏上层调用方, I want `UpsertContainer` 的脏标志语义一致, so that 我不会经 `iter_mut` 静默绕过属性刷新。
@@ -30,7 +30,7 @@ Status: ready-for-agent
 
 ## Implementation Decisions
 
-- **计时器加深,保留方案二**:`DependCtx` 关联类型方案是既定选型(见 `design_patterns.rs`),不加反转。仅对 `Ctx = ()` 提供 blanket impl 消除 `(())` 税。
+- **计时器加深,保留方案二**:`DependCtx` 关联类型方案是既定选型(见 `design_patterns.rs`),不加反转。~~为 `Ctx = ()` 提供 blanket impl 消除 `(())` 税~~(**已否决,issue 02 决议**):最小样例实证(rustc 1.94/edition 2024)显示 blanket impl 无法改变方法签名;扩展 trait/core-trait 同名方法触发 E0034 歧义(方法解析先按名后按 arity),内禀遮蔽触发 E0061 且要求全量迁移+方法写两份,改名(`elapsed_with`)或拆互斥 trait 会加概念/破坏统一抽象。结论:`(())` 调用点保留,不再追求消除。
 - **合并 trait:已否决(issue 01 决议)**。理由:(1) `TimerProgress`/`TimerView` 是「进度模型」与「完成状态」两种能力,`FewShotStaticTrigger` 只实现后者,证明拆分必要;(2) `TimerControl`/`CyclicalTrigger` 同理,`TickTimer`/`StaticTimer` 无循环触发能力;(3) 暂停 View/Control 拆分符合「只读可变分离」原则。保留 8 个 trait 拆分。可选的清理(未纳入决议):删除暂停 Union 死代理。
 - **`WithInto`**:降为私有或删除(若 `motions/actions.rs` 仍用 `Union::new`,保留 `Union` 本身)。
 - **删除测试**:加深的验收标准是"删除过度拆分后,复杂度集中在计时器模块内部,而非散落调用方"(删除测试通过)。
