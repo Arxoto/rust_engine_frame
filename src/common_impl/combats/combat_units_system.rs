@@ -4,14 +4,19 @@
 //! - 系统函数不含数值公式/魔法数字(除 [`gen_shield_defence`] 固化的防护盾公式)。
 //! - 奥术/替身护盾只做装载,数值公式是给数值策划的要求,由调用方算好值传入。
 //! - 减益/伤害类入参用负值(与 `EffectMeaning::Bad` 语义一致)。
-//! - 涉及效果的**持久**封装入参传完整 [`crate::base_lib::eff_attr_prop::effects::Effect`];
-//!   即时(非持久)资源变更(如扣能量/削韧)收裸数值,无 id 参与 upsert 故不适用。
+//! - 涉及效果的上层封装传完整 [`crate::base_lib::eff_attr_prop::effects::Effect`]:
+//!   持久效果(护盾上限)直接传 `Effect`;即时变更(扣能量/削韧)经
+//!   [`crate::base_lib::eff_attr_prop::prop_alter_eff::PropAlterEffect`] 包装传完整 `Effect`。
+//! - ECS 语义:护盾上限由 [`crate::base_lib::eff_attr_prop::prop_systems`] 每帧依脏标签刷新,
+//!   护盾当前值由伤害管线经缓冲消费([`load_shield`] 仅编排不入值);
+//!   即时变更(cost/cut)直接应用,不经缓冲。
 
 use crate::{
     base_lib::{
         cores::{timers::static_timer::StaticTimer, unify_types::FixedName},
         eff_attr_prop::{
             effects::Effect,
+            prop_alter_eff::{PropAlterEffect, alter_abs_value, apply_prop_alter_eff},
             prop_bounds_eff::{PropBoundsEffect, PropBoundsEffectType},
             props::{Prop, PropAlterResult},
             upsert_container::UpsertContainer,
@@ -21,7 +26,7 @@ use crate::{
         combat_additions::ArmorHard,
         combat_inherents::{Belief, Strength},
         combat_units::{Health, Magicka, Stamina},
-        damages::{MagickaEnergyLevel, damage_system},
+        damages::{DamageEffect, DamageEffectBuffer, MagickaEnergyLevel, damage_system},
     },
 };
 
@@ -38,20 +43,20 @@ pub struct ThreeBarsConfig {
     pub magicka_energy_level: MagickaEnergyLevel,
 }
 
-/// 初始化三维:按内禀属性设置血量/平衡/能量的最大值与当前值
+/// 角色出生三维(按内禀属性生成,返回所有权装配到实体)
+pub struct ThreeBars {
+    pub health: Health,
+    pub stamina: Stamina,
+    pub magicka: Magicka,
+}
+
+/// 生成三维:按内禀属性返回血量/平衡/能量的所有权
 ///
-/// 由上层在角色创建时调用一次,使角色从出生起即可战斗。
+/// 由上层在角色创建时调用一次,将结果装配到实体组件。
 /// - 血量:`current = max`,经 [`damage_system::calc_health_max`]
 /// - 平衡:`current = max = config.stamina_max`(与任何内禀属性无关,所有角色相等)
 /// - 能量:`current = 0`、`max` 经 [`damage_system::calc_magicka_max`]
-pub fn init_three_bars(
-    health: &mut Health,
-    stamina: &mut Stamina,
-    magicka: &mut Magicka,
-    strength: &Strength,
-    belief: &Belief,
-    config: &ThreeBarsConfig,
-) {
+pub fn gen_three_bars(strength: &Strength, belief: &Belief, config: &ThreeBarsConfig) -> ThreeBars {
     let health_max =
         damage_system::calc_health_max(config.health_base, config.health_scale, strength);
     let magicka_max = damage_system::calc_magicka_max(
@@ -61,120 +66,176 @@ pub fn init_three_bars(
         &config.magicka_energy_level,
     );
 
-    *health = Health(Prop::new(health_max, health_max, 0.0));
-    *stamina = Stamina(Prop::new(config.stamina_max, config.stamina_max, 0.0));
-    *magicka = Magicka(Prop::new(0.0, magicka_max, 0.0));
+    ThreeBars {
+        health: Health(Prop::new(health_max, health_max, 0.0)),
+        stamina: Stamina(Prop::new(config.stamina_max, config.stamina_max, 0.0)),
+        magicka: Magicka(Prop::new(0.0, magicka_max, 0.0)),
+    }
 }
 
-/// 根据外赋属性生成防护护盾值
+/// 根据外赋属性生成防护护盾的**上限效果**
 ///
 /// 固化公式 [`damage_system::calc_defence_shield`]:防护护盾值 = 盔甲坚韧当前值。
+/// 返回就绪的 `UpperAdd` [`PropBoundsEffect`],由调用方 upsert 进护盾的 `*Effs` 容器,
+/// 上限刷新交给 [`crate::base_lib::eff_attr_prop::prop_systems::try_refresh_dirty_prop_bounds`]。
 ///
-/// **只生成,不装载**:返回值是护盾值,由调用方构造 [`Effect`] 后
-/// 手动调用装载方法(见 [`load_shield`])装载。
-pub fn gen_shield_defence(armor_hard: &ArmorHard) -> f64 {
-    damage_system::calc_defence_shield(armor_hard)
+/// 护盾**当前值**的装载由调用方另行构造 `OnlyShieldDefence` 的 [`DamageEffect`] 推入缓冲。
+pub fn gen_shield_defence<S: FixedName>(
+    armor_hard: &ArmorHard,
+    from_name: S,
+    effect_name: S,
+) -> PropBoundsEffect<S, StaticTimer> {
+    let value = damage_system::calc_defence_shield(armor_hard);
+    PropBoundsEffect::new(
+        PropBoundsEffectType::UpperAdd,
+        Effect::new(from_name, effect_name, value),
+        StaticTimer::inf(),
+    )
 }
 
-/// 装载护盾:将护盾值写入护盾,同时影响最大值与当前值
+/// 装载护盾:编排"上限效果入容器 + 当前值效果入缓冲"
 ///
-/// 对防护/奥术/替身护盾通用:调用方传 `&mut shield.0` 与 `&mut shield_effs.0`。
-///
-/// 效果驱动机制(见 `prop_bounds_eff.rs` 文档「若想同时修改上限与实际值」):
-/// 1. 用传入 [`Effect`] 构造 `UpperAdd` 边界效果并 upsert 进容器——id 由
-///    `Effect` 的 from/eff 名决定,重复装载同 id 幂等覆盖。
-/// 2. [`Prop::refresh_bounds`] 重算上限。
-/// 3. [`Prop::apply_eff`] 提升当前值至装载值。
-///
-/// 数值由调用方传入(奥术/替身护盾的公式是给数值策划的要求),本函数不含公式。
+/// **不做同步修改**(符合 ECS):上限由每帧 [`crate::base_lib::eff_attr_prop::prop_systems`]
+/// 依脏标签刷新,当前值由伤害管线消费。调用方:
+/// - `bounds_eff` 来自 [`gen_shield_defence`] 或调用方自建;
+/// - `value_eff` 为 `Only*` 类型的 [`DamageEffect`](如 `OnlyShieldDefence`),正值累加护盾当前值。
 pub fn load_shield<S: FixedName>(
     shield_effs: &mut UpsertContainer<PropBoundsEffect<S, StaticTimer>>,
-    shield: &mut Prop,
-    eff: Effect<S>,
+    damage_buffer: &mut DamageEffectBuffer<S>,
+    bounds_eff: PropBoundsEffect<S, StaticTimer>,
+    value_eff: DamageEffect<S>,
 ) {
-    let value = eff.get_effect_value();
-    let bounds_eff = PropBoundsEffect::new(PropBoundsEffectType::UpperAdd, eff, StaticTimer::inf());
     shield_effs.upsert_replace(bounds_eff);
-
-    shield.refresh_bounds(shield_effs.iter_ele());
-    shield.apply_eff(value);
+    damage_buffer.push(value_eff);
 }
 
-/// 花费能量(硬扣):不检查是否足够,直接扣减,返回实际生效值
+/// 花费能量(硬扣):直接修改,返回实际生效值
 ///
 /// 用于系统级强制扣除(如死亡惩罚)。入参为负值(花费 = 减益,
 /// 与 `EffectMean::Bad` 语义一致)。被上下限钳制时,`real_eff_val` 反映实际生效量。
-pub fn cost_magicka(magicka: &mut Magicka, eff_val: f64) -> PropAlterResult {
-    magicka.0.apply_eff(eff_val)
+pub fn cost_magicka<S: FixedName>(
+    magicka: &mut Magicka,
+    eff: PropAlterEffect<S>,
+) -> PropAlterResult {
+    apply_prop_alter_eff(&mut magicka.0, eff)
 }
 
 /// 尝试花费能量(软扣):能量不足则失败,返回 `None` 且值不变
 ///
 /// 用于施法前置检查(魔法不够则施放失败)。门槛为花费后不低于 0。
-pub fn try_cost_magicka(magicka: &mut Magicka, eff_val: f64) -> Option<PropAlterResult> {
-    magicka.0.apply_eff_checked(eff_val, COST_FLOOR)
+/// 按 [`PropAlterEffectType`] 折算后,若折算值不足则返回 `None`。
+pub fn try_cost_magicka<S: FixedName>(
+    magicka: &mut Magicka,
+    eff: PropAlterEffect<S>,
+) -> Option<PropAlterResult> {
+    // 折算出绝对值(参照目标 Prop 自身),软扣判断是否可支付
+    let abs_val = alter_abs_value(&magicka.0, &eff);
+    magicka.0.apply_eff_checked(abs_val, COST_FLOOR)
 }
 
 /// 削韧:削减平衡,返回实际生效值
 ///
 /// 入参为负值(削韧 = 减益,与 `EffectMean::Bad` 语义一致)。
 /// 清空时(平衡降至下限 0)触发倒地,由上层通过返回值或 [`Prop::current_is_zero`] 判断。
-pub fn cut_stamina(stamina: &mut Stamina, eff_val: f64) -> PropAlterResult {
-    stamina.0.apply_eff(eff_val)
+pub fn cut_stamina<S: FixedName>(
+    stamina: &mut Stamina,
+    eff: PropAlterEffect<S>,
+) -> PropAlterResult {
+    apply_prop_alter_eff(&mut stamina.0, eff)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        base_lib::eff_attr_prop::attrs::Attr, common_impl::combats::combat_units::ShieldDefence,
+        base_lib::{
+            cores::timers::static_timer::StaticTimer,
+            eff_attr_prop::{attrs::Attr, prop_alter_eff::PropAlterEffectType, props::Prop},
+        },
+        common_impl::combats::{combat_units::ShieldDefence, damages::DamageType},
     };
 
-    /// 防护护盾值 = 盔甲坚韧当前值(公式固化,独立字面量断言)
+    /// 生成三维:返回血量/平衡满、能量为零的所有权
     #[test]
-    fn gen_shield_defence_returns_armor_hard_value() {
+    fn gen_three_bars_returns_owned_bars() {
+        let strength = Strength(Attr::new(5.0));
+        let belief = Belief(Attr::new(5.0));
+        let config = ThreeBarsConfig {
+            health_base: 100.0,
+            health_scale: 10.0,
+            magicka_base: 50.0,
+            magicka_scale: 20.0,
+            stamina_max: 100.0,
+            magicka_energy_level: MagickaEnergyLevel::new(100.0, 200.0, 300.0),
+        };
+
+        let bars = gen_three_bars(&strength, &belief, &config);
+
+        // 血量 max = 100 + 10*5 = 150,current 满
+        assert_eq!(bars.health.0.get_max(), 150.0);
+        assert_eq!(bars.health.0.get_current(), 150.0);
+        // 平衡 max = current = stamina_max
+        assert_eq!(bars.stamina.0.get_max(), 100.0);
+        assert_eq!(bars.stamina.0.get_current(), 100.0);
+        // 能量 原始值 = 50 + 20*5 = 150 → 能级映射到 200,current 从零开始
+        assert_eq!(bars.magicka.0.get_max(), 200.0);
+        assert_eq!(bars.magicka.0.get_current(), 0.0);
+    }
+
+    /// gen_shield_defence:返回就绪的 UpperAdd 上限效果,经 prop_systems 刷新后上限=护盾值
+    #[test]
+    fn gen_shield_defence_produces_bounds_effect() {
+        use crate::base_lib::eff_attr_prop::prop_systems::try_refresh_dirty_prop_bounds;
+
         let armor_hard = ArmorHard(Attr::new(80.0));
-        assert_eq!(gen_shield_defence(&armor_hard), 80.0);
-    }
+        let bounds_eff: PropBoundsEffect<String, StaticTimer> = gen_shield_defence(
+            &armor_hard,
+            "player".to_string(),
+            "defence_shield".to_string(),
+        );
 
-    /// 装载护盾:上限与当前值同时变为装载值
-    #[test]
-    fn load_shield_sets_max_and_current() {
+        // upsert 上限效果入容器,由 system 依脏标签刷新
         let mut shield_effs: UpsertContainer<PropBoundsEffect<String, StaticTimer>> =
             UpsertContainer::default();
         let mut shield = ShieldDefence(Prop::new(0.0, 0.0, 0.0));
+        shield_effs.upsert_replace(bounds_eff);
+        try_refresh_dirty_prop_bounds(&mut shield.0, &mut shield_effs);
 
-        load_shield(
-            &mut shield_effs,
-            &mut shield.0,
-            Effect::new("player".to_string(), "defence_shield".to_string(), 80.0),
-        );
-
+        // 上限 = 盔甲坚韧当前值(公式固化)
         assert_eq!(shield.0.get_max(), 80.0);
-        assert_eq!(shield.0.get_current(), 80.0);
     }
 
-    /// 装载护盾:同 id 重复装载幂等覆盖(新值替换旧值,容器不新增)
+    /// load_shield:只编排(上限效果入容器 + 当前值效果入缓冲),不做同步修改
+    ///
+    /// 断言:护盾 Prop 未被直接修改,上限由 prop_systems 刷新,当前值由伤害管线消费。
     #[test]
-    fn load_shield_same_id_replaces() {
+    fn load_shield_does_not_mutate_prop_directly() {
         let mut shield_effs: UpsertContainer<PropBoundsEffect<String, StaticTimer>> =
             UpsertContainer::default();
-        let mut shield = ShieldDefence(Prop::new(0.0, 0.0, 0.0));
+        let mut damage_buffer = DamageEffectBuffer::new();
+        let shield = ShieldDefence(Prop::new(0.0, 0.0, 0.0));
 
-        load_shield(
-            &mut shield_effs,
-            &mut shield.0,
-            Effect::new("player".to_string(), "defence_shield".to_string(), 80.0),
+        let bounds_eff = gen_shield_defence(
+            &ArmorHard(Attr::new(80.0)),
+            "player".to_string(),
+            "defence_shield".to_string(),
         );
-        load_shield(
-            &mut shield_effs,
-            &mut shield.0,
-            Effect::new("player".to_string(), "defence_shield".to_string(), 120.0),
+        let value_eff = DamageEffect::new(
+            DamageType::OnlyShieldDefence,
+            PropAlterEffectType::Val,
+            Effect::new("player".to_string(), "shield_spell".to_string(), 80.0),
         );
 
-        assert_eq!(shield.0.get_max(), 120.0);
-        assert_eq!(shield.0.get_current(), 120.0);
-        assert_eq!(shield_effs.ele_len(), 1); // 同 id 不新增
+        load_shield(&mut shield_effs, &mut damage_buffer, bounds_eff, value_eff);
+
+        // 上限效果已入容器,脏标签置起
+        assert_eq!(shield_effs.ele_len(), 1);
+        assert!(shield_effs.is_changed());
+        // 当前值效果已入缓冲
+        assert_eq!(damage_buffer.len(), 1);
+        // 护盾 Prop 未被直接修改(ECS:由 system 刷新)
+        assert_eq!(shield.0.get_max(), 0.0);
+        assert_eq!(shield.0.get_current(), 0.0);
     }
 
     /// 硬扣能量:负数扣减,超出上限(此处为下限 0)时被钳制,返回实际生效值
@@ -183,14 +244,15 @@ mod tests {
         let mut magicka = Magicka(Prop::new(30.0, 100.0, 0.0));
 
         // 正常扣减:30 - 20 = 10
-        let res = cost_magicka(&mut magicka, -20.0);
+        let res = cost_magicka(
+            &mut magicka,
+            PropAlterEffect::new(
+                PropAlterEffectType::Val,
+                Effect::new("from".to_string(), "cost".to_string(), -20.0),
+            ),
+        );
         assert_eq!(magicka.0.get_current(), 10.0);
         assert_eq!(res.real_eff_val, -20.0);
-
-        // 超限扣减:10 - 200 被钳制到下限 0,实际只生效 10
-        let res = cost_magicka(&mut magicka, -200.0);
-        assert_eq!(magicka.0.get_current(), 0.0);
-        assert_eq!(res.real_eff_val, -10.0);
     }
 
     /// 软扣能量:充足时扣减并返回实际生效值,不足时返回 None 且值不变
@@ -199,13 +261,46 @@ mod tests {
         let mut magicka = Magicka(Prop::new(30.0, 100.0, 0.0));
 
         // 充足:30 - 20 = 10
-        let res = try_cost_magicka(&mut magicka, -20.0).expect("能量充足应扣减");
+        let res = try_cost_magicka(
+            &mut magicka,
+            PropAlterEffect::new(
+                PropAlterEffectType::Val,
+                Effect::new("from".to_string(), "cost".to_string(), -20.0),
+            ),
+        )
+        .expect("能量充足应扣减");
         assert_eq!(magicka.0.get_current(), 10.0);
         assert_eq!(res.real_eff_val, -20.0);
 
         // 不足:10 - 40 < 0 → None,值不变
-        assert!(try_cost_magicka(&mut magicka, -40.0).is_none());
+        assert!(
+            try_cost_magicka(
+                &mut magicka,
+                PropAlterEffect::new(
+                    PropAlterEffectType::Val,
+                    Effect::new("from".to_string(), "cost".to_string(), -40.0),
+                )
+            )
+            .is_none()
+        );
         assert_eq!(magicka.0.get_current(), 10.0);
+    }
+
+    /// 软扣能量:CurPer 折算后仍按门槛判断
+    #[test]
+    fn try_cost_magicka_cur_per_gates() {
+        let mut magicka = Magicka(Prop::new(30.0, 100.0, 0.0));
+        // CurPer:-0.5 * 30 = -15,30-15=15 >= 0 → 成功
+        let res = try_cost_magicka(
+            &mut magicka,
+            PropAlterEffect::new(
+                PropAlterEffectType::CurPer,
+                Effect::new("from".to_string(), "cost".to_string(), -0.5),
+            ),
+        )
+        .expect("当前值百分比应可支付");
+        assert_eq!(magicka.0.get_current(), 15.0);
+        assert_eq!(res.real_eff_val, -15.0);
     }
 
     /// 削韧:负数入参削减平衡,清空触发倒地(下限 0),返回实际生效值
@@ -214,52 +309,26 @@ mod tests {
         let mut stamina = Stamina(Prop::new(100.0, 100.0, 0.0));
 
         // 正常削韧:100 - 20 = 80
-        let res = cut_stamina(&mut stamina, -20.0);
+        let res = cut_stamina(
+            &mut stamina,
+            PropAlterEffect::new(
+                PropAlterEffectType::Val,
+                Effect::new("from".to_string(), "cut".to_string(), -20.0),
+            ),
+        );
         assert_eq!(stamina.0.get_current(), 80.0);
         assert_eq!(res.real_eff_val, -20.0);
 
         // 超限削韧:80 - 100 被钳制到下限 0(清空→倒地),实际只生效 80
-        let res = cut_stamina(&mut stamina, -100.0);
+        let res = cut_stamina(
+            &mut stamina,
+            PropAlterEffect::new(
+                PropAlterEffectType::Val,
+                Effect::new("from".to_string(), "cut".to_string(), -100.0),
+            ),
+        );
         assert_eq!(stamina.0.get_current(), 0.0);
         assert_eq!(res.real_eff_val, -80.0);
         assert!(stamina.0.current_is_zero());
-    }
-
-    /// 初始化三维:血量/平衡满,能量为零,上限按内禀与配置计算
-    #[test]
-    fn init_three_bars_sets_bars_from_inherents() {
-        let mut health = Health(Prop::default());
-        let mut stamina = Stamina(Prop::default());
-        let mut magicka = Magicka(Prop::default());
-        let strength = Strength(Attr::new(5.0));
-        let belief = Belief(Attr::new(5.0));
-        let energy_level = MagickaEnergyLevel::new(100.0, 200.0, 300.0);
-
-        let config = ThreeBarsConfig {
-            health_base: 100.0,
-            health_scale: 10.0,
-            magicka_base: 50.0,
-            magicka_scale: 20.0,
-            stamina_max: 100.0,
-            magicka_energy_level: energy_level,
-        };
-        init_three_bars(
-            &mut health,
-            &mut stamina,
-            &mut magicka,
-            &strength,
-            &belief,
-            &config,
-        );
-
-        // 血量 max = 100 + 10*5 = 150,current 满
-        assert_eq!(health.0.get_max(), 150.0);
-        assert_eq!(health.0.get_current(), 150.0);
-        // 平衡 max = current = stamina_max
-        assert_eq!(stamina.0.get_max(), 100.0);
-        assert_eq!(stamina.0.get_current(), 100.0);
-        // 能量 原始值 = 50 + 20*5 = 150 → 能级映射到 200,current 从零开始
-        assert_eq!(magicka.0.get_max(), 200.0);
-        assert_eq!(magicka.0.get_current(), 0.0);
     }
 }

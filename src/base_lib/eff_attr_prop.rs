@@ -65,3 +65,7 @@ pub mod props;
 // systems
 
 pub mod attr_systems;
+
+pub mod prop_alter_eff;
+
+pub mod prop_systems;

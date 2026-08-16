@@ -41,5 +41,5 @@ _Avoid_: iter_mut 不置脏的「纯时间推进不算修改」语义(潜在绕�
 _Avoid_: 减益入口用正数+内部取反(割裂「负=减益、正=增益」的符号一致性,调用方无法按 `EffectMean` 直觉书写)
 
 **完整 Effect**:
-凡涉及效果的**持久**上层封装,入参默认传完整 `Effect<S>`(含 `from_name`/`effect_name`/`effect_value`),除非特殊要求。`Effect` 的 id 由 from/eff 名决定,参与 upsert 幂等与来源记录(死因/结算)。`load_shield` 等装载/施法入口接收完整 `Effect<S>`;**即时(非持久)资源变更例外**——如扣能量/削韧等一次性数值变更无 id 参与 upsert,收裸数值(`cost_magicka`/`cut_stamina` 等)。
-_Avoid_: 以裸数值入参替换 `Effect`(丢失来源与 id,无法幂等合并、无法记录来源——持久效果场景)
+凡涉及效果的上层封装,入参默认传完整 `Effect<S>`(含 `from_name`/`effect_name`/`effect_value`),除非特殊要求。`Effect` 的 id 由 from/eff 名决定,参与 upsert 幂等与来源记录(死因/结算)。`load_shield` 等装载入口接收完整 `Effect<S>`;**即时(非持久)资源变更同样经 [`PropAlterEffect`] 包装传完整 `Effect`**——如扣能量/削韧(`cost_magicka`/`cut_stamina`)虽无 id 参与 upsert,但保持"来源 + 计算方式"统一表达。
+_Avoid_: 以裸数值入参替换 `Effect`(丢失来源与计算方式,无法按 `PropAlterEffectType` 表达百分比修改)

@@ -15,13 +15,6 @@
 //!   - Entropy 熵（炎热寒冷）
 //!   - Electric 电势能
 //!
-//! 已实现（见 [`super::combat_units_system`]）
-//! - 根据内禀属性初始化三维 → `init_three_bars`
-//! - 根据外赋属性生成护盾 → `gen_shield_defence`（防护护盾值,调用方再手动装载）
-//! - 装载奥术护盾和替身护盾 → `load_shield`（防护/奥术/替身通用,值由调用方传入）
-//! - 花费能量和尝试花费 → `cost_magicka` / `try_cost_magicka`
-//! - 削韧 冲击-平衡 → `cut_stamina`
-//!
 //! todo 后续系统性实现
 //! - 实现角色周期性效果
 //! - 生命值以最大值的百分比进行恢复
