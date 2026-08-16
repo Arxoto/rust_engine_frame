@@ -28,7 +28,7 @@ pub mod time_type {
         v
     }
 
-    /// [WARNING!!!] use in test
+    /// WARNING!!! use in test
     #[inline(always)]
     pub const fn unit<const V: u32>() -> T {
         1.0 * V as f64
@@ -60,7 +60,7 @@ pub mod time_type {
         v.as_secs_f64()
     }
 
-    /// [WARNING!!!] use in test
+    /// WARNING!!! use in test
     #[inline(always)]
     pub const fn unit<const V: u32>() -> T {
         Duration::from_secs(V as u64)

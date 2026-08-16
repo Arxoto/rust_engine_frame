@@ -123,7 +123,7 @@ pub fn cost_magicka<S: FixedName>(
 /// 尝试花费能量(软扣):能量不足则失败,返回 `None` 且值不变
 ///
 /// 用于施法前置检查(魔法不够则施放失败)。门槛为花费后不低于 0。
-/// 按 [`PropAlterEffectType`] 折算后,若折算值不足则返回 `None`。
+/// 按 [`crate::base_lib::eff_attr_prop::prop_alter_eff::PropAlterEffectType`] 折算后,若折算值不足则返回 `None`。
 pub fn try_cost_magicka<S: FixedName>(
     magicka: &mut Magicka,
     eff: PropAlterEffect<S>,

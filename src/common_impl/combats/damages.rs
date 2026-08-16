@@ -129,65 +129,43 @@ impl MagickaEnergyLevel {
 ///
 /// ## 受伤上限
 ///
-/// 受伤上限 本质即 生命值和护盾值
+/// 【受伤上限】 本质即 【生命值和护盾值】 的组合
 ///
 /// - 生命值 [`Health`]
-///   - 直接正相关 [`Strength`] [`damage_system::calc_health_max`]
+///   - 直接正相关 [`Strength`] see [`damage_system::calc_health_max`]
 /// - 替身护盾 [`ShieldSubstitute`]
 ///   - 直接正相关 [`Belief`] todo 信念超过阈值才能激发替身护盾
 /// - 防护护盾 [`ShieldDefence`]
-///   - 直接正相关 [`ArmorHard`] [`damage_system::calc_defence_shield`]
+///   - 直接正相关 [`ArmorHard`] see [`damage_system::calc_defence_shield`]
 ///   - 间接正相关 [`Strength`] todo 数值上盔甲坚韧与质量呈正相关，气力决定可穿戴质量，因此可以近似取代
 /// - 奥术护盾 [`ShieldArcane`]
 ///   - 直接正相关 [`Belief`] todo
 ///
-/// 不同 伤害类型 [`DamageType`] 对应的 受伤上限 见 [`damage_system::apply_damages`]
-///
-/// - 真实伤害 [`DamageType::OnlyHealth`]
-///   - 伤害 [`Health`]
-/// - 物理剪切 [`DamageType::PhysicsShears`]
-///   - 伤害 [`Health`] [`ShieldSubstitute`] [`ShieldDefence`]
-/// - 物理冲击 [`DamageType::PhysicsImpact`]
-///   - 伤害 [`Health`] [`ShieldSubstitute`]
-/// - 魔法奥术 [`DamageType::MagickaArcane`]
-///   - 伤害 [`Health`] [`ShieldSubstitute`] [`ShieldArcane`]
-/// - 不考虑破盾伤害，与上面相似
+/// 不同 【伤害类型】 [`DamageType`] 对应的 【生命值和护盾值】 see [`DamageType::target_types`]
 ///
 /// ## 伤害成长
 ///
-/// 不同 伤害类型 [`DamageType`] 对应的 伤害缩放 见 [`damage_system::calc_damage_scale`]
+/// 不同 【伤害类型】 [`DamageType`] 对应的 【伤害缩放】 see [`damage_system::calc_damage_scale`]
 ///
-/// - 真实伤害 [`DamageType::OnlyHealth`]
-///   - 为招式固有属性，与角色收获相关，使用内禀属性代替
-///   - 间接正相关 [`Strength`] or [`Belief`]
-/// - 物理剪切 [`DamageType::PhysicsShears`]
-///   - 直接正相关 [`Strength`] * [`WeaponSharp`]
-///   - 其中 [`WeaponSharp`] 为武器固有属性，随角色成长增长，但是设计边际递减
-///   - 近似正相关 [`Strength`]
-/// - 物理冲击 [`DamageType::PhysicsImpact`]
-///   - 直接正相关 ([`Strength`] + [`WeaponMass`]) / [`ArmorSoft`]
-///   - 其中 [`WeaponMass`] 和 [`ArmorSoft`] 均为武器盔甲固有属性，都设计边际递减
-///   - 近似正相关 [`Strength`]
-/// - 魔法奥术 [`DamageType::MagickaArcane`]
-///   - 直接正相关 [`Belief`]
+/// ## 平衡性分析
 ///
-/// 伤害成长 与 受伤上限 数值平衡分析（玩家受击角度）
-/// （根据伤害类型找到针对的资源条、再找到相关的成长属性，对比伤害成长来源，二者是否能相互抵消）
+/// 从“玩家受击角度”进行数值平衡分析
+/// （根据伤害类型找到对应的 【生命值和护盾值】 、再找到相关的成长属性，对比伤害成长来源，二者是否能相互抵消）
 ///
 /// - 真实伤害 [`DamageType::OnlyHealth`]
 ///   - 受伤上限 正相关 [`Strength`]
-///   - 伤害成长 正相关 [`Strength`] or [`Belief`]
+///   - 伤害成长 正相关 [`Strength`] or [`Belief`] （招式固有属性，不缩放，与角色收获相关，使用内禀属性代替）
 ///   - 对于 [`Strength`] 成长是平衡的
 ///   - 对于 [`Belief`] 成长【受击者不利】，算作差异性，不在此系统弥补
 ///   - 由于其不平衡性，应注意避免数值膨胀，并在其他机制弥补，如：替死法术、冲击韧性机制、远程拉扯等
-/// - 物理剪切 [`DamageType::PhysicsShears`]
-///   - 受伤上限 正相关 [`Strength`] * 2 + [`Belief`]
-///   - 伤害成长 正相关 [`Strength`]
-///   - 对于 [`Strength`] 成长是平衡的
-///   - 对于 [`Belief`] 成长【攻击者不利】，可令法术附带该类伤害
 /// - 物理冲击 [`DamageType::PhysicsImpact`]
 ///   - 受伤上限 正相关 [`Strength`] + [`Belief`]
-///   - 伤害成长 正相关 [`Strength`]
+///   - 伤害成长 正相关 [`Strength`] （ [`WeaponMass`] 和 [`ArmorSoft`] 均为武器盔甲固有属性，设计边际递减）
+///   - 对于 [`Strength`] 成长是平衡的
+///   - 对于 [`Belief`] 成长【攻击者不利】，可令法术附带该类伤害
+/// - 物理剪切 [`DamageType::PhysicsShears`]
+///   - 受伤上限 正相关 [`Strength`] * 2 + [`Belief`]
+///   - 伤害成长 正相关 [`Strength`] （ [`WeaponSharp`] 为武器固有属性，设计边际递减）
 ///   - 对于 [`Strength`] 成长是平衡的
 ///   - 对于 [`Belief`] 成长【攻击者不利】，可令法术附带该类伤害
 /// - 魔法奥术 [`DamageType::MagickaArcane`]
@@ -205,9 +183,23 @@ pub mod damage_system {
     impl DamageType {
         /// 不同伤害类型 对哪些资源进行伤害
         ///
+        /// ## 返回值约束
+        ///
         /// 为明确业务逻辑，做以下约束
         /// - 若返回不是单元素，那么里面元素的 [`PropAboutDamageType::order_val`] 必须依次连续下降
         /// - 如 [2, 1, 0] / [1, 0] ，而不是 [2, 0]（不连续） [2, 2]（没有下降）
+        ///
+        /// ## 设定
+        ///
+        /// - 真实伤害 [`DamageType::OnlyHealth`]
+        ///   - 伤害 [`Health`]
+        /// - 物理冲击 [`DamageType::PhysicsImpact`]
+        ///   - 伤害 [`Health`] & [`ShieldSubstitute`]
+        /// - 物理剪切 [`DamageType::PhysicsShears`]
+        ///   - 伤害 [`Health`] & [`ShieldSubstitute`] & [`ShieldDefence`]
+        /// - 魔法奥术 [`DamageType::MagickaArcane`]
+        ///   - 伤害 [`Health`] & [`ShieldSubstitute`] & [`ShieldArcane`]
+        /// - 破盾专精伤害对应护盾
         pub fn target_types(&self) -> &[PropAboutDamageType] {
             match self {
                 DamageType::OnlyHealth => &[PropAboutDamageType::Health],
@@ -458,6 +450,20 @@ pub mod damage_system {
     }
 
     /// 伤害缩放
+    ///
+    /// ## 设定
+    ///
+    /// - 真实伤害 [`DamageType::OnlyHealth`] 或护盾专精
+    ///   - 不缩放
+    /// - 物理冲击 [`DamageType::PhysicsImpact`]
+    ///   - 直接正相关 ([`Strength`] + [`WeaponMass`]) / [`ArmorSoft`]
+    ///   - 同时正相关 [`Magicka`]
+    /// - 物理剪切 [`DamageType::PhysicsShears`]
+    ///   - 直接正相关 [`Strength`] * [`WeaponSharp`]
+    ///   - 同时正相关 [`Magicka`]
+    /// - 魔法奥术 [`DamageType::MagickaArcane`]
+    ///   - 直接正相关 [`Belief`]
+    ///   - 同时正相关 [`Magicka`]
     pub fn calc_damage_scale(
         dmg_type: DamageType,
         source_strength: &Strength,
