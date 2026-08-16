@@ -5,7 +5,10 @@
 
 use crate::base_lib::{
     cores::unify_types::FixedName,
-    eff_attr_prop::{effects::Effect, props::Prop},
+    eff_attr_prop::{
+        effects::Effect,
+        props::{Prop, PropAlterResult},
+    },
 };
 
 /// 对 Prop 的修改计算方式
@@ -17,6 +20,16 @@ pub enum PropAlterEffectType {
     CurPer,
     /// 根据最大值的百分比
     MaxPer,
+}
+
+impl PropAlterEffectType {
+    pub fn alter_abs_val(&self, eff_val: f64, prop: &Prop) -> f64 {
+        match self {
+            Self::Val => eff_val,
+            Self::CurPer => eff_val * prop.get_current(),
+            Self::MaxPer => eff_val * prop.get_max(),
+        }
+    }
 }
 
 /// 对 Prop 的修改描述:计算方式 + 效果
@@ -39,7 +52,7 @@ impl<S: FixedName> PropAlterEffect<S> {
 pub fn apply_prop_alter_eff<S: FixedName>(
     prop: &mut Prop,
     eff: PropAlterEffect<S>,
-) -> crate::base_lib::eff_attr_prop::props::PropAlterResult {
+) -> PropAlterResult {
     let abs_val = alter_abs_value(prop, &eff);
     prop.apply_eff(abs_val)
 }
@@ -49,11 +62,7 @@ pub fn apply_prop_alter_eff<S: FixedName>(
 /// 供软扣等"先判断能否支付、再决定是否应用"的场景复用同一折算逻辑。
 pub fn alter_abs_value<S: FixedName>(prop: &Prop, eff: &PropAlterEffect<S>) -> f64 {
     let eff_val = eff.eff.get_effect_value();
-    match eff.eff_type {
-        PropAlterEffectType::Val => eff_val,
-        PropAlterEffectType::CurPer => eff_val * prop.get_current(),
-        PropAlterEffectType::MaxPer => eff_val * prop.get_max(),
-    }
+    eff.eff_type.alter_abs_val(eff_val, prop)
 }
 
 #[cfg(test)]

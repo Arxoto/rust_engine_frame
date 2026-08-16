@@ -371,11 +371,7 @@ pub mod damage_system {
             };
 
             // 根据伤害算法计算伤害绝对值
-            let abs_eff_val = match eff_type {
-                PropAlterEffectType::Val => origin_eff_val,
-                PropAlterEffectType::CurPer => origin_eff_val * base_prop.get_current(),
-                PropAlterEffectType::MaxPer => origin_eff_val * base_prop.get_max(),
-            };
+            let abs_eff_val = eff_type.alter_abs_val(origin_eff_val, base_prop);
 
             // 累加绝对值
             if let Some(merged_dmg) = merged_dmg {
