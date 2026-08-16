@@ -35,3 +35,11 @@ _Avoid_: 字段私有且无构造器的公开输入类型
 **修改即置脏**:
 `UpsertContainer` 的脏标记契约——任何可能的修改都置脏,不论实际是否改动。可触及可变状态的入口一律置脏:`iter_mut` 创建、`select_mut_ele` 命中、`upsert_ele`/`delete_ele` 成功;唯一例外是 `delete_ele` miss(连修改可能性都不存在)。清洞(`try_clean_hole`)是纯布局整理,不改变效果集合/数值,不置脏。代价:唯一「改了但无需重算」的场景(重置时间线,经 `iter_mut` 改计时器而效果数值不变,按年一次)也触发一次属性重算,可接受;换取语义简单一致、杜绝经 `iter_mut` 静默绕过 `try_refresh_dirty_attr`。
 _Avoid_: iter_mut 不置脏的「纯时间推进不算修改」语义(潜在绕过刷新);为优化区分「实际改与未改」的精细脏标记
+
+**负数入参**:
+减益/伤害类效果入参用负值,与 `EffectMeaning` 的 `Bad` 语义一致(`EffectMean::which_nature` 以加法类基线 0、乘法类基线 1 判断,负于基线为减益)。`cut_stamina`、`apply_eff` 等减益入口的调用方传负值;增益/治疗类传正值。
+_Avoid_: 减益入口用正数+内部取反(割裂「负=减益、正=增益」的符号一致性,调用方无法按 `EffectMean` 直觉书写)
+
+**完整 Effect**:
+凡涉及效果的**持久**上层封装,入参默认传完整 `Effect<S>`(含 `from_name`/`effect_name`/`effect_value`),除非特殊要求。`Effect` 的 id 由 from/eff 名决定,参与 upsert 幂等与来源记录(死因/结算)。`load_shield` 等装载/施法入口接收完整 `Effect<S>`;**即时(非持久)资源变更例外**——如扣能量/削韧等一次性数值变更无 id 参与 upsert,收裸数值(`cost_magicka`/`cut_stamina` 等)。
+_Avoid_: 以裸数值入参替换 `Effect`(丢失来源与 id,无法幂等合并、无法记录来源——持久效果场景)
