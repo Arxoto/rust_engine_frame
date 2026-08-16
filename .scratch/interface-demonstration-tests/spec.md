@@ -1,6 +1,6 @@
 # Spec: 接口演示测试(等级 B)
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem Statement
 

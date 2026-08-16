@@ -1,6 +1,6 @@
 # Spec: 可构造的公开输入(等级 A)
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem Statement
 
