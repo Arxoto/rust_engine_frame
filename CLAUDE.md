@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Intro
+
+The project aims to be an **engine-agnostic general-purpose game foundation framework**: game business logic is driven by upper layers calling `pub fn`s exposed by this crate.
+
+Because this is a library, some methods have no in-tree callers — each one is instead demonstrated by a doc test or an inline unit test showing how to use it.
+
 ## Build & Test
 
 ```bash
