@@ -20,6 +20,9 @@
 //!   - 但是只读和可变特征分离会导致代码量增加
 //!
 //! 目前选择“组合”方案，并对【有限触发】功能做集成实现（他用到的地方比【可暂停】功能少得多）
+//! - 组合方案必须要借助 [`crate::base_lib::cores::design_patterns::Union`] 生成一个临时的持有引用的变量
+//! - 无法通过形如定义特征 `fn is_paused(&self, ctx: Self::Ctx<'_>)` 来实现
+//! - 因为特征 [`DependCtx`] 要求一个类型只能关联一种 Ctx 类型，而“可暂停计时器”底层的计时器有多种类型
 //!
 //! trait 面按能力边界拆分，不进行合并。 8 个 trait 对应不同能力(进度模型/完成状态/手动控制/循环触发/暂停读/暂停写/tick/HasTimer)。
 //! - `TimerProgress` (进度) 与 `TimerView` (完成状态) 是两种能力， `TimerControl` 与 `CyclicalTrigger` 同理， `TickTimer`/`StaticTimer` 无循环触发能力

@@ -16,6 +16,10 @@ _Avoid_: 统一先 tick(对帮助类而言窗口被削)
 计时器 trait 面按「只读/可变」极性拆分的组合原则:组合代理只读侧仅持共享引用(`&T`)、可变侧才持可变引用(`&mut T`),同一 trait 若混入两类方法,只读代理因权限截断无法实现。只读能力(`TimerProgress`/`TimerView`)与可变能力(`TimerControl`/`CyclicalTrigger`/`Tickable`)必须分开。
 _Avoid_: 单 trait 混入只读与可变方法
 
+**一类型一 Ctx**:
+`DependCtx` 要求一个类型只关联一种 `Ctx<'a>`。要代理多种底层计时器(不同 Ctx)的预制体(如 `PausePrefab`)因此无法用 `fn is_paused(&self, ctx: Self::Ctx<'_>)` 式特征方法表达,只能经 `Union` 组合临时代理、由具体被代理类型解析 Ctx。与「只读可变分离」同源,都是 Union 组合必要性的支柱。
+_Avoid_: 给可暂停/有限触发预制体引入带 ctx 参数的特征方法
+
 **调用税**:
 无上下文计时器(`Ctx = ()`)调用计时器 trait 方法时需显式传 `()` 的记号负担。是统一抽象(方案二,`DependCtx`)的可见代价,blanket impl 无法消除(方法签名不可变,同名方法触发 E0034 歧义),刻意保留。
 _Avoid_: 把 `(())` 当作可消除的缺陷反复提案
