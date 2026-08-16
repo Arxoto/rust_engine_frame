@@ -1,7 +1,7 @@
 # WithInto 降为私有或删除
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 
 `design_patterns.rs` 的 `WithInto<Ctx>`(第 49-53 行)是方案一的残留,公开导出但零生产调用,只活在 `design_patterns.rs` 自己的测试里(第 68-74、112-131、155-169 行)。将其降为私有(`pub(crate)` 或模块内)或删除;若 `motions/actions.rs` 仍用 `Union::new`,保留 `Union` 本身。spec:`interface-deepening/spec.md`。
 

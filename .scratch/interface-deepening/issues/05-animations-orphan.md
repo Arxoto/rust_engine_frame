@@ -1,7 +1,7 @@
 # animations.rs 孤儿文件处理
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 
 `base_lib/motions/animations.rs` 仅含模块文档("动画播放器结束信号自动衔接下一段动画"),未被 `motions.rs` 声明(`motions.rs:25-31`),是死重。并入 `motions.rs`(保留该设计为模块文档)或删除;并同步更新 CLAUDE.md 对应条目(`animations.rs` 段落)。spec:`interface-deepening/spec.md`。
 

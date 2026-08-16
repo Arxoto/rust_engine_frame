@@ -1,6 +1,6 @@
 # Spec: 接口加深(等级 C)
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem Statement
 
