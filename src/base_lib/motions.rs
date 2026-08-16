@@ -24,6 +24,8 @@
 
 pub mod actions;
 
+pub mod animations;
+
 pub mod behaviours;
 
 pub mod controllers;
