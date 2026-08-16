@@ -22,9 +22,8 @@
 //! 目前选择“组合”方案，并对【有限触发】功能做集成实现（他用到的地方比【可暂停】功能少得多）
 //!
 //! trait 面按能力边界拆分，不进行合并。 8 个 trait 对应不同能力(进度模型/完成状态/手动控制/循环触发/暂停读/暂停写/tick/HasTimer)。
-//! - `TimerProgress` (进度) 与 `TimerView` (完成状态) 是两种能力
-//! - `TimerControl` 与 `CyclicalTrigger` 同理， `TickTimer`/`StaticTimer` 无循环触发能力
-//! 合并会强迫仅实现单能力的类型实现无语义方法，并且组合方案生成的临时引用代理要求只读和可变能力需要进行区分，故刻意保持拆分(决议见 `.scratch/interface-deepening/issues/01`)。
+//! - `TimerProgress` (进度) 与 `TimerView` (完成状态) 是两种能力， `TimerControl` 与 `CyclicalTrigger` 同理， `TickTimer`/`StaticTimer` 无循环触发能力
+//! - 合并会强迫仅实现单能力的类型实现无语义方法，并且组合方案生成的临时引用代理要求只读和可变能力需要进行区分，故刻意保持拆分(决议见 `.scratch/interface-deepening/issues/01`)。
 
 use crate::base_lib::cores::{design_patterns::DependCtx, unify_types::time_type};
 

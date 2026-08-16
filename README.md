@@ -11,8 +11,8 @@
 代码提交前使用工具化检查（或在 CI 持续集成流程中启用）：
 ```shell
 # todo
-cargo fmt     # 代码格式化
 cargo clippy  # 代码质量分析
+cargo fmt     # 代码格式化
 cargo test    # 运行测试用例
 ```
 
