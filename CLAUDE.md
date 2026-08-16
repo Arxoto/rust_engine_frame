@@ -133,6 +133,7 @@ The combat structs **deliberately use `pub` fields** so they can be split/flatte
 
 ## Testing
 
+- **Every `pub fn` is demonstrated by a test** — because business logic is driven from outside the crate (see Project Intro), a method may have no in-tree callers. Each one must still be shown by a doc test or an inline unit test demonstrating how an upper layer calls it. An unconstructible public input type counts as a violation: a `pub fn` whose parameters cannot be built is an interface an upper layer cannot call — public types feeding `pub fn`s need a public construction path.
 - Unit tests are inline in `#[cfg(test)]` blocks within each source file.
 - Integration tests live in `tests/`; `tests/bevy_tests.rs` + `tests/bevy_plugins/` are gated on `feature = "bevyproj"` and must be run with `--no-default-features --features bevyproj,time_type_f64`. `tests/state_machine_action_tests.rs` is a non-gated smoke test that exercises the `tests/common` helper.
 - Test helpers in `tests/common/common_helper.rs`.
