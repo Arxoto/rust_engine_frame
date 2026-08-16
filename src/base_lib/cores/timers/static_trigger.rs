@@ -97,6 +97,28 @@ impl DependCtx for FewShotStaticTrigger {
     type Ctx<'a> = &'a StaticTimeline;
 }
 
+impl TimerProgress for FewShotStaticTrigger {
+    #[rustfmt::skip]
+    fn elapsed(&self, ctx: &StaticTimeline) -> time_type::T {
+        self.inf_tg.elapsed(ctx)
+    }
+
+    #[rustfmt::skip]
+    fn remaining(&self, ctx: &StaticTimeline) -> time_type::T {
+        self.inf_tg.remaining(ctx)
+    }
+
+    #[rustfmt::skip]
+    fn duration(&self, ctx: &StaticTimeline) -> time_type::T {
+        self.inf_tg.duration(ctx)
+    }
+
+    #[rustfmt::skip]
+    fn progress(&self, ctx: &StaticTimeline) -> f64 {
+        self.inf_tg.progress(ctx)
+    }
+}
+
 impl TimerView for FewShotStaticTrigger {
     #[rustfmt::skip]
     fn is_completed(&self, ctx: &StaticTimeline) -> bool {
@@ -120,5 +142,43 @@ impl CyclicalTrigger for FewShotStaticTrigger {
     #[rustfmt::skip]
     fn try_trigger_once(&mut self, ctx: &StaticTimeline) -> bool {
         self.few_shot.of_cyclical_trigger(&mut self.inf_tg).try_trigger_once(ctx)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base_lib::cores::timers::tiny_timer::Tickable;
+
+    /// FewShotStaticTrigger 的进度透传内层 InfiniteStaticTrigger;完成状态由 few-shot 额度决定
+    #[test]
+    fn few_shot_static_trigger_progress_delegates_and_completion_from_quota() {
+        let mut timeline = StaticTimeline::new();
+        let mut t = FewShotStaticTrigger::new(&timeline, time_type::unit::<3>(), 2);
+
+        // 初始:elapsed 0、remaining 一个周期、进度 0、未完成
+        assert_eq!(t.elapsed(&timeline), time_type::ZERO);
+        assert_eq!(t.remaining(&timeline), time_type::unit::<3>());
+        assert_eq!(t.duration(&timeline), time_type::unit::<3>());
+        assert!(!t.is_completed(&timeline));
+
+        // 推进 2s:进度跟随内层触发器
+        timeline.0.tick(time_type::unit::<2>());
+        assert_eq!(t.elapsed(&timeline), time_type::unit::<2>());
+        assert_eq!(t.remaining(&timeline), time_type::unit::<1>());
+        assert_eq!(t.progress(&timeline), 1.0 - 1.0 / 3.0); // 同构表达式
+        assert!(!t.is_completed(&timeline));
+
+        // 到达周期触发第 1 次:内层周期被消费,elapsed 归零
+        timeline.0.tick(time_type::unit::<1>());
+        assert!(t.try_trigger_once(&timeline));
+        assert_eq!(t.elapsed(&timeline), time_type::ZERO);
+        assert!(!t.is_completed(&timeline));
+
+        // 第 2 次触发后额度耗尽:is_completed 来自 few-shot 额度,而非内层(内层永不完成)
+        timeline.0.tick(time_type::unit::<3>());
+        assert!(t.try_trigger_once(&timeline));
+        assert!(t.is_completed(&timeline));
+        assert!(!t.inf_tg.is_completed(&timeline));
     }
 }

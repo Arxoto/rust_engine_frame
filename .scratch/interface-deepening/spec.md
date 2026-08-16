@@ -12,7 +12,7 @@ Status: ready-for-agent
 
 ## Solution
 
-- **计时器**:收拢 trait 面 —— 合并过度拆分(暂停 View/Control 围绕单布尔;`TimerProgress`+`TimerView`;单方法 `CyclicalTrigger`),为 `Ctx = ()` 提供 blanket impl 消除 `(())` 税,移除或私有化零调用 `WithInto`;新 prefab 的 impl 块从约 10 个降至少量。**保留 `StaticTimeline`/`StaticTimer` 上下文机制** —— 它是"无引擎依赖 + 长期效果"的承重结构(与 README 项目介绍一致)。
+- **计时器**:**trait 面不合并(否决「收拢 trait 面」方向,决议见 issue 01)** —— 各 trait 的能力边界有真实语义:`TimerProgress`=进度模型 vs `TimerView`=完成状态(`FewShotStaticTrigger` 是「仅状态、无进度」的现成反例);`TimerControl` vs `CyclicalTrigger`(`TickTimer`/`StaticTimer` 无循环触发);暂停 View/Control 的只读可变分离。合并会把不同能力耦合、强迫仅实现单能力的类型实现无语义方法。实际交付:补全 `FewShotStaticTrigger` 的 `TimerProgress`(透传内层 `InfiniteStaticTrigger`)。`Ctx = ()` 的 `(())` 调用税与 `WithInto` 处理仍按 issue 02/03 推进。**保留 `StaticTimeline`/`StaticTimer` 上下文机制** —— 它是"无引擎依赖 + 长期效果"的承重结构(与 README 项目介绍一致)。
 - **`UpsertContainer`**:统一 dirty 语义(或提供显式批量 API),将清洞调度收进容器,提供默认合并策略方法,并用测试钉住契约。
 - **`animations.rs`**:并入 `motions.rs`(保留动画过渡设计文档)或删除,并同步更新 CLAUDE.md。
 
@@ -31,7 +31,7 @@ Status: ready-for-agent
 ## Implementation Decisions
 
 - **计时器加深,保留方案二**:`DependCtx` 关联类型方案是既定选型(见 `design_patterns.rs`),不加反转。仅对 `Ctx = ()` 提供 blanket impl 消除 `(())` 税。
-- **合并 trait**:暂停 View/Control 围绕单布尔过度拆分,合并为一对或默认方法;`TimerView::is_completed` 与 `TimerProgress::progress` 视删除测试考量合并或提供默认实现(需论证借用冲突的原有理由是否仍成立)。
+- **合并 trait:已否决(issue 01 决议)**。理由:(1) `TimerProgress`/`TimerView` 是「进度模型」与「完成状态」两种能力,`FewShotStaticTrigger` 只实现后者,证明拆分必要;(2) `TimerControl`/`CyclicalTrigger` 同理,`TickTimer`/`StaticTimer` 无循环触发能力;(3) 暂停 View/Control 拆分符合「只读可变分离」原则。保留 8 个 trait 拆分。可选的清理(未纳入决议):删除暂停 Union 死代理。
 - **`WithInto`**:降为私有或删除(若 `motions/actions.rs` 仍用 `Union::new`,保留 `Union` 本身)。
 - **删除测试**:加深的验收标准是"删除过度拆分后,复杂度集中在计时器模块内部,而非散落调用方"(删除测试通过)。
 - **`UpsertContainer` 语义统一**:倾向"任何修改都置脏";若代价过大,则提供显式 `begin_batch`/`end_batch` API 使批量修改也纳入脏跟踪。`UpsertContainerCleaner` 与清理周期常量收进容器或容器模块;新增默认合并策略方法(如 `upsert_replace`)。
