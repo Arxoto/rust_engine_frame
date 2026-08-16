@@ -10,6 +10,7 @@ use crate::{
     },
 };
 
+/// 存放伤害或治疗效果的 buffer
 #[derive(Debug)]
 pub struct DamageEffectBuffer<S: FixedName>(Vec<DamageEffect<S>>);
 
@@ -22,18 +23,18 @@ pub struct DamageInfo<S: FixedName> {
 
 #[derive(Debug, Clone)]
 pub struct DamageEffect<S: FixedName> {
+    /// 伤害类型，伤害针对的哪些目标
     dmg_type: DamageType,
-    /// 计算方式。原为 `DamageCalc`,后泛化为 [`PropAlterEffectType`]
-    /// (绝对/当前百分比/最大百分比),与 [`crate::base_lib::eff_attr_prop::prop_alter_eff::PropAlterEffect`]
-    /// 共享同一计算语义。
+    /// 伤害生效方式（绝对值或是百分比）
+    ///
+    /// 与 [`crate::base_lib::eff_attr_prop::prop_alter_eff::PropAlterEffect`] 共享同一计算语义
     eff_type: PropAlterEffectType,
     eff: Effect<S>,
 }
 
 impl<S: FixedName> DamageEffect<S> {
-    /// 构造一次伤害效果
+    /// 构造单次伤害效果
     ///
-    /// 公开构造路径：上层无需访问私有字段即可创建伤害输入，
     /// 推入 [`DamageEffectBuffer`] 后由伤害系统消费。
     #[must_use]
     pub fn new(dmg_type: DamageType, eff_type: PropAlterEffectType, eff: Effect<S>) -> Self {
@@ -78,49 +79,27 @@ impl<S: FixedName> DamageEffectBuffer<S> {
 
 #[derive(Debug, Clone, Copy)]
 pub enum DamageType {
-    /// 因果论的真实伤害
-    KarmaTruth,
-    /// 物理剪切 尖锐
-    PhysicsShear,
+    /// 仅作用于生命值，可用作真实伤害或治疗
+    OnlyHealth,
+    /// 仅作用于替身护盾 （适用于添加护盾或破盾伤害，仅对本层护盾生效）
+    OnlyShieldSubstitute,
+    /// 仅作用于防护护盾 （适用于添加护盾或破盾伤害，仅对本层护盾生效）
+    OnlyShieldDefence,
+    /// 仅作用于奥术护盾 （适用于添加护盾或破盾伤害，仅对本层护盾生效）
+    OnlyShieldArcane,
+
     /// 物理冲击 沉重
     PhysicsImpact,
+    /// 物理剪切 尖锐
+    PhysicsShears,
     /// 魔法奥术
     MagickaArcane,
-
-    /// 防护破盾
-    BrokeShieldDefence,
-    /// 奥术破盾
-    BrokeShieldArcane,
-
-    /// 仅作用于防护护盾(装载/修改其当前值,不产生伤害)
-    OnlyShieldDefence,
-    /// 仅作用于替身护盾
-    OnlyShieldSubstitute,
-    /// 仅作用于奥术护盾
-    OnlyShieldArcane,
 }
 
 impl<S: FixedName> Default for DamageInfo<S> {
     fn default() -> Self {
         Self {
             first_hurt_heal_from_eff: None,
-        }
-    }
-}
-
-impl DamageType {
-    /// 能否对血量造成伤害（剔除破盾类型与仅护盾类型）
-    pub fn is_hurt_heal(&self) -> bool {
-        match self {
-            DamageType::KarmaTruth => true,
-            DamageType::PhysicsShear => true,
-            DamageType::PhysicsImpact => true,
-            DamageType::MagickaArcane => true,
-            DamageType::BrokeShieldDefence => false,
-            DamageType::BrokeShieldArcane => false,
-            DamageType::OnlyShieldDefence => false,
-            DamageType::OnlyShieldSubstitute => false,
-            DamageType::OnlyShieldArcane => false,
         }
     }
 }
@@ -164,9 +143,9 @@ impl MagickaEnergyLevel {
 ///
 /// 不同 伤害类型 [`DamageType`] 对应的 受伤上限 见 [`damage_system::apply_damages`]
 ///
-/// - 真实伤害 [`DamageType::KarmaTruth`]
+/// - 真实伤害 [`DamageType::OnlyHealth`]
 ///   - 伤害 [`Health`]
-/// - 物理剪切 [`DamageType::PhysicsShear`]
+/// - 物理剪切 [`DamageType::PhysicsShears`]
 ///   - 伤害 [`Health`] [`ShieldSubstitute`] [`ShieldDefence`]
 /// - 物理冲击 [`DamageType::PhysicsImpact`]
 ///   - 伤害 [`Health`] [`ShieldSubstitute`]
@@ -178,10 +157,10 @@ impl MagickaEnergyLevel {
 ///
 /// 不同 伤害类型 [`DamageType`] 对应的 伤害缩放 见 [`damage_system::calc_damage_scale`]
 ///
-/// - 真实伤害 [`DamageType::KarmaTruth`]
+/// - 真实伤害 [`DamageType::OnlyHealth`]
 ///   - 为招式固有属性，与角色收获相关，使用内禀属性代替
 ///   - 间接正相关 [`Strength`] or [`Belief`]
-/// - 物理剪切 [`DamageType::PhysicsShear`]
+/// - 物理剪切 [`DamageType::PhysicsShears`]
 ///   - 直接正相关 [`Strength`] * [`WeaponSharp`]
 ///   - 其中 [`WeaponSharp`] 为武器固有属性，随角色成长增长，但是设计边际递减
 ///   - 近似正相关 [`Strength`]
@@ -195,13 +174,13 @@ impl MagickaEnergyLevel {
 /// 伤害成长 与 受伤上限 数值平衡分析（玩家受击角度）
 /// （根据伤害类型找到针对的资源条、再找到相关的成长属性，对比伤害成长来源，二者是否能相互抵消）
 ///
-/// - 真实伤害 [`DamageType::KarmaTruth`]
+/// - 真实伤害 [`DamageType::OnlyHealth`]
 ///   - 受伤上限 正相关 [`Strength`]
 ///   - 伤害成长 正相关 [`Strength`] or [`Belief`]
 ///   - 对于 [`Strength`] 成长是平衡的
 ///   - 对于 [`Belief`] 成长【受击者不利】，算作差异性，不在此系统弥补
 ///   - 由于其不平衡性，应注意避免数值膨胀，并在其他机制弥补，如：替死法术、冲击韧性机制、远程拉扯等
-/// - 物理剪切 [`DamageType::PhysicsShear`]
+/// - 物理剪切 [`DamageType::PhysicsShears`]
 ///   - 受伤上限 正相关 [`Strength`] * 2 + [`Belief`]
 ///   - 伤害成长 正相关 [`Strength`]
 ///   - 对于 [`Strength`] 成长是平衡的
@@ -217,28 +196,149 @@ impl MagickaEnergyLevel {
 ///   - 对于 [`Strength`] 成长【攻击者不利】，可令武器附带该类伤害
 ///   - 对于 [`Belief`] 成长是平衡的
 pub mod damage_system {
+    use crate::common_impl::combats::combat_units::PropAboutDamageType;
+
     use super::*;
 
     const MAGICKA_BASELINE: f64 = 100.0;
 
+    impl DamageType {
+        /// 不同伤害类型 对哪些资源进行伤害
+        ///
+        /// 为明确业务逻辑，做以下约束
+        /// - 若返回不是单元素，那么里面元素的 [`PropAboutDamageType::order_val`] 必须依次连续下降
+        /// - 如 [2, 1, 0] / [1, 0] ，而不是 [2, 0]（不连续） [2, 2]（没有下降）
+        pub fn target_types(&self) -> &[PropAboutDamageType] {
+            match self {
+                DamageType::OnlyHealth => &[PropAboutDamageType::Health],
+                DamageType::OnlyShieldSubstitute => &[PropAboutDamageType::ShieldSubstitute],
+                DamageType::OnlyShieldDefence => &[PropAboutDamageType::ShieldDefence],
+                DamageType::OnlyShieldArcane => &[PropAboutDamageType::ShieldArcane],
+                DamageType::PhysicsImpact => &[
+                    PropAboutDamageType::ShieldSubstitute,
+                    PropAboutDamageType::Health,
+                ],
+                DamageType::PhysicsShears => &[
+                    PropAboutDamageType::ShieldDefence,
+                    PropAboutDamageType::ShieldSubstitute,
+                    PropAboutDamageType::Health,
+                ],
+                DamageType::MagickaArcane => &[
+                    PropAboutDamageType::ShieldArcane,
+                    PropAboutDamageType::ShieldSubstitute,
+                    PropAboutDamageType::Health,
+                ],
+            }
+        }
+
+        /// 返回伤害计算的排序依据（索引位置），以保证同一帧内伤害计算的顺序无关性
+        ///
+        ///
+        /// 返回值满足
+        /// - 返回值必定不重复，且在 `[0, n)` 之间，其中 n 为 [`DamageType`] 类型的个数
+        /// - 返回值是基于 [`Self::target_types`] 的返回值确定的，具体规则如下
+        ///   - 单元素必定排在多元素的前面
+        ///   - 对比首个元素的 [`PropAboutDamageType::order_val`] 值大的在前面（无需依次对比后面的元素，因为 [`Self::target_types`] 的返回值约束）
+        pub fn order_val(&self) -> usize {
+            match self {
+                DamageType::OnlyHealth => 0,
+                DamageType::OnlyShieldSubstitute => 1,
+                DamageType::OnlyShieldDefence => 2,
+                DamageType::OnlyShieldArcane => 3,
+                DamageType::PhysicsImpact => 4,
+                DamageType::PhysicsShears => 5,
+                DamageType::MagickaArcane => 6,
+            }
+        }
+
+        /// 百分比伤害计算时选取哪个资源为基础进行计算
+        ///
+        /// 返回 [`Self::target_types`] 的最后一个元素
+        pub fn percent_base_type(&self) -> PropAboutDamageType {
+            match self {
+                DamageType::OnlyHealth
+                | DamageType::PhysicsImpact
+                | DamageType::PhysicsShears
+                | DamageType::MagickaArcane => PropAboutDamageType::Health,
+                DamageType::OnlyShieldSubstitute => PropAboutDamageType::ShieldSubstitute,
+                DamageType::OnlyShieldDefence => PropAboutDamageType::ShieldDefence,
+                DamageType::OnlyShieldArcane => PropAboutDamageType::ShieldArcane,
+            }
+        }
+
+        /// 能否对血量造成伤害
+        ///
+        /// 依据是 [`Self::target_types`] 的最后一个元素是否 [`PropAboutDamageType::Health`]
+        pub fn is_hurt_heal(&self) -> bool {
+            match self {
+                DamageType::OnlyHealth => true,
+                DamageType::PhysicsImpact => true,
+                DamageType::PhysicsShears => true,
+                DamageType::MagickaArcane => true,
+                DamageType::OnlyShieldSubstitute => false,
+                DamageType::OnlyShieldDefence => false,
+                DamageType::OnlyShieldArcane => false,
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct MergedDamageEffs<S: FixedName> {
+        dmg_only_heal: Option<Effect<S>>,
+        dmg_only_sub: Option<Effect<S>>,
+        dmg_only_def: Option<Effect<S>>,
+        dmg_only_arc: Option<Effect<S>>,
+        dmg_phy_imp: Option<Effect<S>>,
+        dmg_phy_she: Option<Effect<S>>,
+        dmg_mgk_arc: Option<Effect<S>>,
+    }
+
+    impl<S: FixedName> Default for MergedDamageEffs<S> {
+        fn default() -> Self {
+            Self {
+                dmg_only_heal: None,
+                dmg_only_sub: None,
+                dmg_only_def: None,
+                dmg_only_arc: None,
+                dmg_phy_imp: None,
+                dmg_phy_she: None,
+                dmg_mgk_arc: None,
+            }
+        }
+    }
+
+    type MergedDamageEffArray<S> = [(DamageType, Option<Effect<S>>); 7];
+
+    impl<S: FixedName> MergedDamageEffs<S> {
+        /// 顺序与 [`DamageType::order_val`] 一样
+        pub fn into_slice(self) -> MergedDamageEffArray<S> {
+            [
+                (DamageType::OnlyHealth, self.dmg_only_heal),
+                (DamageType::OnlyShieldSubstitute, self.dmg_only_sub),
+                (DamageType::OnlyShieldDefence, self.dmg_only_def),
+                (DamageType::OnlyShieldArcane, self.dmg_only_arc),
+                (DamageType::PhysicsImpact, self.dmg_phy_imp),
+                (DamageType::PhysicsShears, self.dmg_phy_she),
+                (DamageType::MagickaArcane, self.dmg_mgk_arc),
+            ]
+        }
+    }
+
     /// 每帧计算伤害前都先进行同类合并
+    ///
+    /// 合并方便伤害计算，具体原因如下
+    /// - 若先【物理伤害】，后【破盾伤害】，那么当两者加起来能够破盾时，实际伤害与顺序有关
+    /// - 【物理伤害】在前会导致后面的【破盾伤害】无效化
+    ///
+    /// 因此得出结论：针对单一资源的伤害必须在针对复合资源的伤害之前结算，具体见 [`DamageType::order_val`]
     pub fn merge_damages<S: FixedName>(
         damage_buffer: &mut DamageEffectBuffer<S>,
         target_health: &Health,
+        target_shield_substitute: &ShieldSubstitute,
         target_shield_defence: &ShieldDefence,
         target_shield_arcane: &ShieldArcane,
-        target_shield_substitute: &ShieldSubstitute,
-    ) -> [(DamageType, Option<Effect<S>>); 9] {
-        let mut dmg_km_truth: (_, Option<Effect<S>>) = (DamageType::KarmaTruth, None);
-        let mut dmg_phy_shear: (_, Option<Effect<S>>) = (DamageType::PhysicsShear, None);
-        let mut dmg_phy_impact: (_, Option<Effect<S>>) = (DamageType::PhysicsImpact, None);
-        let mut dmg_mgk_arcane: (_, Option<Effect<S>>) = (DamageType::MagickaArcane, None);
-        let mut dmg_bk_sld_defence: (_, Option<Effect<S>>) = (DamageType::BrokeShieldDefence, None);
-        let mut dmg_bk_sld_arcane: (_, Option<Effect<S>>) = (DamageType::BrokeShieldArcane, None);
-        let mut dmg_only_defence: (_, Option<Effect<S>>) = (DamageType::OnlyShieldDefence, None);
-        let mut dmg_only_substitute: (_, Option<Effect<S>>) =
-            (DamageType::OnlyShieldSubstitute, None);
-        let mut dmg_only_arcane: (_, Option<Effect<S>>) = (DamageType::OnlyShieldArcane, None);
+    ) -> MergedDamageEffs<S> {
+        let mut merged_dmg_effs = MergedDamageEffs::<S>::default();
 
         // get the ownership
         for dmg_eff in damage_buffer.0.drain(0..) {
@@ -250,15 +350,13 @@ pub mod damage_system {
 
             // 根据伤害类型找到聚合对象
             let merged_dmg = match dmg_type {
-                DamageType::KarmaTruth => &mut dmg_km_truth.1,
-                DamageType::PhysicsShear => &mut dmg_phy_shear.1,
-                DamageType::PhysicsImpact => &mut dmg_phy_impact.1,
-                DamageType::MagickaArcane => &mut dmg_mgk_arcane.1,
-                DamageType::BrokeShieldDefence => &mut dmg_bk_sld_defence.1,
-                DamageType::BrokeShieldArcane => &mut dmg_bk_sld_arcane.1,
-                DamageType::OnlyShieldDefence => &mut dmg_only_defence.1,
-                DamageType::OnlyShieldSubstitute => &mut dmg_only_substitute.1,
-                DamageType::OnlyShieldArcane => &mut dmg_only_arcane.1,
+                DamageType::OnlyHealth => &mut merged_dmg_effs.dmg_only_heal,
+                DamageType::OnlyShieldSubstitute => &mut merged_dmg_effs.dmg_only_sub,
+                DamageType::OnlyShieldDefence => &mut merged_dmg_effs.dmg_only_def,
+                DamageType::OnlyShieldArcane => &mut merged_dmg_effs.dmg_only_arc,
+                DamageType::PhysicsImpact => &mut merged_dmg_effs.dmg_phy_imp,
+                DamageType::PhysicsShears => &mut merged_dmg_effs.dmg_phy_she,
+                DamageType::MagickaArcane => &mut merged_dmg_effs.dmg_mgk_arc,
             };
 
             // 提前获取原始效果值
@@ -270,18 +368,11 @@ pub mod damage_system {
             }
 
             // 根据伤害类型找到百分比参照物
-            let base_prop = match dmg_type {
-                DamageType::KarmaTruth
-                | DamageType::PhysicsShear
-                | DamageType::PhysicsImpact
-                | DamageType::MagickaArcane => &target_health.0,
-                DamageType::BrokeShieldDefence | DamageType::OnlyShieldDefence => {
-                    &target_shield_defence.0
-                }
-                DamageType::BrokeShieldArcane | DamageType::OnlyShieldArcane => {
-                    &target_shield_arcane.0
-                }
-                DamageType::OnlyShieldSubstitute => &target_shield_substitute.0,
+            let base_prop = match dmg_type.percent_base_type() {
+                PropAboutDamageType::Health => &target_health.0,
+                PropAboutDamageType::ShieldSubstitute => &target_shield_substitute.0,
+                PropAboutDamageType::ShieldDefence => &target_shield_defence.0,
+                PropAboutDamageType::ShieldArcane => &target_shield_arcane.0,
             };
 
             // 根据伤害算法计算伤害绝对值
@@ -297,18 +388,7 @@ pub mod damage_system {
             }
         }
 
-        // 破盾伤害优先计算，然后是有防护伤害，最后是真实伤害；仅护盾装载追加末尾
-        [
-            dmg_bk_sld_defence,
-            dmg_bk_sld_arcane,
-            dmg_mgk_arcane,
-            dmg_phy_shear,
-            dmg_phy_impact,
-            dmg_km_truth,
-            dmg_only_defence,
-            dmg_only_substitute,
-            dmg_only_arcane,
-        ]
+        merged_dmg_effs
     }
 
     pub struct DamageAppliedAttrProps<'a> {
@@ -322,7 +402,7 @@ pub mod damage_system {
 
     /// 对合并后的伤害效果计算伤害
     pub fn apply_damages<S: FixedName>(
-        dmg_effs: [(DamageType, Option<Effect<S>>); 9],
+        merged_dmg_effs: MergedDamageEffs<S>,
         damage_applied_attr_props: DamageAppliedAttrProps,
         target_health: &mut Health,
         target_shield_substitute: &mut ShieldSubstitute,
@@ -339,31 +419,9 @@ pub mod damage_system {
         } = damage_applied_attr_props;
 
         let mut dmg_info: DamageInfo<S> = DamageInfo::default();
+        let dmg_effs = merged_dmg_effs.into_slice();
         for (dmg_type, dmg_eff) in dmg_effs {
             if let Some(dmg_eff) = dmg_eff {
-                let target_props: &mut [&mut Prop] = match dmg_type {
-                    DamageType::KarmaTruth => &mut [&mut target_health.0],
-                    DamageType::PhysicsShear => &mut [
-                        &mut target_shield_defence.0,
-                        &mut target_shield_substitute.0,
-                        &mut target_health.0,
-                    ],
-                    DamageType::PhysicsImpact => {
-                        &mut [&mut target_shield_substitute.0, &mut target_health.0]
-                    }
-                    DamageType::MagickaArcane => &mut [
-                        &mut target_shield_arcane.0,
-                        &mut target_shield_substitute.0,
-                        &mut target_health.0,
-                    ],
-                    DamageType::BrokeShieldDefence => &mut [&mut target_shield_defence.0],
-                    DamageType::BrokeShieldArcane => &mut [&mut target_shield_arcane.0],
-                    // 仅护盾装载:单目标累加当前值(不产生伤害)
-                    DamageType::OnlyShieldDefence => &mut [&mut target_shield_defence.0],
-                    DamageType::OnlyShieldSubstitute => &mut [&mut target_shield_substitute.0],
-                    DamageType::OnlyShieldArcane => &mut [&mut target_shield_arcane.0],
-                };
-
                 // 根据伤害类型计算缩放比例
                 let dmg_scale = damage_system::calc_damage_scale(
                     dmg_type,
@@ -376,7 +434,13 @@ pub mod damage_system {
                 );
 
                 let mut real_dmg = dmg_scale * dmg_eff.get_effect_value();
-                for prop in target_props {
+                for target_prop_type in dmg_type.target_types() {
+                    let prop = match target_prop_type {
+                        PropAboutDamageType::Health => &mut target_health.0,
+                        PropAboutDamageType::ShieldSubstitute => &mut target_shield_substitute.0,
+                        PropAboutDamageType::ShieldDefence => &mut target_shield_defence.0,
+                        PropAboutDamageType::ShieldArcane => &mut target_shield_arcane.0,
+                    };
                     let res = prop.apply_eff(real_dmg);
                     real_dmg -= res.real_eff_val;
                 }
@@ -400,36 +464,25 @@ pub mod damage_system {
         source_weapon_mass: &WeaponMass,
         target_armor_soft: &ArmorSoft,
     ) -> f64 {
+        // 真实伤害与护盾专精不受能量加成
         let damage_scale = match dmg_type {
-            DamageType::KarmaTruth => 1.0,
-            DamageType::PhysicsShear | DamageType::BrokeShieldDefence => {
-                source_strength.0.get_current() * source_weapon_sharp.0.get_current()
+            DamageType::OnlyHealth
+            | DamageType::OnlyShieldSubstitute
+            | DamageType::OnlyShieldDefence
+            | DamageType::OnlyShieldArcane => {
+                return 1.0;
             }
             DamageType::PhysicsImpact => {
                 (source_strength.0.get_current() + source_weapon_mass.0.get_current())
                     / target_armor_soft.0.get_current()
             }
-            DamageType::MagickaArcane | DamageType::BrokeShieldArcane => {
-                source_belief.0.get_current()
+            DamageType::PhysicsShears => {
+                source_strength.0.get_current() * source_weapon_sharp.0.get_current()
             }
-            // 仅护盾装载:不缩放(装载量即效果值)
-            DamageType::OnlyShieldDefence
-            | DamageType::OnlyShieldSubstitute
-            | DamageType::OnlyShieldArcane => 1.0,
+            DamageType::MagickaArcane => source_belief.0.get_current(),
         };
 
         // 能量越高伤害越高 不使用双方能量差是为了防止在高能量状态下，小怪低能量形成的碾压，导致堆怪没威胁
-        // 真实伤害与仅护盾装载不受能量加成
-        if matches!(
-            dmg_type,
-            DamageType::KarmaTruth
-                | DamageType::OnlyShieldDefence
-                | DamageType::OnlyShieldSubstitute
-                | DamageType::OnlyShieldArcane
-        ) {
-            return damage_scale;
-        }
-
         let base_scale = 0.0_f64.max(1.0 + source_magicka.0.get_current() / MAGICKA_BASELINE);
 
         damage_scale * base_scale
@@ -475,12 +528,12 @@ mod tests {
     fn test_damage_pipeline_constructible_merge() {
         let mut buffer = DamageEffectBuffer::new();
         buffer.push(DamageEffect::new(
-            DamageType::PhysicsShear,
+            DamageType::PhysicsShears,
             PropAlterEffectType::Val,
             Effect::new("source", "dmg", -10.0),
         ));
         buffer.push(DamageEffect::new(
-            DamageType::PhysicsShear,
+            DamageType::PhysicsShears,
             PropAlterEffectType::Val,
             Effect::new("source", "dmg", -5.0),
         ));
@@ -509,7 +562,7 @@ mod tests {
     fn test_damage_pipeline_constructible_apply() {
         let mut buffer = DamageEffectBuffer::new();
         buffer.push(DamageEffect::new(
-            DamageType::KarmaTruth,
+            DamageType::OnlyHealth,
             PropAlterEffectType::Val,
             Effect::new("source", "dmg", -10.0),
         ));
@@ -573,7 +626,7 @@ mod tests {
         let mut buffer = DamageEffectBuffer::new();
         // 入队顺序刻意与解析顺序相反,验证按类型归位而非按入队序
         buffer.push(DamageEffect::new(
-            DamageType::KarmaTruth,
+            DamageType::OnlyHealth,
             PropAlterEffectType::Val,
             Effect::new("s", "e", -1.0),
         ));
@@ -588,7 +641,7 @@ mod tests {
             Effect::new("s", "e", -1.0),
         ));
         buffer.push(DamageEffect::new(
-            DamageType::PhysicsShear,
+            DamageType::PhysicsShears,
             PropAlterEffectType::Val,
             Effect::new("s", "e", -1.0),
         ));
@@ -627,9 +680,9 @@ mod tests {
             DamageType::BrokeShieldDefence,
             DamageType::BrokeShieldArcane,
             DamageType::MagickaArcane,
-            DamageType::PhysicsShear,
+            DamageType::PhysicsShears,
             DamageType::PhysicsImpact,
-            DamageType::KarmaTruth,
+            DamageType::OnlyHealth,
         ]
         .iter()
         .map(std::mem::discriminant)
@@ -657,17 +710,17 @@ mod tests {
     fn merge_aggregates_by_type_and_lookup() {
         let mut buffer = DamageEffectBuffer::new();
         buffer.push(DamageEffect::new(
-            DamageType::PhysicsShear,
+            DamageType::PhysicsShears,
             PropAlterEffectType::Val,
             Effect::new("s", "e", -5.0),
         ));
         buffer.push(DamageEffect::new(
-            DamageType::KarmaTruth,
+            DamageType::OnlyHealth,
             PropAlterEffectType::Val,
             Effect::new("s", "e", -3.0),
         ));
         buffer.push(DamageEffect::new(
-            DamageType::PhysicsShear,
+            DamageType::PhysicsShears,
             PropAlterEffectType::Val,
             Effect::new("s", "e", -7.0),
         ));
@@ -685,9 +738,9 @@ mod tests {
             &target_shield_substitute,
         );
 
-        let shear = find_eff(&merged, DamageType::PhysicsShear).expect("剪切应被合并");
+        let shear = find_eff(&merged, DamageType::PhysicsShears).expect("剪切应被合并");
         assert_eq!(shear.get_effect_value(), -12.0);
-        let truth = find_eff(&merged, DamageType::KarmaTruth).expect("真实应被合并");
+        let truth = find_eff(&merged, DamageType::OnlyHealth).expect("真实应被合并");
         assert_eq!(truth.get_effect_value(), -3.0);
     }
 
@@ -738,7 +791,7 @@ mod tests {
     #[test]
     fn karma_truth_hits_health_only() {
         let (_, health, sub, def, arc) = apply_one(
-            DamageType::KarmaTruth,
+            DamageType::OnlyHealth,
             PropAlterEffectType::Val,
             -10.0,
             Prop::new(100.0, 100.0, 0.0),
@@ -756,7 +809,7 @@ mod tests {
     #[test]
     fn physics_shear_hits_defence_substitute_health() {
         let (_, health, sub, def, arc) = apply_one(
-            DamageType::PhysicsShear,
+            DamageType::PhysicsShears,
             PropAlterEffectType::Val,
             -10.0,
             Prop::new(100.0, 100.0, 0.0),
@@ -847,7 +900,7 @@ mod tests {
     #[test]
     fn shield_hit_order_drains_defence_then_substitute() {
         let (_, health, sub, def, arc) = apply_one(
-            DamageType::PhysicsShear,
+            DamageType::PhysicsShears,
             PropAlterEffectType::Val,
             -80.0,
             Prop::new(100.0, 100.0, 0.0),
@@ -866,7 +919,7 @@ mod tests {
     fn death_cause_follows_resolution_order_not_push_order() {
         let mut buffer = DamageEffectBuffer::new();
         buffer.push(DamageEffect::new(
-            DamageType::KarmaTruth,
+            DamageType::OnlyHealth,
             PropAlterEffectType::Val,
             Effect::new("karma", "truth_dmg", -10.0),
         ));
@@ -909,7 +962,7 @@ mod tests {
     #[test]
     fn death_cause_records_even_when_shield_absorbs_all() {
         let (info, health, sub, def, _) = apply_one(
-            DamageType::PhysicsShear,
+            DamageType::PhysicsShears,
             PropAlterEffectType::Val,
             -5.0,
             Prop::new(100.0, 100.0, 0.0),
@@ -945,8 +998,8 @@ mod tests {
             )
         };
 
-        assert_eq!(scale(DamageType::KarmaTruth), 1.0); // 真实恒 1
-        assert_eq!(scale(DamageType::PhysicsShear), 2.0 * 4.0); // 气力 * 锋利
+        assert_eq!(scale(DamageType::OnlyHealth), 1.0); // 真实恒 1
+        assert_eq!(scale(DamageType::PhysicsShears), 2.0 * 4.0); // 气力 * 锋利
         assert_eq!(scale(DamageType::PhysicsImpact), (2.0 + 5.0) / 2.0); // (气力 + 质量) / 柔韧
         assert_eq!(scale(DamageType::MagickaArcane), 3.0); // 信念
         assert_eq!(scale(DamageType::BrokeShieldDefence), 2.0 * 4.0); // 同剪切
@@ -965,7 +1018,7 @@ mod tests {
 
         assert_eq!(
             damage_system::calc_damage_scale(
-                DamageType::PhysicsShear,
+                DamageType::PhysicsShears,
                 &strength,
                 &belief,
                 &magicka,
@@ -1092,12 +1145,12 @@ mod tests {
             )
         };
 
-        assert_eq!(scale(DamageType::KarmaTruth), 1.0); // 无能量加成
+        assert_eq!(scale(DamageType::OnlyHealth), 1.0); // 无能量加成
         assert_eq!(scale(DamageType::OnlyShieldDefence), 1.0);
         assert_eq!(scale(DamageType::OnlyShieldSubstitute), 1.0);
         assert_eq!(scale(DamageType::OnlyShieldArcane), 1.0);
         // 对照:剪切有能量加成 (1*1) * (1+50/100) = 1.5
-        assert_eq!(scale(DamageType::PhysicsShear), 1.5);
+        assert_eq!(scale(DamageType::PhysicsShears), 1.5);
     }
 
     // endregion

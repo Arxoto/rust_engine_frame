@@ -28,8 +28,26 @@ use crate::base_lib::{
     },
 };
 
-/// 类型别名 资源上下限效果的容器
-type PropBoundsEffs<S> = UpsertContainer<PropBoundsEffect<S, StaticTimer>>;
+/// 涉及伤害系统的资源类型
+#[derive(Debug, Clone, Copy)]
+pub(super) enum PropAboutDamageType {
+    Health,
+    ShieldSubstitute,
+    ShieldDefence,
+    ShieldArcane,
+}
+
+impl PropAboutDamageType {
+    /// 涉及伤害系统的资源类型的层级关系，值是业务约定
+    pub fn order_val(&self) -> usize {
+        match self {
+            PropAboutDamageType::Health => 0,
+            PropAboutDamageType::ShieldSubstitute => 1,
+            PropAboutDamageType::ShieldDefence => 2,
+            PropAboutDamageType::ShieldArcane => 2,
+        }
+    }
+}
 
 /// 替身护盾 被伤害系统控制；
 pub struct ShieldSubstitute(pub Prop);
@@ -48,6 +66,9 @@ pub struct Stamina(pub Prop);
 
 /// 能量（气势） 被战时评价系统控制； 基础值被【信念】的基础值和能级系统影响
 pub struct Magicka(pub Prop);
+
+/// 类型别名 资源上下限效果的容器
+type PropBoundsEffs<S> = UpsertContainer<PropBoundsEffect<S, StaticTimer>>;
 
 pub struct ShieldSubstituteEffs<S: FixedName>(pub PropBoundsEffs<S>);
 pub struct ShieldDefenceEffs<S: FixedName>(pub PropBoundsEffs<S>);
