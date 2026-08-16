@@ -30,7 +30,7 @@ use crate::base_lib::{
 
 /// 涉及伤害系统的资源类型
 #[derive(Debug, Clone, Copy)]
-pub(super) enum PropAboutDamageType {
+pub enum PropAboutDamageType {
     Health,
     ShieldSubstitute,
     ShieldDefence,
