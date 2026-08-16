@@ -423,4 +423,146 @@ mod tests {
         assert!(cleaner.should_clean_hole(time_type::unit::<1>(), period)); // 3s > 2s，触发
         assert!(!cleaner.should_clean_hole(time_type::unit::<1>(), period)); // 已重置
     }
+
+    /// 确定性伪随机数生成器（LCG），保证压力测试可复现
+    fn lcg_next(state: &mut u64) -> u64 {
+        // Knuth 推荐的数值稳定、周期足够长的 LCG 参数
+        *state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        *state
+    }
+
+    /// 压力测试：对容器的每个方法随机反复执行，每步之后校验
+    /// - `ele_len` 与底层数组实际存活数一致
+    /// - `hole_count` 与底层数组实际空洞数一致（即 `ele_len` 的准确性）
+    /// - 迭代内容 / `ele_empty` / `is_changed` 与对照模型一致
+    #[test]
+    fn test_stress_random_ops_ele_len_accuracy() {
+        const ITERS: u32 = 2000;
+        let mut rng: u64 = 0x9e37_79b9_7f4a_7c15;
+
+        let mut c = UpsertContainer::<TestEff>::default();
+        // 对照模型：当前存活 id 集合（id 唯一，用 Vec 保存）
+        let mut live: Vec<u32> = Vec::new();
+        let mut next_id: u32 = 0;
+        // 预期 changed_flag：仅成功修改容器的操作会置位
+        let mut changed: bool = false;
+
+        /// upsert：约 1/3 概率更新已有 id，否则插入新 id
+        fn do_upsert(
+            c: &mut UpsertContainer<TestEff>,
+            live: &mut Vec<u32>,
+            next_id: &mut u32,
+            rng: &mut u64,
+        ) {
+            let pick_existing = !live.is_empty() && lcg_next(rng) % 3 == 0;
+            let id = if pick_existing {
+                live[(lcg_next(rng) % live.len() as u64) as usize]
+            } else {
+                let id = *next_id;
+                *next_id += 1;
+                live.push(id);
+                id
+            };
+            c.upsert_ele(TestEff::new(id), |old, new| old.val += new.val);
+        }
+
+        /// delete：优先删存活的 id，偶尔删不存在的 id（校验幂等返回 false）
+        /// 返回是否真正发生了删除
+        fn do_delete(
+            c: &mut UpsertContainer<TestEff>,
+            live: &mut Vec<u32>,
+            rng: &mut u64,
+        ) -> bool {
+            if live.is_empty() || lcg_next(rng) % 10 == 0 {
+                // 删除不存在的 id：应返回 false 且无副作用
+                assert!(!delete_by_id(c, 999_999_999));
+                return false;
+            }
+            let idx = (lcg_next(rng) % live.len() as u64) as usize;
+            let id = live[idx];
+            assert!(delete_by_id(c, id), "删除存活的 id 应成功");
+            live.swap_remove(idx);
+            true
+        }
+
+        /// select_mut：查存活的 id 应命中，查不存在的应返回 None
+        /// 返回是否真正命中了元素
+        fn do_select_mut(c: &mut UpsertContainer<TestEff>, live: &[u32], rng: &mut u64) -> bool {
+            if live.is_empty() {
+                assert!(c.select_mut_ele(|e| e.gen_id() == 999_999_999).is_none());
+                return false;
+            }
+            if lcg_next(rng) % 5 == 0 {
+                assert!(c.select_mut_ele(|e| e.gen_id() == 999_999_999).is_none());
+                return false;
+            }
+            let id = live[(lcg_next(rng) % live.len() as u64) as usize];
+            let found = c
+                .select_mut_ele(|e| e.gen_id() == id)
+                .map(|e| {
+                    e.val += 1.0;
+                    e.id
+                });
+            assert_eq!(found, Some(id));
+            true
+        }
+
+        /// iter_mut：对每个元素自增一次，不影响计数，校验迭代到的个数与 ele_len 一致
+        fn do_iter_mut(c: &mut UpsertContainer<TestEff>) {
+            let mut visited = 0usize;
+            for e in c.iter_mut() {
+                e.val += 0.5;
+                visited += 1;
+            }
+            assert_eq!(visited, c.ele_len());
+        }
+
+        /// 每步之后校验核心不变量
+        fn check_invariants(c: &UpsertContainer<TestEff>, live: &[u32]) {
+            let real_len = c.ll.iter().filter(|e| e.is_some()).count();
+            let real_holes = c.ll.iter().filter(|e| e.is_none()).count();
+
+            // 核心：ele_len 与底层存活数一致，hole_count 与底层空洞数一致
+            assert_eq!(c.ele_len(), real_len, "ele_len 与底层实际存活数不一致");
+            assert_eq!(c.hole_count, real_holes, "hole_count 与底层实际空洞数不一致");
+            assert_eq!(c.ele_len(), live.len(), "ele_len 与对照模型不一致");
+            assert_eq!(c.ele_empty(), live.is_empty(), "ele_empty 与对照模型不一致");
+
+            // 迭代内容（id 集合）与对照模型一致
+            let iter_ids: std::collections::HashSet<u32> = c.iter_ele().map(|e| e.id).collect();
+            let live_set: std::collections::HashSet<u32> = live.iter().copied().collect();
+            assert_eq!(iter_ids, live_set, "迭代出的元素集合与对照模型不一致");
+        }
+
+        for _ in 0..ITERS {
+            match lcg_next(&mut rng) % 100 {
+                0..=44 => {
+                    do_upsert(&mut c, &mut live, &mut next_id, &mut rng);
+                    changed = true;
+                }
+                45..=69 => {
+                    if do_delete(&mut c, &mut live, &mut rng) {
+                        changed = true;
+                    }
+                }
+                70..=84 => {
+                    if do_select_mut(&mut c, &live, &mut rng) {
+                        changed = true;
+                    }
+                }
+                85..=89 => do_iter_mut(&mut c),
+                90..=96 => c.try_clean_hole(),
+                // 97..=99 => 重置脏标记
+                _ => {
+                    c.reset_changed_flag();
+                    changed = false;
+                }
+            }
+
+            assert_eq!(c.is_changed(), changed, "changed_flag 与预期不一致");
+            check_invariants(&c, &live);
+        }
+    }
 }
