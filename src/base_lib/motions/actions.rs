@@ -47,7 +47,7 @@ pub struct ActionData<PureTag: FixedName> {
     /// 复杂条件可拆分为 (前置动作集, 细分子状态, 触发事件)
     ///
     /// 基础条件建议设置为 Not(xxx) 而不要 Always ，以保留强制剔除动作的灵活性，但至少要有一个 Always 条件
-    enter_confition: TinyTag<PureTag>,
+    enter_condition: TinyTag<PureTag>,
 
     // 初始化逻辑
     // ===========================
@@ -56,6 +56,25 @@ pub struct ActionData<PureTag: FixedName> {
 }
 
 impl<PureTag: FixedName> ActionData<PureTag> {
+    /// 公开构造路径：上层无需访问私有字段即可创建动作数据
+    ///
+    /// `order`（注册顺序）在注册时自动赋值，无需传入。
+    #[must_use]
+    pub fn new(
+        id: i64,
+        priority: u16,
+        enter_condition: TinyTag<PureTag>,
+        state_tags: Vec<PureTag>,
+    ) -> Self {
+        Self {
+            id,
+            priority,
+            order: 0,
+            enter_condition,
+            state_tags,
+        }
+    }
+
     /// 判断优先级，若优先级相同则根据注册顺序判断
     fn priority_over(&self, other: &Self) -> bool {
         self.priority > other.priority
@@ -144,7 +163,7 @@ impl<PureTag: FixedName> ActionSwitcher<PureTag> {
             // 优先级排序
             if action.priority_over_opt(candidates) {
                 // 条件判断
-                if action.enter_confition.check_condition(&self.current_tags) {
+                if action.enter_condition.check_condition(&self.current_tags) {
                     candidates = Some(action);
                 }
             }
@@ -211,3 +230,39 @@ impl<PureTag: FixedName> TimerPauseControl for ActionSwitcher<PureTag> {
 }
 
 // endregion
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 等级 A 演示：构造 ActionData → 注册 → 切换
+    #[test]
+    fn register_and_switch_action() {
+        let mut switcher = ActionSwitcher::new(0);
+        switcher.register_action(ActionData::new(1, 1, TinyTag::Always, vec!["grounded"]));
+
+        assert_eq!(switcher.switch_next_action(), 1);
+        assert_eq!(switcher.get_current_tags(), vec!["grounded"]);
+    }
+
+    /// 等级 A 演示：优先级与标签条件共同决定切换结果
+    #[test]
+    fn switch_prefers_higher_priority_with_matching_tag() {
+        let mut switcher = ActionSwitcher::new(0);
+        switcher.register_action(ActionData::new(1, 1, TinyTag::Always, vec![]));
+        switcher.register_action(ActionData::new(
+            2,
+            2,
+            TinyTag::Has("jumping"),
+            vec!["jump_state"],
+        ));
+
+        // 无 jumping 标签 → 仅 id=1 可进入
+        assert_eq!(switcher.switch_next_action(), 1);
+
+        // 事件触发加入 jumping 标签 → id=2 优先级更高胜出
+        switcher.upsert_timer_tag("jumping", TickTimer::inf());
+        assert_eq!(switcher.switch_next_action(), 2);
+        assert!(switcher.get_current_tags().contains(&"jumping"));
+    }
+}

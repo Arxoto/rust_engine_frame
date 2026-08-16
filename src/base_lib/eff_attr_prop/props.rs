@@ -43,8 +43,11 @@ impl Prop {
         self.current == 0.0
     }
 
-    /// 应用上下限
-    fn apply_bounds(&mut self) {
+    /// 应用上下限（公开钳制入口）
+    ///
+    /// 配合 [`Prop::refresh_bounds`] 使用：刷新上下限后调用本方法，
+    /// 将当前值重新钳制到新的上下限范围内。
+    pub fn apply_bounds(&mut self) {
         let mut value = self.current;
         value = self.upper.get_current().min(value);
         value = self.lower.get_current().max(value);
@@ -97,5 +100,49 @@ impl Prop {
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base_lib::{
+        cores::timers::tick_timer::TickTimer,
+        eff_attr_prop::{effects::Effect, prop_bounds_eff::PropBoundsEffectType},
+    };
+
+    /// 等级 A 演示：文档承诺的"刷新上下限 → 应用钳制"公开序列可执行
+    ///
+    /// 提升上限 → 当前值随之抬升；效果过期移除后，`apply_bounds` 将当前值重新钳制回边界。
+    #[test]
+    fn refresh_bounds_then_apply_bounds_clamps_current() {
+        let mut prop = Prop::new(100.0, 100.0, 0.0);
+
+        // 效果提高上限至 150，当前值随之抬升到 140
+        let eff = PropBoundsEffect::new(
+            PropBoundsEffectType::UpperAdd,
+            Effect::new("buff", "max_hp", 50.0),
+            TickTimer::inf(),
+        );
+        prop.refresh_bounds(std::iter::once(&eff));
+        prop.apply_eff(40.0);
+        assert_eq!(prop.get_max(), 150.0);
+        assert_eq!(prop.get_current(), 140.0);
+
+        // 效果过期移除 → 上限回落，apply_bounds 将当前值重新钳制到边界
+        let effs: Vec<PropBoundsEffect<&str, TickTimer>> = Vec::new();
+        prop.refresh_bounds(effs.iter());
+        assert_eq!(prop.get_max(), 100.0);
+        assert_eq!(prop.get_current(), 140.0); // 未自动钳制
+        prop.apply_bounds();
+        assert_eq!(prop.get_current(), 100.0); // 回落到边界
+    }
+
+    /// 等级 A 演示：低于下限时被钳制
+    #[test]
+    fn apply_bounds_clamps_to_lower() {
+        let mut prop = Prop::new(-10.0, 100.0, 0.0);
+        prop.apply_bounds();
+        assert_eq!(prop.get_current(), 0.0);
     }
 }

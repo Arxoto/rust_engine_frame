@@ -27,6 +27,52 @@ pub struct DamageEffect<S: FixedName> {
     eff: Effect<S>,
 }
 
+impl<S: FixedName> DamageEffect<S> {
+    /// 构造一次伤害效果
+    ///
+    /// 公开构造路径：上层无需访问私有字段即可创建伤害输入，
+    /// 推入 [`DamageEffectBuffer`] 后由伤害系统消费。
+    #[must_use]
+    pub fn new(dmg_type: DamageType, dmg_calc: DamageCalc, eff: Effect<S>) -> Self {
+        Self {
+            dmg_type,
+            dmg_calc,
+            eff,
+        }
+    }
+}
+
+impl<S: FixedName> Default for DamageEffectBuffer<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<S: FixedName> DamageEffectBuffer<S> {
+    /// 构造空的伤害缓冲
+    #[must_use]
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    /// 推入一次伤害效果
+    pub fn push(&mut self, dmg_eff: DamageEffect<S>) {
+        self.0.push(dmg_eff);
+    }
+
+    /// 缓冲内伤害效果数量
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// 缓冲是否为空
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum DamageType {
     /// 因果论的真实伤害
@@ -375,5 +421,94 @@ pub mod damage_system {
     /// [`ArmorHard`] 影响 [`ShieldDefence`]
     pub fn calc_defence_shield(armor_hard: &ArmorHard) -> f64 {
         armor_hard.0.get_current()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base_lib::eff_attr_prop::attrs::Attr;
+
+    /// 等级 A 演示：通过公开构造路径喂入伤害并合并
+    ///
+    /// 完全使用公开 API（`DamageEffect::new` + `DamageEffectBuffer::push`），
+    /// 验证上层无需访问私有字段即可驱动 `merge_damages`。
+    #[test]
+    fn test_damage_pipeline_constructible_merge() {
+        let mut buffer = DamageEffectBuffer::new();
+        buffer.push(DamageEffect::new(
+            DamageType::PhysicsShear,
+            DamageCalc::Val,
+            Effect::new("source", "dmg", -10.0),
+        ));
+        buffer.push(DamageEffect::new(
+            DamageType::PhysicsShear,
+            DamageCalc::Val,
+            Effect::new("source", "dmg", -5.0),
+        ));
+        assert_eq!(buffer.len(), 2);
+
+        let target_health = Health(Prop::new(100.0, 100.0, 0.0));
+        let target_shield_defence = ShieldDefence(Prop::new(50.0, 50.0, 0.0));
+        let target_shield_arcane = ShieldArcane(Prop::new(50.0, 50.0, 0.0));
+
+        let merged = damage_system::merge_damages(
+            &mut buffer,
+            &target_health,
+            &target_shield_defence,
+            &target_shield_arcane,
+        );
+
+        // 合并数组顺序：[破防护盾, 破奥术盾, 奥术, 剪切, 冲击, 真实]，剪切在下标 3
+        let merged_shear = merged[3].1.as_ref().expect("物理剪切伤害应被合并");
+        assert_eq!(merged_shear.get_effect_value(), -15.0);
+    }
+
+    /// 等级 A 演示：merge → apply 全链路可由公开构造路径驱动
+    #[test]
+    fn test_damage_pipeline_constructible_apply() {
+        let mut buffer = DamageEffectBuffer::new();
+        buffer.push(DamageEffect::new(
+            DamageType::KarmaTruth,
+            DamageCalc::Val,
+            Effect::new("source", "dmg", -10.0),
+        ));
+
+        let mut target_health = Health(Prop::new(100.0, 100.0, 0.0));
+        let mut target_shield_substitute = ShieldSubstitute(Prop::new(50.0, 50.0, 0.0));
+        let mut target_shield_defence = ShieldDefence(Prop::new(50.0, 50.0, 0.0));
+        let mut target_shield_arcane = ShieldArcane(Prop::new(50.0, 50.0, 0.0));
+
+        let merged = damage_system::merge_damages(
+            &mut buffer,
+            &target_health,
+            &target_shield_defence,
+            &target_shield_arcane,
+        );
+
+        let attr_props = damage_system::DamageAppliedAttrProps {
+            source_strength: &Strength(Attr::new(1.0)),
+            source_belief: &Belief(Attr::new(1.0)),
+            source_magicka: &Magicka(Prop::new(0.0, 0.0, 0.0)),
+            source_weapon_sharp: &WeaponSharp(Attr::new(1.0)),
+            source_weapon_mass: &WeaponMass(Attr::new(1.0)),
+            target_armor_soft: &ArmorSoft(Attr::new(1.0)),
+        };
+
+        let dmg_info = damage_system::apply_damages(
+            merged,
+            attr_props,
+            &mut target_health,
+            &mut target_shield_substitute,
+            &mut target_shield_defence,
+            &mut target_shield_arcane,
+        );
+
+        // 真实伤害只作用于血量：100 - 10
+        assert_eq!(target_health.0.get_current(), 90.0);
+        // 死因记录到首个造成伤害的效果
+        let (from, eff) = dmg_info.first_hurt_heal_from_eff.expect("应有死因记录");
+        assert_eq!(from, "source");
+        assert_eq!(eff, "dmg");
     }
 }
