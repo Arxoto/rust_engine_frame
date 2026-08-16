@@ -66,3 +66,22 @@ README「项目介绍」声明:"部分方法可能没有在本项目内被直接
 - 本 spec 依赖等级 A 就绪的公开构造路径,建议 A 完成后再大规模补测试。
 - 补测试是找出"文档承诺与实现偏差"的最有效手段(已发现 `props::apply_bounds` 一例),发现即修正文档。
 - 与等级 A、C 共享同一测试接缝:"crate 公开接口 + 进程内测试"。
+
+## Comments
+
+### 2026-08-16 · grill-with-docs 对齐(等级 B 实现细节)
+
+- **doc test 边界**(修正上文「优先 doc test」):逻辑简单、函数名语义清晰的 `pub fn`(如 timers 构造器)→ 不写 doc test,内联单元测试同时承担演示与功能保证;逻辑复杂、或一组相似方法易引发歧义(如 `merge_damages`、`apply_damages`、装备刷新链、attr_systems 组合)→ doc test 说明用法,单元测试保证功能。
+- **计时器演示测试粒度**:按行为场景分组(每个 `#[test]` 是「构造→调用→断言」的用法走查),trait 方法覆盖率由场景顺带覆盖,不追求方法↔测试一一对应。
+- **浮点断言(时间类型为 f64)**:无容差;delta/时长选可精确表示的数;断言 `progress` 用同构表达式(如 `2.0/5.0`);语义断言走 `elapsed`/`remaining`/`is_completed`。`StaticTimer::inf()` 的 `progress()` 为 NaN,演示测试不触碰。
+- **场景假设原则**:doc test 可(应当)假设上层调用场景说明用法;单元测试只关注模块自身职责,不假设业务场景。「先业务后 tick」边界帧对比与触发器「先触发后读进度」归 doc test(挂 `Tickable::tick`);计时器自身行为(累加/钳制/reset/complete/进度)为场景中立的单元测试。
+- **测试简化前提 ≠ 业务现实**:05 仅含装备 inf 效果所以单测无需时间线,但业务上其他效果可能有限时长、仍需时间线 + `clean_expired_element`;测试注释须按此表述,不得写成"时间线不必要"。
+- **测试助手**:局部私有 helper 优先;仅当 ≥2 个模块需要同一模板时,才提升到 `tests/common/` 公共模块。
+- **StaticTimer 生命周期两层**:`static_timer.rs` 内联「任意 diff 下中飞行计时器相对读数不变」+ `attr_systems.rs` 端到端「大 tick 越过一年门槛 → `try_reset_timeline`」(测漂移机理,不测漂移过程)。
+- **merge_damages 槽位引用**:行为断言按 DamageType `match` 查找(局部 helper),另加一个顺序契约测试钉住 `[破防护盾, 破奥术盾, 奥术, 剪切, 冲击, 真实]`;不给 `DamageType`/`DamageCalc` 加 derive。顺序为解析优先级契约,见 `docs/adr/0001-merge-damages-resolution-order.md`。
+- **04 矩阵**:6 类型映射 + 护盾命中次序 + 死因边界 + `calc_*` 期望值按 combats.rs 平衡文档手算。
+- **05**:组合 `try_refresh_dirty_attr`,内联 `equips.rs`。
+- **07**:拆「正常帧组合」+「时间线重置」两个测试,保留 `example_process_tick` 为 OOS 样板。
+- **08**:属性效果刷新链(容器 + 有限时长 `TickTimer` + `try_refresh_dirty_attr`),Resource + 单 System 形态,本地 newtype 包装绕过孤儿规则,推进 N 帧断言效果过期回落。
+- **观察(非本次修改,已按当前实现钉住)**:`apply_damages` 的 `first_hurt_heal_from_eff` 记录「数组解析序第一个 hurt 类型」,不校验 `real_dmg` 是否 >0(护盾全吸收也会记录死因),供等级 C/业务层复查。
+- **观察(非本次修改)**:验收「需 StaticTimeline 驱动」在当前实现下仅对 inf 效果成立(装备效果永不结束);业务上其他有限时长效果仍需时间线。

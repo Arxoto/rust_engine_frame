@@ -131,7 +131,11 @@ The combat structs **deliberately use `pub` fields** so they can be split/flatte
 - **Every `pub fn` is demonstrated by a test** — because business logic is driven from outside the crate (see Project Intro), a method may have no in-tree callers. Each one must still be shown by a doc test or an inline unit test demonstrating how an upper layer calls it. An unconstructible public input type counts as a violation: a `pub fn` whose parameters cannot be built is an interface an upper layer cannot call — public types feeding `pub fn`s need a public construction path.
 - Unit tests are inline in `#[cfg(test)]` blocks within each source file.
 - Integration tests live in `tests/`; `tests/bevy_tests.rs` + `tests/bevy_plugins/` are gated on `feature = "bevyproj"` and must be run with `--no-default-features --features bevyproj,time_type_f64`. `tests/state_machine_action_tests.rs` is a non-gated smoke test that exercises the `tests/common` helper.
-- Test helpers in `tests/common/common_helper.rs`.
+- Test helpers in `tests/common/common_helper.rs`. Local private helpers stay in their test module; promote a helper to `tests/common/` only when ≥2 modules need the same template.
+- **doc test 边界** — 逻辑简单、函数名语义清晰的 `pub fn` 不写 doc test(内联单元测试同时承担演示与功能保证);逻辑复杂、或一组相似方法易引发歧义时,用 doc test 说明用法。
+- **场景假设原则** — doc test 可假设上层调用场景说明用法;单元测试只关注模块自身职责,不假设业务场景。
+- **浮点断言(时间类型为 f64 时)** — 无容差;测试值选可精确表示的数;断言 `progress` 用同构表达式;语义断言走 `elapsed`/`remaining`/`is_completed`。
+- **计时器演示测试按行为场景分组** — 每个 `#[test]` 是「构造→调用→断言」的用法走查,而非方法↔测试一一对应。
 - Code comments and commit messages are in Chinese.
 
 ## Agent skills
