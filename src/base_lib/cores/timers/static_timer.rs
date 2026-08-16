@@ -86,7 +86,7 @@ impl TimerProgress for StaticTimer {
     }
 
     fn remaining(&self, ctx: &StaticTimeline) -> time_type::T {
-        (self.end_at - ctx.current_time()).min(time_type::ZERO)
+        (self.end_at - ctx.current_time()).max(time_type::ZERO)
     }
 
     fn duration(&self, _ctx: &StaticTimeline) -> time_type::T {
