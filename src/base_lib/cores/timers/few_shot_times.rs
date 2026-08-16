@@ -84,3 +84,77 @@ impl<T: CyclicalTrigger> CyclicalTrigger for Union<&mut FewShotTimes, &mut T> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base_lib::cores::{
+        timers::{
+            tick_trigger::InfiniteTickTrigger,
+            tiny_timer::{CyclicalTrigger, Tickable, TimerProgress, TimerView},
+        },
+        unify_types::time_type,
+    };
+
+    /// limit 次内触发成功;第 limit+1 次返回 false,且内层触发器已消耗一次(静默丢弃)
+    #[test]
+    fn few_shot_limited_trigger_drops_overflow() {
+        let mut few_shot = FewShotTimes::new(2);
+        let mut trigger = InfiniteTickTrigger::new(time_type::unit::<3>());
+
+        trigger.tick(time_type::unit::<3>()); // 到达一个周期
+        assert!(
+            few_shot
+                .of_cyclical_trigger(&mut trigger)
+                .try_trigger_once(())
+        ); // 第 1 次
+        trigger.tick(time_type::unit::<3>());
+        assert!(
+            few_shot
+                .of_cyclical_trigger(&mut trigger)
+                .try_trigger_once(())
+        ); // 第 2 次
+        assert!(few_shot.of_timer_view(&trigger).is_completed(())); // 额度耗尽
+
+        // 第 3 次:内层先成功触发(消耗周期),外层返回 false 并静默丢弃该次触发
+        trigger.tick(time_type::unit::<3>());
+        assert!(
+            !few_shot
+                .of_cyclical_trigger(&mut trigger)
+                .try_trigger_once(())
+        );
+        assert_eq!(trigger.elapsed(()), time_type::ZERO); // 内层确实消费了一个周期
+    }
+
+    /// 区分「未到时间」与「额度耗尽」:未到时间内层未触发(elapsed 不变),额度耗尽内层消耗但被丢弃
+    #[test]
+    fn few_shot_distinguishes_not_time_from_exhausted() {
+        let mut few_shot = FewShotTimes::new(1);
+        let mut trigger = InfiniteTickTrigger::new(time_type::unit::<3>());
+
+        // 未到时间:触发失败且 elapsed 不变
+        trigger.tick(time_type::unit::<2>());
+        assert!(
+            !few_shot
+                .of_cyclical_trigger(&mut trigger)
+                .try_trigger_once(())
+        );
+        assert_eq!(trigger.elapsed(()), time_type::unit::<2>()); // 内层未消耗
+
+        // 额度耗尽:内层已触发(消耗周期)但被外层丢弃
+        trigger.tick(time_type::unit::<1>()); // 到达周期
+        assert!(
+            few_shot
+                .of_cyclical_trigger(&mut trigger)
+                .try_trigger_once(())
+        ); // 第 1 次(也是最后一次)
+        assert!(few_shot.of_timer_view(&trigger).is_completed(()));
+        trigger.tick(time_type::unit::<3>()); // 再到一个周期
+        assert!(
+            !few_shot
+                .of_cyclical_trigger(&mut trigger)
+                .try_trigger_once(())
+        );
+        assert_eq!(trigger.elapsed(()), time_type::ZERO); // 内层消费了一个周期,触发被丢弃
+    }
+}

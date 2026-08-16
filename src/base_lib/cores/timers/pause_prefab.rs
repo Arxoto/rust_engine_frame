@@ -162,3 +162,61 @@ impl<T: CyclicalTrigger> CyclicalTrigger for Union<&PausePrefab, &mut T> {
 }
 
 // endregion
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base_lib::cores::{
+        timers::{
+            tick_timer::TickTimer,
+            tiny_timer::{Tickable, TimerPauseControl, TimerPauseView, TimerProgress},
+        },
+        unify_types::time_type,
+    };
+
+    /// 默认不冻结;暂停期间 tick 不推进进度,恢复后继续推进
+    #[test]
+    fn pause_prefab_freezes_tick_while_paused() {
+        let mut pause = PausePrefab::new();
+        let mut timer = TickTimer::new(time_type::unit::<5>());
+
+        assert!(!pause.is_paused()); // 默认未暂停
+
+        // 未暂停:正常推进
+        pause.of_tickable(&mut timer).tick(time_type::unit::<2>());
+        assert_eq!(timer.elapsed(()), time_type::unit::<2>());
+
+        // 暂停:冻结,进度不推进
+        pause.pause();
+        assert!(pause.is_paused());
+        pause.of_tickable(&mut timer).tick(time_type::unit::<2>());
+        assert_eq!(timer.elapsed(()), time_type::unit::<2>());
+
+        // 恢复:继续推进
+        pause.resume();
+        assert!(!pause.is_paused());
+        pause.of_tickable(&mut timer).tick(time_type::unit::<1>());
+        assert_eq!(timer.elapsed(()), time_type::unit::<3>());
+    }
+
+    /// 暂停视图/控制走 prefab,时间进度透传被代理的 timer
+    #[test]
+    fn pause_prefab_view_control_and_progress_delegate() {
+        let mut pause = PausePrefab::new();
+        let mut timer = TickTimer::new(time_type::unit::<5>());
+
+        pause.of_tickable(&mut timer).tick(time_type::unit::<2>());
+
+        // 时间进度透传 timer
+        assert_eq!(
+            pause.of_timer_progress(&timer).elapsed(()),
+            time_type::unit::<2>()
+        );
+
+        // 暂停/恢复走 prefab
+        pause.of_timer_pause_control(&timer).pause();
+        assert!(pause.of_timer_pause_view(&timer).is_paused());
+        pause.of_timer_pause_control(&timer).resume();
+        assert!(!pause.of_timer_pause_view(&timer).is_paused());
+    }
+}

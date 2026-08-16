@@ -83,3 +83,59 @@ impl<S: FixedName, Timer> EffectMeaning for PropBoundsEffect<S, Timer> {
         self.eff.which_nature()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base_lib::{
+        cores::timers::tick_timer::TickTimer,
+        eff_attr_prop::effects::{Effect, EffectMeaning},
+    };
+
+    /// 三种 PropBoundsEffectType 映射到对应的修改目标与效果类型（经 EffectMeaning 基线验证）
+    #[test]
+    fn prop_bounds_effect_type_mapping() {
+        let upper_add = PropBoundsEffect::new(
+            PropBoundsEffectType::UpperAdd,
+            Effect::new("s", "e", 10.0),
+            TickTimer::inf(),
+        );
+        assert_eq!(upper_add.get_target(), PropBoundsEffectTarget::Upper);
+        assert!(upper_add.which_nature().is_good()); // BasicAdd 基线 0，10 > 0 增益
+
+        let upper_per = PropBoundsEffect::new(
+            PropBoundsEffectType::UpperPer,
+            Effect::new("s", "e", 0.5),
+            TickTimer::inf(),
+        );
+        assert_eq!(upper_per.get_target(), PropBoundsEffectTarget::Upper);
+        assert!(upper_per.which_nature().is_good()); // BasicPer 基线 0，0.5 > 0 增益
+
+        let lower_add = PropBoundsEffect::new(
+            PropBoundsEffectType::LowerAdd,
+            Effect::new("s", "e", -5.0),
+            TickTimer::inf(),
+        );
+        assert_eq!(lower_add.get_target(), PropBoundsEffectTarget::Lower);
+        assert!(lower_add.which_nature().is_bad()); // BasicAdd 基线 0，-5 < 0 减益
+    }
+
+    /// 上下限映射支持 Upsert 按 id 合并（同来源同效果名）
+    #[test]
+    fn prop_bounds_effect_upsert_id() {
+        let a = PropBoundsEffect::new(
+            PropBoundsEffectType::UpperAdd,
+            Effect::new("from", "eff", 10.0),
+            TickTimer::inf(),
+        );
+        let b = PropBoundsEffect::new(
+            PropBoundsEffectType::UpperAdd,
+            Effect::new("from", "eff", 20.0),
+            TickTimer::inf(),
+        );
+        assert!(a.has_same_id(&b));
+        let id = a.gen_id();
+        assert!(a.matched_id(&id));
+        assert!(b.matched_id(&id));
+    }
+}

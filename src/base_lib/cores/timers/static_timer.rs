@@ -42,6 +42,24 @@ impl StaticTimeline {
     }
 }
 
+/// 绝对时间戳计时器，经 [`StaticTimeline`] 上下文读取
+///
+/// 时间线在帧末推进（先业务后 tick），帧内业务读取的是推进前的时间，
+/// 因此容错窗口会覆盖「到达时长的那一帧」：
+///
+/// ```
+/// # use rust_engine_frame::base_lib::cores::timers::static_timer::{StaticTimer, StaticTimeline};
+/// # use rust_engine_frame::base_lib::cores::timers::tiny_timer::{Tickable, TimerView};
+/// # use rust_engine_frame::base_lib::cores::unify_types::time_type;
+/// let mut timeline = StaticTimeline::new();
+/// let t = StaticTimer::new(&timeline, time_type::unit::<1>());
+///
+/// // 帧 N：业务先读，未过期
+/// assert!(!t.is_completed(&timeline));
+/// timeline.0.tick(time_type::unit::<1>()); // 帧末推进时间线
+/// // 帧 N+1：业务再读，已过期
+/// assert!(t.is_completed(&timeline));
+/// ```
 #[derive(Clone, Debug)]
 pub struct StaticTimer {
     /// 计时器时长
@@ -116,12 +134,89 @@ impl TimerControl for StaticTimer {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::base_lib::cores::{timers::tiny_timer::Tickable, unify_types::time_type};
 
+    /// 初始状态：elapsed 为 0、remaining 为全长、进度 0、未完成
     #[test]
-    fn test_func() {
-        // 对于 MAX 来说 0.1 太小了，比起 INF 更接近 MAX ，因此相加仍然等于 MAX
-        assert!(!(f64::MAX + 0.1).is_infinite());
-        assert_eq!(f64::MAX + 0.1, f64::MAX);
-        assert_ne!(f64::MAX + 0.1, f64::INFINITY);
+    fn static_timer_initial_state() {
+        let timeline = StaticTimeline::new();
+        let t = StaticTimer::new(&timeline, time_type::unit::<5>());
+        assert_eq!(t.elapsed(&timeline), time_type::ZERO);
+        assert_eq!(t.remaining(&timeline), time_type::unit::<5>());
+        assert_eq!(t.duration(&timeline), time_type::unit::<5>());
+        assert_eq!(t.progress(&timeline), 0.0 / 5.0);
+        assert!(!t.is_completed(&timeline));
+    }
+
+    /// 时间线推进后 remaining 减少、elapsed 增加；到达时长后完成
+    #[test]
+    fn static_timer_tracks_timeline_progress() {
+        let mut timeline = StaticTimeline::new();
+        let t = StaticTimer::new(&timeline, time_type::unit::<5>());
+
+        timeline.0.tick(time_type::unit::<2>());
+        assert_eq!(t.elapsed(&timeline), time_type::unit::<2>());
+        assert_eq!(t.remaining(&timeline), time_type::unit::<3>());
+        assert!(!t.is_completed(&timeline));
+
+        timeline.0.tick(time_type::unit::<3>());
+        assert!(t.is_completed(&timeline));
+        assert_eq!(t.remaining(&timeline), time_type::ZERO);
+        assert_eq!(t.progress(&timeline), 5.0 / 5.0);
+    }
+
+    /// reset 从当前时间重新起算；complete 立即结束
+    #[test]
+    fn static_timer_reset_and_complete() {
+        let mut timeline = StaticTimeline::new();
+        let mut t = StaticTimer::new(&timeline, time_type::unit::<5>());
+        timeline.0.tick(time_type::unit::<2>());
+
+        t.reset(&timeline);
+        assert_eq!(t.remaining(&timeline), time_type::unit::<5>());
+        assert!(!t.is_completed(&timeline));
+
+        t.complete(&timeline);
+        assert!(t.is_completed(&timeline));
+        assert_eq!(t.remaining(&timeline), time_type::ZERO);
+        assert_eq!(t.elapsed(&timeline), time_type::unit::<5>());
+    }
+
+    /// 时间线重置（漂移修正）：对中飞行计时器 fix_timeline_diff 后，相对时间读数保持不变
+    #[test]
+    fn static_timer_fix_timeline_diff_preserves_relative_readings() {
+        let mut timeline = StaticTimeline::new();
+        timeline.0.tick(time_type::unit::<100>()); // 时间线先走一段
+
+        // 中飞行计时器：创建于 t=100，时长 200，结束于 t=300
+        let mut t = StaticTimer::new(&timeline, time_type::unit::<200>());
+        timeline.0.tick(time_type::unit::<50>()); // 推进到 t=150
+
+        // 重置前的相对读数
+        let elapsed_before = t.elapsed(&timeline);
+        let remaining_before = t.remaining(&timeline);
+        assert_eq!(elapsed_before, time_type::unit::<50>());
+        assert_eq!(remaining_before, time_type::unit::<150>());
+
+        // 时间线重置，返回漂移差
+        let diff = timeline.reset_timeline_and_get_diff();
+        assert_eq!(diff, time_type::unit::<150>());
+        assert_eq!(timeline.current_time(), time_type::ZERO);
+
+        // 依赖计时器修正 diff 后，相对读数不变
+        t.fix_timeline_diff(diff);
+        assert_eq!(t.elapsed(&timeline), elapsed_before);
+        assert_eq!(t.remaining(&timeline), remaining_before);
+        assert_eq!(t.progress(&timeline), 50.0 / 200.0);
+    }
+
+    /// 无限时长计时器：永不完成
+    #[test]
+    fn static_timer_infinite_never_completes() {
+        let mut timeline = StaticTimeline::new();
+        let t = StaticTimer::inf();
+        timeline.0.tick(time_type::unit::<3>());
+        assert!(!t.is_completed(&timeline));
     }
 }

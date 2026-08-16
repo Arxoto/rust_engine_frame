@@ -151,3 +151,58 @@ impl CyclicalTrigger for FewShotTickTrigger {
         self.few_shot.of_cyclical_trigger(&mut self.inf_trigger).try_trigger_once(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base_lib::cores::unify_types::time_type;
+
+    /// 初始状态：elapsed 为 0、remaining 为一个周期、进度 0、无法结束
+    #[test]
+    fn infinite_trigger_initial_state() {
+        let t = InfiniteTickTrigger::new(time_type::unit::<3>());
+        assert_eq!(t.elapsed(()), time_type::ZERO);
+        assert_eq!(t.remaining(()), time_type::unit::<3>());
+        assert_eq!(t.duration(()), time_type::unit::<3>());
+        assert_eq!(t.progress(()), 0.0 / 3.0);
+        assert!(!t.is_completed(()));
+    }
+
+    /// 未到周期时触发失败且不消耗；越过周期后成功触发并消费一个周期
+    #[test]
+    fn infinite_trigger_try_trigger_consumes_cycle() {
+        let mut t = InfiniteTickTrigger::new(time_type::unit::<3>());
+        t.tick(time_type::unit::<2>());
+        assert!(!t.try_trigger_once(())); // 未到时间
+        assert_eq!(t.elapsed(()), time_type::unit::<2>()); // 失败不消耗余量
+
+        t.tick(time_type::unit::<2>());
+        assert_eq!(t.elapsed(()), time_type::unit::<4>());
+        assert!(t.try_trigger_once(())); // 越过周期，成功并消费
+        assert_eq!(t.elapsed(()), time_type::unit::<1>());
+    }
+
+    /// elapsed 不钳制、可越过周期累积；越过后的进度 >1，需先触发消费
+    #[test]
+    fn infinite_trigger_ticks_without_clamp() {
+        let mut t = InfiniteTickTrigger::new(time_type::unit::<3>());
+        t.tick(time_type::unit::<2>());
+        t.tick(time_type::unit::<2>());
+        assert_eq!(t.elapsed(()), time_type::unit::<4>());
+        assert_eq!(t.progress(()), 4.0 / 3.0);
+    }
+
+    /// reset 归零；complete 是空操作（无限触发无法结束）
+    #[test]
+    fn infinite_trigger_reset_and_complete_noop() {
+        let mut t = InfiniteTickTrigger::new(time_type::unit::<3>());
+        t.tick(time_type::unit::<2>());
+        t.reset(());
+        assert_eq!(t.elapsed(()), time_type::ZERO);
+
+        t.tick(time_type::unit::<2>());
+        t.complete(());
+        assert_eq!(t.elapsed(()), time_type::unit::<2>());
+        assert!(!t.is_completed(()));
+    }
+}

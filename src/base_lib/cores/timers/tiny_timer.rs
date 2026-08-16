@@ -35,6 +35,24 @@ pub trait Tickable {
     /// - Godot 推荐，保证逻辑与物理引擎同步，且适配物理插值
     /// - Godot 中，先 _physics_process 而后【物理模拟】，其次 _process 最后【渲染】
     /// - _physics_process 中根据发生事件和业务逻辑生成物理效果，【物理模拟】时使效果生效
+    ///
+    /// 调用次序是【上层】的约定，本 trait 只累加时间；同一 1s 计时器，两种次序在边界帧语义不同：
+    ///
+    /// ```
+    /// # use rust_engine_frame::base_lib::cores::timers::tick_timer::TickTimer;
+    /// # use rust_engine_frame::base_lib::cores::timers::tiny_timer::{Tickable, TimerView};
+    /// # use rust_engine_frame::base_lib::cores::unify_types::time_type;
+    /// // 限制类（冷却）：先 tick 后业务 —— 同一帧到达即可用
+    /// let mut cooldown = TickTimer::new(time_type::unit::<1>());
+    /// cooldown.tick(time_type::unit::<1>()); // 先累加
+    /// assert!(cooldown.is_completed(()));    // 后判断，帧 N 即可用
+    ///
+    /// // 帮助类（容错窗口）：先业务后 tick —— 窗口宽一帧
+    /// let mut grace = TickTimer::new(time_type::unit::<1>());
+    /// assert!(!grace.is_completed(()));      // 先判断，帧 N 仍可用
+    /// grace.tick(time_type::unit::<1>());    // 后累加
+    /// assert!(grace.is_completed(()));       // 帧 N+1 才不可用
+    /// ```
     fn tick(&mut self, delta: time_type::T);
 }
 

@@ -76,3 +76,75 @@ impl TimerControl for TickTimer {
         self.elapsed = self.duration
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base_lib::cores::unify_types::time_type;
+
+    /// 初始状态：elapsed 为 0、remaining 为全长、进度 0、未完成
+    #[test]
+    fn tick_timer_initial_state() {
+        let t = TickTimer::new(time_type::unit::<5>());
+        assert_eq!(t.elapsed(()), time_type::ZERO);
+        assert_eq!(t.remaining(()), time_type::unit::<5>());
+        assert_eq!(t.duration(()), time_type::unit::<5>());
+        assert_eq!(t.progress(()), 0.0 / 5.0);
+        assert!(!t.is_completed(()));
+    }
+
+    /// 累加计时到全长后钳制、不再超限；进度上限 1
+    #[test]
+    fn tick_timer_accumulates_and_clamps_at_duration() {
+        let mut t = TickTimer::new(time_type::unit::<5>());
+        t.tick(time_type::unit::<2>());
+        assert_eq!(t.elapsed(()), time_type::unit::<2>());
+        assert_eq!(t.remaining(()), time_type::unit::<3>());
+        assert!(!t.is_completed(()));
+
+        t.tick(time_type::unit::<3>());
+        assert_eq!(t.elapsed(()), time_type::unit::<5>());
+        assert_eq!(t.remaining(()), time_type::ZERO);
+        assert!(t.is_completed(()));
+
+        // 超时后继续 tick，elapsed 不超上限
+        t.tick(time_type::unit::<10>());
+        assert_eq!(t.elapsed(()), time_type::unit::<5>());
+        assert_eq!(t.progress(()), 5.0 / 5.0);
+    }
+
+    /// 进度比例随时间线性增长
+    #[test]
+    fn tick_timer_progress_ratio() {
+        let mut t = TickTimer::new(time_type::unit::<5>());
+        t.tick(time_type::unit::<2>());
+        assert_eq!(t.progress(()), 2.0 / 5.0);
+        t.tick(time_type::unit::<1>());
+        assert_eq!(t.progress(()), 3.0 / 5.0);
+    }
+
+    /// reset 归零回到初始；complete 直接推进到结束
+    #[test]
+    fn tick_timer_reset_and_complete() {
+        let mut t = TickTimer::new(time_type::unit::<5>());
+        t.tick(time_type::unit::<2>());
+
+        t.reset(());
+        assert_eq!(t.elapsed(()), time_type::ZERO);
+        assert!(!t.is_completed(()));
+
+        t.complete(());
+        assert!(t.is_completed(()));
+        assert_eq!(t.elapsed(()), time_type::unit::<5>());
+        assert_eq!(t.remaining(()), time_type::ZERO);
+    }
+
+    /// 无限时长计时器：elapsed 不被时长钳制、永不完成（用作时间线基准）
+    #[test]
+    fn tick_timer_infinite_never_completes() {
+        let mut t = TickTimer::inf();
+        t.tick(time_type::unit::<3>());
+        assert_eq!(t.elapsed(()), time_type::unit::<3>());
+        assert!(!t.is_completed(()));
+    }
+}

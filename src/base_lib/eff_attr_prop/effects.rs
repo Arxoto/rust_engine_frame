@@ -109,3 +109,40 @@ impl EffectMean {
         matches!(self, Self::Neutral)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// EffectMean 基线：value 高于基线为增益、低于为减益、等于为中性
+    /// （加法类基线 0、乘法类基线 1，见 attr_eff 的约定）
+    #[test]
+    fn effect_mean_which_nature_by_baseline() {
+        assert!(EffectMean::which_nature(5.0, 0.0).is_good());
+        assert!(EffectMean::which_nature(-5.0, 0.0).is_bad());
+        assert!(EffectMean::which_nature(0.0, 0.0).is_neutral());
+
+        assert!(EffectMean::which_nature(1.5, 1.0).is_good()); // 乘法基线 1
+        assert!(EffectMean::which_nature(0.5, 1.0).is_bad());
+        assert!(EffectMean::which_nature(1.0, 1.0).is_neutral());
+    }
+
+    /// Effect 构造与读取
+    #[test]
+    fn effect_getters() {
+        let eff = Effect::new("from", "effect_name", 42.0);
+        assert_eq!(eff.get_from_name(), &"from");
+        assert_eq!(eff.get_effect_name(), &"effect_name");
+        assert_eq!(eff.get_effect_value(), 42.0);
+    }
+
+    /// Effect::new_form 以 Into 类型构造，own_from_eff_name 取出 (来源, 效果名)
+    #[test]
+    fn effect_new_form_into() {
+        let eff = Effect::<String>::new_form("from", "name", 1.0);
+        assert_eq!(eff.get_from_name(), &"from".to_string());
+        let (from, name) = eff.own_from_eff_name();
+        assert_eq!(from, "from".to_string());
+        assert_eq!(name, "name".to_string());
+    }
+}

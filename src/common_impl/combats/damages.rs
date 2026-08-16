@@ -511,4 +511,451 @@ mod tests {
         assert_eq!(from, "source");
         assert_eq!(eff, "dmg");
     }
+
+    // region: 等级 B 演示测试
+
+    /// 在合并结果中按伤害类型查找效果(局部 helper,避免魔法下标)
+    fn find_eff<S: FixedName>(
+        merged: &[(DamageType, Option<Effect<S>>)],
+        target: DamageType,
+    ) -> Option<&Effect<S>> {
+        merged.iter().find_map(|(t, eff)| {
+            (std::mem::discriminant(t) == std::mem::discriminant(&target))
+                .then_some(eff.as_ref())
+                .flatten()
+        })
+    }
+
+    /// 合并数组顺序是解析优先级契约:破盾优先 → 有防护 → 真实(见 docs/adr/0001)
+    #[test]
+    fn merge_damages_array_order_is_resolution_priority() {
+        let mut buffer = DamageEffectBuffer::new();
+        // 入队顺序刻意与解析顺序相反,验证按类型归位而非按入队序
+        buffer.push(DamageEffect::new(
+            DamageType::KarmaTruth,
+            DamageCalc::Val,
+            Effect::new("s", "e", -1.0),
+        ));
+        buffer.push(DamageEffect::new(
+            DamageType::MagickaArcane,
+            DamageCalc::Val,
+            Effect::new("s", "e", -1.0),
+        ));
+        buffer.push(DamageEffect::new(
+            DamageType::PhysicsImpact,
+            DamageCalc::Val,
+            Effect::new("s", "e", -1.0),
+        ));
+        buffer.push(DamageEffect::new(
+            DamageType::PhysicsShear,
+            DamageCalc::Val,
+            Effect::new("s", "e", -1.0),
+        ));
+        buffer.push(DamageEffect::new(
+            DamageType::BrokeShieldArcane,
+            DamageCalc::Val,
+            Effect::new("s", "e", -1.0),
+        ));
+        buffer.push(DamageEffect::new(
+            DamageType::BrokeShieldDefence,
+            DamageCalc::Val,
+            Effect::new("s", "e", -1.0),
+        ));
+
+        let target_health = Health(Prop::new(100.0, 100.0, 0.0));
+        let target_shield_defence = ShieldDefence(Prop::new(50.0, 50.0, 0.0));
+        let target_shield_arcane = ShieldArcane(Prop::new(50.0, 50.0, 0.0));
+
+        let merged = damage_system::merge_damages(
+            &mut buffer,
+            &target_health,
+            &target_shield_defence,
+            &target_shield_arcane,
+        );
+
+        // 契约顺序:破防护盾 → 破奥术盾 → 奥术 → 剪切 → 冲击 → 真实
+        let order: Vec<_> = merged
+            .iter()
+            .map(|(t, _)| std::mem::discriminant(t))
+            .collect();
+        let expected: Vec<_> = [
+            DamageType::BrokeShieldDefence,
+            DamageType::BrokeShieldArcane,
+            DamageType::MagickaArcane,
+            DamageType::PhysicsShear,
+            DamageType::PhysicsImpact,
+            DamageType::KarmaTruth,
+        ]
+        .iter()
+        .map(std::mem::discriminant)
+        .collect();
+        assert_eq!(order, expected);
+    }
+
+    /// merge 按类型聚合,并可按 DamageType 查找
+    #[test]
+    fn merge_aggregates_by_type_and_lookup() {
+        let mut buffer = DamageEffectBuffer::new();
+        buffer.push(DamageEffect::new(
+            DamageType::PhysicsShear,
+            DamageCalc::Val,
+            Effect::new("s", "e", -5.0),
+        ));
+        buffer.push(DamageEffect::new(
+            DamageType::KarmaTruth,
+            DamageCalc::Val,
+            Effect::new("s", "e", -3.0),
+        ));
+        buffer.push(DamageEffect::new(
+            DamageType::PhysicsShear,
+            DamageCalc::Val,
+            Effect::new("s", "e", -7.0),
+        ));
+
+        let target_health = Health(Prop::new(100.0, 100.0, 0.0));
+        let target_shield_defence = ShieldDefence(Prop::new(50.0, 50.0, 0.0));
+        let target_shield_arcane = ShieldArcane(Prop::new(50.0, 50.0, 0.0));
+
+        let merged = damage_system::merge_damages(
+            &mut buffer,
+            &target_health,
+            &target_shield_defence,
+            &target_shield_arcane,
+        );
+
+        let shear = find_eff(&merged, DamageType::PhysicsShear).expect("剪切应被合并");
+        assert_eq!(shear.get_effect_value(), -12.0);
+        let truth = find_eff(&merged, DamageType::KarmaTruth).expect("真实应被合并");
+        assert_eq!(truth.get_effect_value(), -3.0);
+    }
+
+    /// 喂入单次伤害(标准攻击者:缩放相关属性均为 1、能量 0),返回 (DamageInfo, health, sub, def, arc)
+    fn apply_one(
+        dmg_type: DamageType,
+        dmg_calc: DamageCalc,
+        eff_val: f64,
+        health: Prop,
+        sub: Prop,
+        def: Prop,
+        arc: Prop,
+    ) -> (DamageInfo<&'static str>, Prop, Prop, Prop, Prop) {
+        let mut buffer = DamageEffectBuffer::new();
+        buffer.push(DamageEffect::new(
+            dmg_type,
+            dmg_calc,
+            Effect::new("source", "dmg", eff_val),
+        ));
+
+        let mut health = Health(health);
+        let mut sub = ShieldSubstitute(sub);
+        let mut def = ShieldDefence(def);
+        let mut arc = ShieldArcane(arc);
+
+        let merged = damage_system::merge_damages(&mut buffer, &health, &def, &arc);
+        let attr_props = damage_system::DamageAppliedAttrProps {
+            source_strength: &Strength(Attr::new(1.0)),
+            source_belief: &Belief(Attr::new(1.0)),
+            source_magicka: &Magicka(Prop::new(0.0, 0.0, 0.0)),
+            source_weapon_sharp: &WeaponSharp(Attr::new(1.0)),
+            source_weapon_mass: &WeaponMass(Attr::new(1.0)),
+            target_armor_soft: &ArmorSoft(Attr::new(1.0)),
+        };
+        let info = damage_system::apply_damages(
+            merged,
+            attr_props,
+            &mut health,
+            &mut sub,
+            &mut def,
+            &mut arc,
+        );
+
+        (info, health.0, sub.0, def.0, arc.0)
+    }
+
+    /// 真实伤害只打血
+    #[test]
+    fn karma_truth_hits_health_only() {
+        let (_, health, sub, def, arc) = apply_one(
+            DamageType::KarmaTruth,
+            DamageCalc::Val,
+            -10.0,
+            Prop::new(100.0, 100.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+        );
+        assert_eq!(health.get_current(), 90.0);
+        assert_eq!(sub.get_current(), 50.0);
+        assert_eq!(def.get_current(), 50.0);
+        assert_eq!(arc.get_current(), 50.0);
+    }
+
+    /// 剪切伤害打 防护盾 → 替身 → 血;小伤害被防护盾吸收
+    #[test]
+    fn physics_shear_hits_defence_substitute_health() {
+        let (_, health, sub, def, arc) = apply_one(
+            DamageType::PhysicsShear,
+            DamageCalc::Val,
+            -10.0,
+            Prop::new(100.0, 100.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+        );
+        assert_eq!(def.get_current(), 40.0);
+        assert_eq!(sub.get_current(), 50.0);
+        assert_eq!(health.get_current(), 100.0);
+        assert_eq!(arc.get_current(), 50.0);
+    }
+
+    /// 冲击伤害打 替身 → 血;缩放为 (气力 + 质量) / 柔韧 = 2
+    #[test]
+    fn physics_impact_hits_substitute_health() {
+        let (_, health, sub, def, arc) = apply_one(
+            DamageType::PhysicsImpact,
+            DamageCalc::Val,
+            -10.0,
+            Prop::new(100.0, 100.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+        );
+        // 真实伤害 20,全部被替身吸收
+        assert_eq!(sub.get_current(), 30.0);
+        assert_eq!(health.get_current(), 100.0);
+        assert_eq!(def.get_current(), 50.0);
+        assert_eq!(arc.get_current(), 50.0);
+    }
+
+    /// 奥术伤害打 奥术盾 → 替身 → 血
+    #[test]
+    fn magicka_arcane_hits_arcane_substitute_health() {
+        let (_, health, sub, def, arc) = apply_one(
+            DamageType::MagickaArcane,
+            DamageCalc::Val,
+            -10.0,
+            Prop::new(100.0, 100.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+        );
+        assert_eq!(arc.get_current(), 40.0);
+        assert_eq!(sub.get_current(), 50.0);
+        assert_eq!(health.get_current(), 100.0);
+        assert_eq!(def.get_current(), 50.0);
+    }
+
+    /// 破防护盾只打防护盾
+    #[test]
+    fn broke_shield_defence_hits_defence_only() {
+        let (_, health, sub, def, arc) = apply_one(
+            DamageType::BrokeShieldDefence,
+            DamageCalc::Val,
+            -10.0,
+            Prop::new(100.0, 100.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+        );
+        assert_eq!(def.get_current(), 40.0);
+        assert_eq!(sub.get_current(), 50.0);
+        assert_eq!(health.get_current(), 100.0);
+        assert_eq!(arc.get_current(), 50.0);
+    }
+
+    /// 破奥术盾只打奥术盾
+    #[test]
+    fn broke_shield_arcane_hits_arcane_only() {
+        let (_, health, sub, def, arc) = apply_one(
+            DamageType::BrokeShieldArcane,
+            DamageCalc::Val,
+            -10.0,
+            Prop::new(100.0, 100.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+        );
+        assert_eq!(arc.get_current(), 40.0);
+        assert_eq!(sub.get_current(), 50.0);
+        assert_eq!(health.get_current(), 100.0);
+        assert_eq!(def.get_current(), 50.0);
+    }
+
+    /// 护盾命中次序:大剪切伤害按 防护盾 → 替身 → 血 递减
+    #[test]
+    fn shield_hit_order_drains_defence_then_substitute() {
+        let (_, health, sub, def, arc) = apply_one(
+            DamageType::PhysicsShear,
+            DamageCalc::Val,
+            -80.0,
+            Prop::new(100.0, 100.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+        );
+        assert_eq!(def.get_current(), 0.0); // 防护盾先被清空
+        assert_eq!(sub.get_current(), 20.0); // 余量 30 流向替身
+        assert_eq!(health.get_current(), 100.0);
+        assert_eq!(arc.get_current(), 50.0);
+    }
+
+    /// 死因记录「数组解析序第一个 hurt 类型」,而非入队顺序
+    #[test]
+    fn death_cause_follows_resolution_order_not_push_order() {
+        let mut buffer = DamageEffectBuffer::new();
+        buffer.push(DamageEffect::new(
+            DamageType::KarmaTruth,
+            DamageCalc::Val,
+            Effect::new("karma", "truth_dmg", -10.0),
+        ));
+        buffer.push(DamageEffect::new(
+            DamageType::MagickaArcane,
+            DamageCalc::Val,
+            Effect::new("magic", "arcane_dmg", -10.0),
+        ));
+
+        let mut health = Health(Prop::new(100.0, 100.0, 0.0));
+        let mut sub = ShieldSubstitute(Prop::new(50.0, 50.0, 0.0));
+        let mut def = ShieldDefence(Prop::new(50.0, 50.0, 0.0));
+        let mut arc = ShieldArcane(Prop::new(50.0, 50.0, 0.0));
+
+        let merged = damage_system::merge_damages(&mut buffer, &health, &def, &arc);
+        let attr_props = damage_system::DamageAppliedAttrProps {
+            source_strength: &Strength(Attr::new(1.0)),
+            source_belief: &Belief(Attr::new(1.0)),
+            source_magicka: &Magicka(Prop::new(0.0, 0.0, 0.0)),
+            source_weapon_sharp: &WeaponSharp(Attr::new(1.0)),
+            source_weapon_mass: &WeaponMass(Attr::new(1.0)),
+            target_armor_soft: &ArmorSoft(Attr::new(1.0)),
+        };
+        let info = damage_system::apply_damages(
+            merged,
+            attr_props,
+            &mut health,
+            &mut sub,
+            &mut def,
+            &mut arc,
+        );
+
+        // 奥术在解析序先于真实,故死因记录奥术,而非先入队的真实
+        let (from, eff) = info.first_hurt_heal_from_eff.expect("应有死因记录");
+        assert_eq!(from, "magic");
+        assert_eq!(eff, "arcane_dmg");
+    }
+
+    /// 死因记录不校验实际伤害量:护盾全吸收时仍记录首个 hurt 类型(观察,见 spec Comments)
+    #[test]
+    fn death_cause_records_even_when_shield_absorbs_all() {
+        let (info, health, sub, def, _) = apply_one(
+            DamageType::PhysicsShear,
+            DamageCalc::Val,
+            -5.0,
+            Prop::new(100.0, 100.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+            Prop::new(50.0, 50.0, 0.0),
+        );
+        assert_eq!(def.get_current(), 45.0); // 5 点全被防护盾吸收
+        assert_eq!(sub.get_current(), 50.0);
+        assert_eq!(health.get_current(), 100.0);
+        assert!(info.first_hurt_heal_from_eff.is_some());
+    }
+
+    /// calc_damage_scale:各伤害类型缩放公式(期望值按 combats.rs 平衡文档手算)
+    #[test]
+    fn calc_damage_scale_formulas() {
+        let strength = Strength(Attr::new(2.0));
+        let belief = Belief(Attr::new(3.0));
+        let magicka = Magicka(Prop::new(0.0, 0.0, 0.0));
+        let sharp = WeaponSharp(Attr::new(4.0));
+        let mass = WeaponMass(Attr::new(5.0));
+        let armor_soft = ArmorSoft(Attr::new(2.0));
+
+        let scale = |t| {
+            damage_system::calc_damage_scale(
+                t,
+                &strength,
+                &belief,
+                &magicka,
+                &sharp,
+                &mass,
+                &armor_soft,
+            )
+        };
+
+        assert_eq!(scale(DamageType::KarmaTruth), 1.0); // 真实恒 1
+        assert_eq!(scale(DamageType::PhysicsShear), 2.0 * 4.0); // 气力 * 锋利
+        assert_eq!(scale(DamageType::PhysicsImpact), (2.0 + 5.0) / 2.0); // (气力 + 质量) / 柔韧
+        assert_eq!(scale(DamageType::MagickaArcane), 3.0); // 信念
+        assert_eq!(scale(DamageType::BrokeShieldDefence), 2.0 * 4.0); // 同剪切
+        assert_eq!(scale(DamageType::BrokeShieldArcane), 3.0); // 同奥术
+    }
+
+    /// calc_damage_scale:能量越高伤害越高,基线 1 + magicka / 100
+    #[test]
+    fn calc_damage_scale_magicka_bonus() {
+        let strength = Strength(Attr::new(1.0));
+        let belief = Belief(Attr::new(1.0));
+        let magicka = Magicka(Prop::new(50.0, 50.0, 0.0));
+        let sharp = WeaponSharp(Attr::new(1.0));
+        let mass = WeaponMass(Attr::new(1.0));
+        let armor_soft = ArmorSoft(Attr::new(1.0));
+
+        assert_eq!(
+            damage_system::calc_damage_scale(
+                DamageType::PhysicsShear,
+                &strength,
+                &belief,
+                &magicka,
+                &sharp,
+                &mass,
+                &armor_soft,
+            ),
+            1.5, // (1 * 1) * (1 + 50 / 100)
+        );
+    }
+
+    /// calc_health_max:health_base + health_scale * 气力基础值
+    #[test]
+    fn calc_health_max_formula() {
+        let strength = Strength(Attr::new(5.0));
+        assert_eq!(
+            damage_system::calc_health_max(100.0, 10.0, &strength),
+            150.0
+        );
+    }
+
+    /// calc_magicka_value / max:信念 → 原始能量 → 能级映射
+    #[test]
+    fn calc_magicka_formulas() {
+        let belief = Belief(Attr::new(5.0));
+        let level = MagickaEnergyLevel::new(100.0, 200.0, 300.0);
+
+        // 原始能量 = 50 + 20 * 5 = 150
+        assert_eq!(
+            damage_system::calc_magicka_value(50.0, 20.0, &belief),
+            150.0
+        );
+        // 介于 l0/l1 之间 → 抬到 l1
+        assert_eq!(
+            damage_system::calc_magicka_max(50.0, 20.0, &belief, &level),
+            200.0
+        );
+
+        // 原始能量超过最高能级 → 取最高能级
+        let high = Belief(Attr::new(20.0));
+        assert_eq!(
+            damage_system::calc_magicka_max(50.0, 20.0, &high, &level),
+            300.0
+        );
+    }
+
+    /// calc_defence_shield:盔甲坚韧即防护盾值
+    #[test]
+    fn calc_defence_shield_formula() {
+        let armor_hard = ArmorHard(Attr::new(80.0));
+        assert_eq!(damage_system::calc_defence_shield(&armor_hard), 80.0);
+    }
+
+    // endregion
 }

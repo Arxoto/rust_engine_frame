@@ -145,4 +145,66 @@ mod tests {
         prop.apply_bounds();
         assert_eq!(prop.get_current(), 0.0);
     }
+
+    /// 瞬时变更：apply_eff 修改当前值并返回实际生效值
+    #[test]
+    fn prop_apply_eff_changes_current() {
+        let mut prop = Prop::new(100.0, 100.0, 0.0);
+        let res = prop.apply_eff(-30.0);
+        assert_eq!(prop.get_current(), 70.0);
+        assert_eq!(res.real_eff_val, -30.0);
+    }
+
+    /// 瞬时变更被上下限钳制，real_eff_val 反映实际生效量
+    #[test]
+    fn prop_apply_eff_clamps_to_bounds() {
+        let mut prop = Prop::new(100.0, 100.0, 0.0);
+        let res = prop.apply_eff(-200.0);
+        assert_eq!(prop.get_current(), 0.0); // 钳制到下限
+        assert_eq!(res.real_eff_val, -100.0); // 实际只生效了 100
+
+        let mut prop = Prop::new(100.0, 100.0, 0.0);
+        let res = prop.apply_eff(50.0);
+        assert_eq!(prop.get_current(), 100.0); // 钳制到上限
+        assert_eq!(res.real_eff_val, 0.0);
+    }
+
+    /// apply_eff_checked：当前值足够才生效，否则返回 None 且不改变
+    #[test]
+    fn prop_apply_eff_checked_gates_on_current() {
+        let mut prop = Prop::new(30.0, 100.0, 0.0);
+        // 30 - 20 = 10 >= 0 → 生效
+        assert!(prop.apply_eff_checked(-20.0, 0.0).is_some());
+        assert_eq!(prop.get_current(), 10.0);
+
+        // 10 - 20 = -10 < 0 → 不生效
+        assert!(prop.apply_eff_checked(-20.0, 0.0).is_none());
+        assert_eq!(prop.get_current(), 10.0);
+    }
+
+    /// 当前值为 0 时判定归零（用于记录致命来源）
+    #[test]
+    fn prop_current_is_zero() {
+        let mut prop = Prop::new(100.0, 100.0, 0.0);
+        assert!(!prop.current_is_zero());
+        prop.apply_eff(-100.0);
+        assert!(prop.current_is_zero());
+    }
+
+    /// refresh_bounds 重算下限，apply_bounds 将当前值钳回新下限
+    #[test]
+    fn prop_refresh_bounds_recomputes_lower() {
+        let mut prop = Prop::new(100.0, 100.0, 0.0);
+        let eff = PropBoundsEffect::new(
+            PropBoundsEffectType::LowerAdd,
+            Effect::new("buff", "min_hp", 20.0),
+            TickTimer::inf(),
+        );
+        prop.refresh_bounds(std::iter::once(&eff));
+
+        prop.apply_eff(-50.0);
+        assert_eq!(prop.get_current(), 50.0); // 高于新下限 20，不钳制
+        prop.apply_eff(-40.0);
+        assert_eq!(prop.get_current(), 20.0); // 钳制到新下限
+    }
 }

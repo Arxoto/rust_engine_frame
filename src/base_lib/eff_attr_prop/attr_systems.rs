@@ -84,7 +84,13 @@ pub fn try_reset_timeline<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::base_lib::cores::timers::{tick_timer::TickTimer, tiny_timer::Tickable};
+    use crate::base_lib::{
+        cores::timers::{
+            tick_timer::TickTimer,
+            tiny_timer::{Tickable, TimerProgress},
+        },
+        eff_attr_prop::{attr_eff::AttrEffectType, effects::Effect},
+    };
 
     use super::*;
 
@@ -134,5 +140,98 @@ mod tests {
             .flat_map(|effs| effs.iter_mut())
             .map(|eff| eff.get_timer_mut());
         try_reset_timeline(timeline, timers_iter);
+    }
+
+    /// 正常帧组合(真实数据):时间线推进 → 过期效果被清理 → 脏属性刷新;规整空洞
+    #[test]
+    fn real_data_per_entity_tick() {
+        type S = String;
+        type Effs = UpsertContainer<AttrEffect<S, StaticTimer>>;
+
+        let delta: time_type::T = time_type::unit::<1>();
+        let mut timeline = StaticTimeline::new();
+        let mut attr = Attr::new(100.0);
+        let mut effs = Effs::default();
+
+        // 一个 3s 后过期的效果(基础加法 +20)和一个永不过期的效果(基础加法 +5)
+        effs.upsert_ele(
+            AttrEffect::new(
+                AttrEffectType::BasicAdd,
+                Effect::new_form("buff", "short", 20.0),
+                StaticTimer::new(&timeline, time_type::unit::<3>()),
+            ),
+            |_, _| {},
+        );
+        effs.upsert_ele(
+            AttrEffect::new(
+                AttrEffectType::BasicAdd,
+                Effect::new_form("buff", "inf", 5.0),
+                StaticTimer::inf(),
+            ),
+            |_, _| {},
+        );
+
+        // 帧 1:推进时间线 → 清理过期 → 刷新脏属性
+        timeline.0.tick(delta);
+        clean_expired_element(&mut effs, &timeline);
+        try_refresh_dirty_attr(&mut attr, &mut effs);
+        assert_eq!(attr.get_current(), 125.0); // 100 + 20 + 5
+
+        // 帧 2/3:推进到 3s,short 过期被清理,inf 保留
+        timeline.0.tick(delta);
+        timeline.0.tick(delta);
+        clean_expired_element(&mut effs, &timeline);
+        try_refresh_dirty_attr(&mut attr, &mut effs);
+        assert_eq!(attr.get_current(), 105.0); // 100 + 5
+
+        // 规整空洞:周期性清理(累计 delta 超过 5s 周期触发,业务无关)
+        let cleaner = &mut UpsertContainerCleaner::default();
+        let ll = std::iter::once(&mut effs);
+        try_clean_hole(time_type::unit::<6>(), ll, cleaner);
+        assert_eq!(effs.ele_len(), 1);
+    }
+
+    /// 时间线重置(真实数据):越过一年门槛 → try_reset_timeline → 时间线归零、相对读数不变
+    #[test]
+    fn real_data_timeline_reset() {
+        type S = String;
+        type Effs = UpsertContainer<AttrEffect<S, StaticTimer>>;
+
+        let mut timeline = StaticTimeline::new();
+        let mut effs = Effs::default();
+
+        // 时间线推进到接近一年(用大 tick 模拟长期运行的漂移累积)
+        timeline
+            .0
+            .tick(time_type::RESET_TIMELINE_PERIOD - time_type::unit::<10>());
+        // 一个 30s 时长的效果:重置时仍存活
+        effs.upsert_ele(
+            AttrEffect::new(
+                AttrEffectType::BasicAdd,
+                Effect::new_form("buff", "long", 10.0),
+                StaticTimer::new(&timeline, time_type::unit::<30>()),
+            ),
+            |_, _| {},
+        );
+
+        // 再推进 20s 越过一年门槛
+        timeline.0.tick(time_type::unit::<20>());
+        assert!(timeline.current_time() >= time_type::RESET_TIMELINE_PERIOD);
+
+        // 重置前的中飞行计时器相对读数
+        let timer = effs.iter_ele().next().unwrap().get_timer();
+        let elapsed_before = timer.elapsed(&timeline);
+        let remaining_before = timer.remaining(&timeline);
+        assert_eq!(remaining_before, time_type::unit::<10>());
+
+        // 重置时间线并修正所有依赖计时器
+        let timers_iter = effs.iter_mut().map(|eff| eff.get_timer_mut());
+        try_reset_timeline(&mut timeline, timers_iter);
+
+        // 时间线归零,依赖计时器相对读数保持不变
+        assert_eq!(timeline.current_time(), time_type::ZERO);
+        let timer = effs.iter_ele().next().unwrap().get_timer();
+        assert_eq!(timer.elapsed(&timeline), elapsed_before);
+        assert_eq!(timer.remaining(&timeline), remaining_before);
     }
 }
