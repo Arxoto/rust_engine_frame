@@ -27,7 +27,10 @@ cargo update
 
 - baselib 最小依赖包，用于打包成 lib
 - commonimpl 基础的业务实现
-- godotext 使用 godot-rust 来生成 GDExtension
+- godotext 使用 godot-rust 来生成 GDExtension（默认）
+- bevyproj 使用 Bevy 引擎集成
+- time_type_f64 时间类型使用 f64（默认）
+- time_type_duration 时间类型使用 std::time::Duration（与 time_type_f64 二选一）
 
 ## 使用注意
 
@@ -58,13 +61,12 @@ cargo update
   - 构建命令 `cargo build --release`
   - 编译优化等级 `opt-level = 3`
     - 高等级需要更多编译时间
-  - 链接时优化 `lto = true`
+  - 链接时优化 `lto = "thin"`
     - 增加链接时间为代价生成更优化代码，如允许跨模块函数内联
-    - 默认为 false ，即 "thin" ，提供了接近 "fat" 的性能提升，但链接时间可观减少
-    - 设置为 true ，即 "fat"
+    - thin 提供了接近 "fat" 的性能提升，但链接时间可观减少；极端优化可改为 `lto = true`（即 "fat"）
   - 代码生成单元 `codegen-units = 1`
     - 默认为 16 ，设置为 1 允许编译器将整个 crate 视为一个单元进行优化，以获得最佳运行时性能
-  - Panic 策略 `panic = "abort"`
+  - Panic 策略 `panic = "abort"`（可选，本仓库未配置）
     - 发生 panic 时立即终止，减少运行时开销
-  - 调试符号 `debug = false`
+  - 调试符号 `debug = false`（可选，本仓库未配置；release 下默认关闭）
     - release 下默认关闭，仅显式配置
