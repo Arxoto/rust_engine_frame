@@ -470,11 +470,7 @@ mod tests {
 
         /// delete：优先删存活的 id，偶尔删不存在的 id（校验幂等返回 false）
         /// 返回是否真正发生了删除
-        fn do_delete(
-            c: &mut UpsertContainer<TestEff>,
-            live: &mut Vec<u32>,
-            rng: &mut u64,
-        ) -> bool {
+        fn do_delete(c: &mut UpsertContainer<TestEff>, live: &mut Vec<u32>, rng: &mut u64) -> bool {
             if live.is_empty() || lcg_next(rng) % 10 == 0 {
                 // 删除不存在的 id：应返回 false 且无副作用
                 assert!(!delete_by_id(c, 999_999_999));
@@ -499,12 +495,10 @@ mod tests {
                 return false;
             }
             let id = live[(lcg_next(rng) % live.len() as u64) as usize];
-            let found = c
-                .select_mut_ele(|e| e.gen_id() == id)
-                .map(|e| {
-                    e.val += 1.0;
-                    e.id
-                });
+            let found = c.select_mut_ele(|e| e.gen_id() == id).map(|e| {
+                e.val += 1.0;
+                e.id
+            });
             assert_eq!(found, Some(id));
             true
         }
@@ -526,7 +520,10 @@ mod tests {
 
             // 核心：ele_len 与底层存活数一致，hole_count 与底层空洞数一致
             assert_eq!(c.ele_len(), real_len, "ele_len 与底层实际存活数不一致");
-            assert_eq!(c.hole_count, real_holes, "hole_count 与底层实际空洞数不一致");
+            assert_eq!(
+                c.hole_count, real_holes,
+                "hole_count 与底层实际空洞数不一致"
+            );
             assert_eq!(c.ele_len(), live.len(), "ele_len 与对照模型不一致");
             assert_eq!(c.ele_empty(), live.is_empty(), "ele_empty 与对照模型不一致");
 
