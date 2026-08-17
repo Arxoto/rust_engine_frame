@@ -36,12 +36,12 @@ impl From<PropBoundsEffectType> for PropBoundsEffectTarget {
 
 /// 限制修改维度只能基于基础值修改，原因见 [`PropBoundsEffect`]
 #[derive(Clone, Copy, Debug)]
-pub enum PropBoundsEffectMidType {
+pub enum PropBoundsEffectLogic {
     BasicAdd,
     BasicPer,
 }
 
-impl From<PropBoundsEffectType> for PropBoundsEffectMidType {
+impl From<PropBoundsEffectType> for PropBoundsEffectLogic {
     fn from(value: PropBoundsEffectType) -> Self {
         match value {
             PropBoundsEffectType::UpperAdd => Self::BasicAdd,
@@ -51,11 +51,11 @@ impl From<PropBoundsEffectType> for PropBoundsEffectMidType {
     }
 }
 
-impl From<PropBoundsEffectMidType> for AttrEffectType {
-    fn from(value: PropBoundsEffectMidType) -> Self {
+impl From<PropBoundsEffectLogic> for AttrEffectType {
+    fn from(value: PropBoundsEffectLogic) -> Self {
         match value {
-            PropBoundsEffectMidType::BasicAdd => Self::BasicAdd,
-            PropBoundsEffectMidType::BasicPer => Self::BasicPer,
+            PropBoundsEffectLogic::BasicAdd => Self::BasicAdd,
+            PropBoundsEffectLogic::BasicPer => Self::BasicPer,
         }
     }
 }
@@ -74,7 +74,7 @@ pub struct PropBoundsEffect<S: FixedName, Timer> {
 impl<S: FixedName, Timer> PropBoundsEffect<S, Timer> {
     pub fn new(eff_type: PropBoundsEffectType, effect: Effect<S>, duration: Timer) -> Self {
         let target: PropBoundsEffectTarget = eff_type.into();
-        let eff_type: PropBoundsEffectMidType = eff_type.into();
+        let eff_type: PropBoundsEffectLogic = eff_type.into();
         let eff_type: AttrEffectType = eff_type.into();
         Self {
             target,

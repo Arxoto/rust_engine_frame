@@ -13,7 +13,7 @@ use crate::{
         eff_attr_prop::{
             effects::Effect,
             prop_alter_eff::PropAlterEffect,
-            prop_bounds_eff::PropBoundsEffect,
+            prop_bounds_eff::{PropBoundsEffect, PropBoundsEffectLogic},
             props::{Prop, PropAlterResult},
             upsert_container::UpsertContainer,
         },
@@ -90,7 +90,20 @@ pub fn gen_shield_defence<S: FixedName>(
     (svv_eff, bounds_eff)
 }
 
-// todo 入参类型绑定
+/// 生成通用护盾，也可用于提升生命值最大值
+pub fn gen_shield_or_health_upper<S: FixedName, Timer>(
+    prop: &Prop,
+    target_type: SurvivalEffTarget,
+    eff_logic: PropBoundsEffectLogic,
+    effect: Effect<S>,
+    duration: Timer,
+) -> (SurvivalEffect<S>, PropBoundsEffect<S, Timer>) {
+    let (alter_eff, bounds_eff) =
+        PropAlterEffect::gen_alter_bounds_eff_for_upper(prop, eff_logic, effect, duration);
+    let svv_eff = SurvivalEffect::new_from_alter_eff(target_type, alter_eff);
+    (svv_eff, bounds_eff)
+}
+
 /// 装载护盾:编排"上限效果入容器 + 当前值效果入缓冲"
 ///
 /// **不做同步修改** 上限由每帧 [`crate::base_lib::eff_attr_prop::attr_prop_systems`]

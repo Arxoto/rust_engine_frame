@@ -4,7 +4,7 @@ use crate::base_lib::{
     cores::unify_types::FixedName,
     eff_attr_prop::{
         effects::Effect,
-        prop_bounds_eff::{PropBoundsEffect, PropBoundsEffectMidType, PropBoundsEffectType},
+        prop_bounds_eff::{PropBoundsEffect, PropBoundsEffectLogic, PropBoundsEffectType},
         props::Prop,
     },
 };
@@ -67,7 +67,7 @@ impl<S: FixedName> PropAlterEffect<S> {
     pub fn gen_alter_bounds_eff<Timer>(
         prop: &Prop,
         eff_type: PropBoundsEffectType,
-        mut effect: Effect<S>,
+        effect: Effect<S>,
         duration: Timer,
     ) -> (Option<PropAlterEffect<S>>, PropBoundsEffect<S, Timer>) {
         match eff_type {
@@ -78,16 +78,27 @@ impl<S: FixedName> PropAlterEffect<S> {
             }
         };
 
-        let eff_type: PropBoundsEffectMidType = eff_type.into();
-        let eff_val = match eff_type {
-            PropBoundsEffectMidType::BasicAdd => effect.get_effect_value(),
-            PropBoundsEffectMidType::BasicPer => effect.get_effect_value() * prop.get_max_origin(),
+        let eff_logic: PropBoundsEffectLogic = eff_type.into();
+        let (alter_eff, bounds_eff) =
+            Self::gen_alter_bounds_eff_for_upper(prop, eff_logic, effect, duration);
+        (Some(alter_eff), bounds_eff)
+    }
+
+    /// 始终生成针对于上限的 [`PropAlterEffect`] [`PropBoundsEffect`] 效果
+    pub fn gen_alter_bounds_eff_for_upper<Timer>(
+        prop: &Prop,
+        eff_logic: PropBoundsEffectLogic,
+        mut effect: Effect<S>,
+        duration: Timer,
+    ) -> (PropAlterEffect<S>, PropBoundsEffect<S, Timer>) {
+        let eff_val = match eff_logic {
+            PropBoundsEffectLogic::BasicAdd => effect.get_effect_value(),
+            PropBoundsEffectLogic::BasicPer => effect.get_effect_value() * prop.get_max_origin(),
         };
         effect.set_effect_value(eff_val);
 
         // 所有的效果都以 BasicAdd 生效
-        let (alter_eff, bounds_eff) = Self::gen_alter_bounds_eff_by_add_val(effect, duration);
-        (Some(alter_eff), bounds_eff)
+        Self::gen_alter_bounds_eff_by_add_val(effect, duration)
     }
 
     /// 以 BasicAdd 绝对值 的方式，构建一致的 [`PropAlterEffect`] [`PropBoundsEffect`] 效果
