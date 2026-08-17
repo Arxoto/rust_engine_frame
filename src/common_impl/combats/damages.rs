@@ -12,7 +12,7 @@ use crate::{
 
 /// 存放伤害或治疗效果的 buffer
 #[derive(Debug)]
-pub struct DamageEffectBuffer<S: FixedName>(Vec<DamageEffect<S>>);
+pub struct SurvivalEffBuffer<S: FixedName>(Vec<SurvivalEffect<S>>);
 
 /// 伤害信息，表示每次伤害造成的影响
 #[derive(Debug)]
@@ -22,37 +22,41 @@ pub struct DamageInfo<S: FixedName> {
 }
 
 #[derive(Debug, Clone)]
-pub struct DamageEffect<S: FixedName> {
+pub struct SurvivalEffect<S: FixedName> {
     /// 伤害类型，伤害针对的哪些目标
-    dmg_type: DamageType,
+    target_type: SurvivalEffTarget,
     /// 伤害生效方式（绝对值或是百分比）
     ///
     /// 与 [`crate::base_lib::eff_attr_prop::prop_alter_eff::PropAlterEffect`] 共享同一计算语义
-    eff_type: PropAlterEffectType,
+    alter_type: PropAlterEffectType,
     eff: Effect<S>,
 }
 
-impl<S: FixedName> DamageEffect<S> {
+impl<S: FixedName> SurvivalEffect<S> {
     /// 构造单次伤害效果
     ///
-    /// 推入 [`DamageEffectBuffer`] 后由伤害系统消费。
+    /// 推入 [`SurvivalEffBuffer`] 后由伤害系统消费。
     #[must_use]
-    pub fn new(dmg_type: DamageType, eff_type: PropAlterEffectType, eff: Effect<S>) -> Self {
+    pub fn new(
+        target_type: SurvivalEffTarget,
+        alter_type: PropAlterEffectType,
+        eff: Effect<S>,
+    ) -> Self {
         Self {
-            dmg_type,
-            eff_type,
+            target_type,
+            alter_type,
             eff,
         }
     }
 }
 
-impl<S: FixedName> Default for DamageEffectBuffer<S> {
+impl<S: FixedName> Default for SurvivalEffBuffer<S> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<S: FixedName> DamageEffectBuffer<S> {
+impl<S: FixedName> SurvivalEffBuffer<S> {
     /// 构造空的伤害缓冲
     #[must_use]
     pub fn new() -> Self {
@@ -60,7 +64,7 @@ impl<S: FixedName> DamageEffectBuffer<S> {
     }
 
     /// 推入一次伤害效果
-    pub fn push(&mut self, dmg_eff: DamageEffect<S>) {
+    pub fn push(&mut self, dmg_eff: SurvivalEffect<S>) {
         self.0.push(dmg_eff);
     }
 
@@ -77,8 +81,9 @@ impl<S: FixedName> DamageEffectBuffer<S> {
     }
 }
 
+/// 生存效果生效目标
 #[derive(Debug, Clone, Copy)]
-pub enum DamageType {
+pub enum SurvivalEffTarget {
     /// 仅作用于生命值，可用作真实伤害或治疗
     OnlyHealth,
     /// 仅作用于替身护盾 （适用于添加护盾或破盾伤害，仅对本层护盾生效）
@@ -141,84 +146,83 @@ impl MagickaEnergyLevel {
 /// - 奥术护盾 [`ShieldArcane`]
 ///   - 直接正相关 [`Belief`] todo
 ///
-/// 不同 【伤害类型】 [`DamageType`] 对应的 【生命值和护盾值】 see [`DamageType::target_types`]
+/// 不同 【伤害类型】 [`SurvivalEffTarget`] 对应的 【生命值和护盾值】 see [`SurvivalEffTarget::target_types`]
 ///
 /// ## 伤害成长
 ///
-/// 不同 【伤害类型】 [`DamageType`] 对应的 【伤害缩放】 see [`damage_system::calc_damage_scale`]
+/// 不同 【伤害类型】 [`SurvivalEffTarget`] 对应的 【伤害缩放】 see [`damage_system::calc_damage_scale`]
 ///
 /// ## 平衡性分析
 ///
 /// 从“玩家受击角度”进行数值平衡分析
 /// （根据伤害类型找到对应的 【生命值和护盾值】 、再找到相关的成长属性，对比伤害成长来源，二者是否能相互抵消）
 ///
-/// - 真实伤害 [`DamageType::OnlyHealth`]
+/// - 真实伤害 [`SurvivalEffTarget::OnlyHealth`]
 ///   - 受伤上限 正相关 [`Strength`]
 ///   - 伤害成长 正相关 [`Strength`] or [`Belief`] （招式固有属性，不缩放，与角色收获相关，使用内禀属性代替）
 ///   - 对于 [`Strength`] 成长是平衡的
 ///   - 对于 [`Belief`] 成长【受击者不利】，算作差异性，不在此系统弥补
 ///   - 由于其不平衡性，应注意避免数值膨胀，并在其他机制弥补，如：替死法术、冲击韧性机制、远程拉扯等
-/// - 物理冲击 [`DamageType::PhysicsImpact`]
+/// - 物理冲击 [`SurvivalEffTarget::PhysicsImpact`]
 ///   - 受伤上限 正相关 [`Strength`] + [`Belief`]
 ///   - 伤害成长 正相关 [`Strength`] （ [`WeaponMass`] 和 [`ArmorSoft`] 均为武器盔甲固有属性，设计边际递减）
 ///   - 对于 [`Strength`] 成长是平衡的
 ///   - 对于 [`Belief`] 成长【攻击者不利】，可令法术附带该类伤害
-/// - 物理剪切 [`DamageType::PhysicsShears`]
+/// - 物理剪切 [`SurvivalEffTarget::PhysicsShears`]
 ///   - 受伤上限 正相关 [`Strength`] * 2 + [`Belief`]
 ///   - 伤害成长 正相关 [`Strength`] （ [`WeaponSharp`] 为武器固有属性，设计边际递减）
 ///   - 对于 [`Strength`] 成长是平衡的
 ///   - 对于 [`Belief`] 成长【攻击者不利】，可令法术附带该类伤害
-/// - 魔法奥术 [`DamageType::MagickaArcane`]
+/// - 魔法奥术 [`SurvivalEffTarget::MagickaArcane`]
 ///   - 受伤上限 正相关 [`Belief`] * 2 + [`Strength`]
 ///   - 伤害成长 正相关 [`Belief`]
 ///   - 对于 [`Strength`] 成长【攻击者不利】，可令武器附带该类伤害
 ///   - 对于 [`Belief`] 成长是平衡的
 pub mod damage_system {
-    use crate::common_impl::combats::combat_units::PropAboutDamageType;
+    use crate::common_impl::combats::combat_units::SurvivalPropType;
 
     use super::*;
 
     const MAGICKA_BASELINE: f64 = 100.0;
 
-    impl DamageType {
+    impl SurvivalEffTarget {
         /// 不同伤害类型 对哪些资源进行伤害
         ///
         /// ## 返回值约束
         ///
         /// 为明确业务逻辑，做以下约束
-        /// - 若返回不是单元素，那么里面元素的 [`PropAboutDamageType::order_val`] 必须依次连续下降
+        /// - 若返回不是单元素，那么里面元素的 [`SurvivalPropType::order_val`] 必须依次连续下降
         /// - 如 [2, 1, 0] / [1, 0] ，而不是 [2, 0]（不连续） [2, 2]（没有下降）
         ///
         /// ## 设定
         ///
-        /// - 真实伤害 [`DamageType::OnlyHealth`]
+        /// - 真实伤害 [`SurvivalEffTarget::OnlyHealth`]
         ///   - 伤害 [`Health`]
-        /// - 物理冲击 [`DamageType::PhysicsImpact`]
+        /// - 物理冲击 [`SurvivalEffTarget::PhysicsImpact`]
         ///   - 伤害 [`Health`] & [`ShieldSubstitute`]
-        /// - 物理剪切 [`DamageType::PhysicsShears`]
+        /// - 物理剪切 [`SurvivalEffTarget::PhysicsShears`]
         ///   - 伤害 [`Health`] & [`ShieldSubstitute`] & [`ShieldDefence`]
-        /// - 魔法奥术 [`DamageType::MagickaArcane`]
+        /// - 魔法奥术 [`SurvivalEffTarget::MagickaArcane`]
         ///   - 伤害 [`Health`] & [`ShieldSubstitute`] & [`ShieldArcane`]
         /// - 破盾专精伤害对应护盾
-        pub fn target_types(&self) -> &[PropAboutDamageType] {
+        pub fn target_types(&self) -> &[SurvivalPropType] {
             match self {
-                DamageType::OnlyHealth => &[PropAboutDamageType::Health],
-                DamageType::OnlyShieldSubstitute => &[PropAboutDamageType::ShieldSubstitute],
-                DamageType::OnlyShieldDefence => &[PropAboutDamageType::ShieldDefence],
-                DamageType::OnlyShieldArcane => &[PropAboutDamageType::ShieldArcane],
-                DamageType::PhysicsImpact => &[
-                    PropAboutDamageType::ShieldSubstitute,
-                    PropAboutDamageType::Health,
+                SurvivalEffTarget::OnlyHealth => &[SurvivalPropType::Health],
+                SurvivalEffTarget::OnlyShieldSubstitute => &[SurvivalPropType::ShieldSubstitute],
+                SurvivalEffTarget::OnlyShieldDefence => &[SurvivalPropType::ShieldDefence],
+                SurvivalEffTarget::OnlyShieldArcane => &[SurvivalPropType::ShieldArcane],
+                SurvivalEffTarget::PhysicsImpact => {
+                    &[SurvivalPropType::ShieldSubstitute, SurvivalPropType::Health]
+                }
+                SurvivalEffTarget::PhysicsShears => &[
+                    SurvivalPropType::ShieldDefence,
+                    SurvivalPropType::ShieldSubstitute,
+                    SurvivalPropType::Health,
                 ],
-                DamageType::PhysicsShears => &[
-                    PropAboutDamageType::ShieldDefence,
-                    PropAboutDamageType::ShieldSubstitute,
-                    PropAboutDamageType::Health,
-                ],
-                DamageType::MagickaArcane => &[
-                    PropAboutDamageType::ShieldArcane,
-                    PropAboutDamageType::ShieldSubstitute,
-                    PropAboutDamageType::Health,
+                SurvivalEffTarget::MagickaArcane => &[
+                    SurvivalPropType::ShieldArcane,
+                    SurvivalPropType::ShieldSubstitute,
+                    SurvivalPropType::Health,
                 ],
             }
         }
@@ -227,57 +231,58 @@ pub mod damage_system {
         ///
         ///
         /// 返回值满足
-        /// - 返回值必定不重复，且在 `[0, n)` 之间，其中 n 为 [`DamageType`] 类型的个数
+        /// - 返回值必定不重复，且在 `[0, n)` 之间，其中 n 为 [`SurvivalEffTarget`] 类型的个数
         /// - 返回值是基于 [`Self::target_types`] 的返回值确定的，具体规则如下
         ///   - 单元素必定排在多元素的前面
-        ///   - 对比首个元素的 [`PropAboutDamageType::order_val`] 值大的在前面（无需依次对比后面的元素，因为 [`Self::target_types`] 的返回值约束）
+        ///   - 对比首个元素的 [`SurvivalEffTarget::order_val`] 值大的在前面
+        ///     （无需依次对比后面的元素，因为 [`Self::target_types`] 的返回值约束）
         pub fn order_val(&self) -> usize {
             match self {
                 // 单元素类型先于复合类型（文档规则一）
-                DamageType::OnlyShieldDefence => 0,
-                DamageType::OnlyShieldArcane => 1,
-                DamageType::OnlyShieldSubstitute => 2,
-                DamageType::OnlyHealth => 3,
+                SurvivalEffTarget::OnlyShieldDefence => 0,
+                SurvivalEffTarget::OnlyShieldArcane => 1,
+                SurvivalEffTarget::OnlyShieldSubstitute => 2,
+                SurvivalEffTarget::OnlyHealth => 3,
                 // 复合类型：首目标 order_val 大者在前（文档规则二）
-                DamageType::PhysicsShears => 4,
-                DamageType::MagickaArcane => 5,
-                DamageType::PhysicsImpact => 6,
+                SurvivalEffTarget::PhysicsShears => 4,
+                SurvivalEffTarget::MagickaArcane => 5,
+                SurvivalEffTarget::PhysicsImpact => 6,
             }
         }
 
         /// 百分比伤害计算时选取哪个资源为基础进行计算
         ///
         /// 返回 [`Self::target_types`] 的最后一个元素
-        pub fn percent_base_type(&self) -> PropAboutDamageType {
+        pub fn percent_base_type(&self) -> SurvivalPropType {
             match self {
-                DamageType::OnlyHealth
-                | DamageType::PhysicsImpact
-                | DamageType::PhysicsShears
-                | DamageType::MagickaArcane => PropAboutDamageType::Health,
-                DamageType::OnlyShieldSubstitute => PropAboutDamageType::ShieldSubstitute,
-                DamageType::OnlyShieldDefence => PropAboutDamageType::ShieldDefence,
-                DamageType::OnlyShieldArcane => PropAboutDamageType::ShieldArcane,
+                SurvivalEffTarget::OnlyHealth
+                | SurvivalEffTarget::PhysicsImpact
+                | SurvivalEffTarget::PhysicsShears
+                | SurvivalEffTarget::MagickaArcane => SurvivalPropType::Health,
+                SurvivalEffTarget::OnlyShieldSubstitute => SurvivalPropType::ShieldSubstitute,
+                SurvivalEffTarget::OnlyShieldDefence => SurvivalPropType::ShieldDefence,
+                SurvivalEffTarget::OnlyShieldArcane => SurvivalPropType::ShieldArcane,
             }
         }
 
         /// 能否对血量造成伤害
         ///
-        /// 依据是 [`Self::target_types`] 的最后一个元素是否 [`PropAboutDamageType::Health`]
+        /// 依据是 [`Self::target_types`] 的最后一个元素是否 [`SurvivalPropType::Health`]
         pub fn is_hurt_heal(&self) -> bool {
             match self {
-                DamageType::OnlyHealth => true,
-                DamageType::PhysicsImpact => true,
-                DamageType::PhysicsShears => true,
-                DamageType::MagickaArcane => true,
-                DamageType::OnlyShieldSubstitute => false,
-                DamageType::OnlyShieldDefence => false,
-                DamageType::OnlyShieldArcane => false,
+                SurvivalEffTarget::OnlyHealth => true,
+                SurvivalEffTarget::PhysicsImpact => true,
+                SurvivalEffTarget::PhysicsShears => true,
+                SurvivalEffTarget::MagickaArcane => true,
+                SurvivalEffTarget::OnlyShieldSubstitute => false,
+                SurvivalEffTarget::OnlyShieldDefence => false,
+                SurvivalEffTarget::OnlyShieldArcane => false,
             }
         }
     }
 
     #[derive(Debug)]
-    pub struct MergedDamageEffs<S: FixedName> {
+    pub struct MergedSurvivalEffs<S: FixedName> {
         dmg_only_heal: Option<Effect<S>>,
         dmg_only_sub: Option<Effect<S>>,
         dmg_only_def: Option<Effect<S>>,
@@ -287,7 +292,7 @@ pub mod damage_system {
         dmg_mgk_arc: Option<Effect<S>>,
     }
 
-    impl<S: FixedName> Default for MergedDamageEffs<S> {
+    impl<S: FixedName> Default for MergedSurvivalEffs<S> {
         fn default() -> Self {
             Self {
                 dmg_only_heal: None,
@@ -301,20 +306,19 @@ pub mod damage_system {
         }
     }
 
-    type MergedDamageEffArray<S> = [(DamageType, Option<Effect<S>>); 7];
+    type MergedSurvivalEffArray<S> = [(SurvivalEffTarget, Option<Effect<S>>); 7];
 
-    impl<S: FixedName> MergedDamageEffs<S> {
-        /// 顺序与 [`DamageType::order_val`] 一样
-        pub fn into_slice(self) -> MergedDamageEffArray<S> {
-            // 顺序与 [`DamageType::order_val`] 一致
+    impl<S: FixedName> MergedSurvivalEffs<S> {
+        /// 顺序与 [`SurvivalEffTarget::order_val`] 一样
+        pub fn into_slice(self) -> MergedSurvivalEffArray<S> {
             [
-                (DamageType::OnlyShieldDefence, self.dmg_only_def),
-                (DamageType::OnlyShieldArcane, self.dmg_only_arc),
-                (DamageType::OnlyShieldSubstitute, self.dmg_only_sub),
-                (DamageType::OnlyHealth, self.dmg_only_heal),
-                (DamageType::PhysicsShears, self.dmg_phy_she),
-                (DamageType::MagickaArcane, self.dmg_mgk_arc),
-                (DamageType::PhysicsImpact, self.dmg_phy_imp),
+                (SurvivalEffTarget::OnlyShieldDefence, self.dmg_only_def),
+                (SurvivalEffTarget::OnlyShieldArcane, self.dmg_only_arc),
+                (SurvivalEffTarget::OnlyShieldSubstitute, self.dmg_only_sub),
+                (SurvivalEffTarget::OnlyHealth, self.dmg_only_heal),
+                (SurvivalEffTarget::PhysicsShears, self.dmg_phy_she),
+                (SurvivalEffTarget::MagickaArcane, self.dmg_mgk_arc),
+                (SurvivalEffTarget::PhysicsImpact, self.dmg_phy_imp),
             ]
         }
     }
@@ -325,33 +329,33 @@ pub mod damage_system {
     /// - 若先【物理伤害】，后【破盾伤害】，那么当两者加起来能够破盾时，实际伤害与顺序有关
     /// - 【物理伤害】在前会导致后面的【破盾伤害】无效化
     ///
-    /// 因此得出结论：针对单一资源的伤害必须在针对复合资源的伤害之前结算，具体见 [`DamageType::order_val`]
+    /// 因此得出结论：针对单一资源的伤害必须在针对复合资源的伤害之前结算，具体见 [`SurvivalEffTarget::order_val`]
     pub fn merge_damages<S: FixedName>(
-        damage_buffer: &mut DamageEffectBuffer<S>,
+        survival_eff_buffer: &mut SurvivalEffBuffer<S>,
         target_health: &Health,
         target_shield_substitute: &ShieldSubstitute,
         target_shield_defence: &ShieldDefence,
         target_shield_arcane: &ShieldArcane,
-    ) -> MergedDamageEffs<S> {
-        let mut merged_dmg_effs = MergedDamageEffs::<S>::default();
+    ) -> MergedSurvivalEffs<S> {
+        let mut merged_survival_effs = MergedSurvivalEffs::<S>::default();
 
         // get the ownership
-        for dmg_eff in damage_buffer.0.drain(0..) {
-            let DamageEffect {
-                dmg_type,
-                eff_type,
+        for dmg_eff in survival_eff_buffer.0.drain(0..) {
+            let SurvivalEffect {
+                target_type: dmg_type,
+                alter_type: eff_type,
                 mut eff,
             } = dmg_eff;
 
             // 根据伤害类型找到聚合对象
             let merged_dmg = match dmg_type {
-                DamageType::OnlyHealth => &mut merged_dmg_effs.dmg_only_heal,
-                DamageType::OnlyShieldSubstitute => &mut merged_dmg_effs.dmg_only_sub,
-                DamageType::OnlyShieldDefence => &mut merged_dmg_effs.dmg_only_def,
-                DamageType::OnlyShieldArcane => &mut merged_dmg_effs.dmg_only_arc,
-                DamageType::PhysicsImpact => &mut merged_dmg_effs.dmg_phy_imp,
-                DamageType::PhysicsShears => &mut merged_dmg_effs.dmg_phy_she,
-                DamageType::MagickaArcane => &mut merged_dmg_effs.dmg_mgk_arc,
+                SurvivalEffTarget::OnlyHealth => &mut merged_survival_effs.dmg_only_heal,
+                SurvivalEffTarget::OnlyShieldSubstitute => &mut merged_survival_effs.dmg_only_sub,
+                SurvivalEffTarget::OnlyShieldDefence => &mut merged_survival_effs.dmg_only_def,
+                SurvivalEffTarget::OnlyShieldArcane => &mut merged_survival_effs.dmg_only_arc,
+                SurvivalEffTarget::PhysicsImpact => &mut merged_survival_effs.dmg_phy_imp,
+                SurvivalEffTarget::PhysicsShears => &mut merged_survival_effs.dmg_phy_she,
+                SurvivalEffTarget::MagickaArcane => &mut merged_survival_effs.dmg_mgk_arc,
             };
 
             // 提前获取原始效果值
@@ -364,14 +368,14 @@ pub mod damage_system {
 
             // 根据伤害类型找到百分比参照物
             let base_prop = match dmg_type.percent_base_type() {
-                PropAboutDamageType::Health => &target_health.0,
-                PropAboutDamageType::ShieldSubstitute => &target_shield_substitute.0,
-                PropAboutDamageType::ShieldDefence => &target_shield_defence.0,
-                PropAboutDamageType::ShieldArcane => &target_shield_arcane.0,
+                SurvivalPropType::Health => &target_health.0,
+                SurvivalPropType::ShieldSubstitute => &target_shield_substitute.0,
+                SurvivalPropType::ShieldDefence => &target_shield_defence.0,
+                SurvivalPropType::ShieldArcane => &target_shield_arcane.0,
             };
 
             // 根据伤害算法计算伤害绝对值
-            let abs_eff_val = eff_type.alter_abs_val(origin_eff_val, base_prop);
+            let abs_eff_val = eff_type.calc_alter_val(origin_eff_val, base_prop);
 
             // 累加绝对值
             if let Some(merged_dmg) = merged_dmg {
@@ -379,7 +383,7 @@ pub mod damage_system {
             }
         }
 
-        merged_dmg_effs
+        merged_survival_effs
     }
 
     pub struct DamageAppliedAttrProps<'a> {
@@ -393,7 +397,7 @@ pub mod damage_system {
 
     /// 对合并后的伤害效果计算伤害
     pub fn apply_damages<S: FixedName>(
-        merged_dmg_effs: MergedDamageEffs<S>,
+        merged_survival_effs: MergedSurvivalEffs<S>,
         damage_applied_attr_props: DamageAppliedAttrProps,
         target_health: &mut Health,
         target_shield_substitute: &mut ShieldSubstitute,
@@ -410,12 +414,12 @@ pub mod damage_system {
         } = damage_applied_attr_props;
 
         let mut dmg_info: DamageInfo<S> = DamageInfo::default();
-        let dmg_effs = merged_dmg_effs.into_slice();
-        for (dmg_type, dmg_eff) in dmg_effs {
+        let svv_effs = merged_survival_effs.into_slice();
+        for (svv_eff_target, dmg_eff) in svv_effs {
             if let Some(dmg_eff) = dmg_eff {
                 // 根据伤害类型计算缩放比例
                 let dmg_scale = damage_system::calc_damage_scale(
-                    dmg_type,
+                    svv_eff_target,
                     source_strength,
                     source_belief,
                     source_magicka,
@@ -425,18 +429,18 @@ pub mod damage_system {
                 );
 
                 let mut real_dmg = dmg_scale * dmg_eff.get_effect_value();
-                for target_prop_type in dmg_type.target_types() {
+                for target_prop_type in svv_eff_target.target_types() {
                     let prop = match target_prop_type {
-                        PropAboutDamageType::Health => &mut target_health.0,
-                        PropAboutDamageType::ShieldSubstitute => &mut target_shield_substitute.0,
-                        PropAboutDamageType::ShieldDefence => &mut target_shield_defence.0,
-                        PropAboutDamageType::ShieldArcane => &mut target_shield_arcane.0,
+                        SurvivalPropType::Health => &mut target_health.0,
+                        SurvivalPropType::ShieldSubstitute => &mut target_shield_substitute.0,
+                        SurvivalPropType::ShieldDefence => &mut target_shield_defence.0,
+                        SurvivalPropType::ShieldArcane => &mut target_shield_arcane.0,
                     };
                     let res = prop.apply_eff(real_dmg);
                     real_dmg -= res.real_eff_val;
                 }
 
-                if dmg_info.first_hurt_heal_from_eff.is_none() && dmg_type.is_hurt_heal() {
+                if dmg_info.first_hurt_heal_from_eff.is_none() && svv_eff_target.is_hurt_heal() {
                     dmg_info.first_hurt_heal_from_eff = Some(dmg_eff.own_from_eff_name());
                 }
             }
@@ -449,19 +453,19 @@ pub mod damage_system {
     ///
     /// ## 设定
     ///
-    /// - 真实伤害 [`DamageType::OnlyHealth`] 或护盾专精
+    /// - 真实伤害 [`SurvivalEffTarget::OnlyHealth`] 或护盾专精
     ///   - 不缩放
-    /// - 物理冲击 [`DamageType::PhysicsImpact`]
+    /// - 物理冲击 [`SurvivalEffTarget::PhysicsImpact`]
     ///   - 直接正相关 ([`Strength`] + [`WeaponMass`]) / [`ArmorSoft`]
     ///   - 同时正相关 [`Magicka`]
-    /// - 物理剪切 [`DamageType::PhysicsShears`]
+    /// - 物理剪切 [`SurvivalEffTarget::PhysicsShears`]
     ///   - 直接正相关 [`Strength`] * [`WeaponSharp`]
     ///   - 同时正相关 [`Magicka`]
-    /// - 魔法奥术 [`DamageType::MagickaArcane`]
+    /// - 魔法奥术 [`SurvivalEffTarget::MagickaArcane`]
     ///   - 直接正相关 [`Belief`]
     ///   - 同时正相关 [`Magicka`]
     pub fn calc_damage_scale(
-        dmg_type: DamageType,
+        svv_eff_target: SurvivalEffTarget,
         source_strength: &Strength,
         source_belief: &Belief,
         source_magicka: &Magicka,
@@ -470,21 +474,21 @@ pub mod damage_system {
         target_armor_soft: &ArmorSoft,
     ) -> f64 {
         // 真实伤害与护盾专精不受能量加成
-        let damage_scale = match dmg_type {
-            DamageType::OnlyHealth
-            | DamageType::OnlyShieldSubstitute
-            | DamageType::OnlyShieldDefence
-            | DamageType::OnlyShieldArcane => {
+        let damage_scale = match svv_eff_target {
+            SurvivalEffTarget::OnlyHealth
+            | SurvivalEffTarget::OnlyShieldSubstitute
+            | SurvivalEffTarget::OnlyShieldDefence
+            | SurvivalEffTarget::OnlyShieldArcane => {
                 return 1.0;
             }
-            DamageType::PhysicsImpact => {
+            SurvivalEffTarget::PhysicsImpact => {
                 (source_strength.0.get_current() + source_weapon_mass.0.get_current())
                     / target_armor_soft.0.get_current()
             }
-            DamageType::PhysicsShears => {
+            SurvivalEffTarget::PhysicsShears => {
                 source_strength.0.get_current() * source_weapon_sharp.0.get_current()
             }
-            DamageType::MagickaArcane => source_belief.0.get_current(),
+            SurvivalEffTarget::MagickaArcane => source_belief.0.get_current(),
         };
 
         // 能量越高伤害越高 不使用双方能量差是为了防止在高能量状态下，小怪低能量形成的碾压，导致堆怪没威胁
@@ -523,10 +527,12 @@ pub mod damage_system {
 #[cfg(test)]
 mod tests {
     use super::damage_system::{
-        DamageAppliedAttrProps, MergedDamageEffs, apply_damages, calc_damage_scale,
+        DamageAppliedAttrProps, MergedSurvivalEffs, apply_damages, calc_damage_scale,
         calc_defence_shield, calc_health_max, calc_magicka_max, calc_magicka_value, merge_damages,
     };
-    use super::{DamageEffect, DamageEffectBuffer, DamageInfo, DamageType, MagickaEnergyLevel};
+    use super::{
+        DamageInfo, MagickaEnergyLevel, SurvivalEffBuffer, SurvivalEffTarget, SurvivalEffect,
+    };
     use crate::base_lib::eff_attr_prop::{
         attrs::Attr, effects::Effect, prop_alter_eff::PropAlterEffectType, props::Prop,
     };
@@ -534,19 +540,19 @@ mod tests {
         combat_additions::{ArmorHard, ArmorSoft, WeaponMass, WeaponSharp},
         combat_inherents::{Belief, Strength},
         combat_units::{
-            Health, Magicka, PropAboutDamageType, ShieldArcane, ShieldDefence, ShieldSubstitute,
+            Health, Magicka, ShieldArcane, ShieldDefence, ShieldSubstitute, SurvivalPropType,
         },
     };
 
-    /// 全部 DamageType 变体（n = 7）
-    const ALL_DMG_TYPES: [DamageType; 7] = [
-        DamageType::OnlyHealth,
-        DamageType::OnlyShieldSubstitute,
-        DamageType::OnlyShieldDefence,
-        DamageType::OnlyShieldArcane,
-        DamageType::PhysicsImpact,
-        DamageType::PhysicsShears,
-        DamageType::MagickaArcane,
+    /// 全部 SurvivalEffTarget 变体（n = 7）
+    const ALL_DMG_TYPES: [SurvivalEffTarget; 7] = [
+        SurvivalEffTarget::OnlyHealth,
+        SurvivalEffTarget::OnlyShieldSubstitute,
+        SurvivalEffTarget::OnlyShieldDefence,
+        SurvivalEffTarget::OnlyShieldArcane,
+        SurvivalEffTarget::PhysicsImpact,
+        SurvivalEffTarget::PhysicsShears,
+        SurvivalEffTarget::MagickaArcane,
     ];
 
     // region: 测试脚手架
@@ -608,9 +614,9 @@ mod tests {
         }
     }
 
-    /// 一次「push → merge → apply」完整走查，返回 DamageInfo
+    /// 一次「push → merge → apply」完整走查，返回 HealthInfo
     fn run_damage(
-        buffer: &mut DamageEffectBuffer<&'static str>,
+        buffer: &mut SurvivalEffBuffer<&'static str>,
         targets: &mut Targets,
         attrs: &TestAttrs,
     ) -> DamageInfo<&'static str> {
@@ -631,75 +637,72 @@ mod tests {
         )
     }
 
-    /// PropAboutDamageType 未实现 PartialEq，用 matches! 判断同一资源
-    fn same_prop(a: PropAboutDamageType, b: PropAboutDamageType) -> bool {
+    /// PropAboutSurvivalEffTarget 未实现 PartialEq，用 matches! 判断同一资源
+    fn same_prop(a: SurvivalPropType, b: SurvivalPropType) -> bool {
         matches!(
             (a, b),
-            (PropAboutDamageType::Health, PropAboutDamageType::Health)
+            (SurvivalPropType::Health, SurvivalPropType::Health)
                 | (
-                    PropAboutDamageType::ShieldSubstitute,
-                    PropAboutDamageType::ShieldSubstitute
+                    SurvivalPropType::ShieldSubstitute,
+                    SurvivalPropType::ShieldSubstitute
                 )
                 | (
-                    PropAboutDamageType::ShieldDefence,
-                    PropAboutDamageType::ShieldDefence
+                    SurvivalPropType::ShieldDefence,
+                    SurvivalPropType::ShieldDefence
                 )
                 | (
-                    PropAboutDamageType::ShieldArcane,
-                    PropAboutDamageType::ShieldArcane
+                    SurvivalPropType::ShieldArcane,
+                    SurvivalPropType::ShieldArcane
                 )
         )
     }
 
     // endregion
 
-    // region: DamageType 方法（基于文档注释）
+    // region: SurvivalEffTarget 方法（基于文档注释）
 
     /// target_types：各伤害类型的目标资源与文档一致
     #[test]
     fn target_types_match_documented_targets() {
         // 单资源类型：文档「仅作用于」对应单一资源
-        assert_target_types(DamageType::OnlyHealth, &[PropAboutDamageType::Health]);
+        assert_target_types(SurvivalEffTarget::OnlyHealth, &[SurvivalPropType::Health]);
         assert_target_types(
-            DamageType::OnlyShieldSubstitute,
-            &[PropAboutDamageType::ShieldSubstitute],
+            SurvivalEffTarget::OnlyShieldSubstitute,
+            &[SurvivalPropType::ShieldSubstitute],
         );
         assert_target_types(
-            DamageType::OnlyShieldDefence,
-            &[PropAboutDamageType::ShieldDefence],
+            SurvivalEffTarget::OnlyShieldDefence,
+            &[SurvivalPropType::ShieldDefence],
         );
         assert_target_types(
-            DamageType::OnlyShieldArcane,
-            &[PropAboutDamageType::ShieldArcane],
+            SurvivalEffTarget::OnlyShieldArcane,
+            &[SurvivalPropType::ShieldArcane],
         );
 
         // 复合类型：文档列出的受伤上限 —— 剪切伤 Def/Sub/Health、冲击伤 Sub/Health、奥术伤 Arc/Sub/Health
         assert_target_types(
-            DamageType::PhysicsShears,
+            SurvivalEffTarget::PhysicsShears,
             &[
-                PropAboutDamageType::ShieldDefence,
-                PropAboutDamageType::ShieldSubstitute,
-                PropAboutDamageType::Health,
+                SurvivalPropType::ShieldDefence,
+                SurvivalPropType::ShieldSubstitute,
+                SurvivalPropType::Health,
             ],
         );
         assert_target_types(
-            DamageType::PhysicsImpact,
-            &[
-                PropAboutDamageType::ShieldSubstitute,
-                PropAboutDamageType::Health,
-            ],
+            SurvivalEffTarget::PhysicsImpact,
+            &[SurvivalPropType::ShieldSubstitute, SurvivalPropType::Health],
         );
         assert_target_types(
-            DamageType::MagickaArcane,
+            SurvivalEffTarget::MagickaArcane,
             &[
-                PropAboutDamageType::ShieldArcane,
-                PropAboutDamageType::ShieldSubstitute,
-                PropAboutDamageType::Health,
+                SurvivalPropType::ShieldArcane,
+                SurvivalPropType::ShieldSubstitute,
+                SurvivalPropType::Health,
             ],
         );
     }
 
-    fn assert_target_types(dmg_type: DamageType, expected: &[PropAboutDamageType]) {
+    fn assert_target_types(dmg_type: SurvivalEffTarget, expected: &[SurvivalPropType]) {
         let targets = dmg_type.target_types();
         assert_eq!(targets.len(), expected.len(), "{dmg_type:?} 目标个数不符");
         for (got, want) in targets.iter().zip(expected) {
@@ -728,10 +731,13 @@ mod tests {
         }
     }
 
-    /// order_val：返回值不重复，且覆盖 [0, n)，n = DamageType 变体个数
+    /// order_val：返回值不重复，且覆盖 [0, n)，n = SurvivalEffTarget 变体个数
     #[test]
     fn order_val_is_permutation_of_0_to_n() {
-        let mut vals: Vec<usize> = ALL_DMG_TYPES.iter().map(DamageType::order_val).collect();
+        let mut vals: Vec<usize> = ALL_DMG_TYPES
+            .iter()
+            .map(SurvivalEffTarget::order_val)
+            .collect();
         vals.sort_unstable();
         let expected: Vec<usize> = (0..ALL_DMG_TYPES.len()).collect();
         assert_eq!(vals, expected);
@@ -803,7 +809,7 @@ mod tests {
     fn is_hurt_heal_matches_last_target_is_health() {
         for dmg_type in ALL_DMG_TYPES {
             let last = *dmg_type.target_types().last().unwrap();
-            let expect_hurt = same_prop(last, PropAboutDamageType::Health);
+            let expect_hurt = same_prop(last, SurvivalPropType::Health);
             assert_eq!(dmg_type.is_hurt_heal(), expect_hurt, "{dmg_type:?}");
         }
     }
@@ -811,7 +817,7 @@ mod tests {
     /// into_slice：顺序与 order_val 一致（单资源在前、复合在后）
     #[test]
     fn merged_into_slice_follows_order_val() {
-        let merged = MergedDamageEffs::<&str>::default();
+        let merged = MergedSurvivalEffs::<&str>::default();
         let slice = merged.into_slice();
         let vals: Vec<usize> = slice.iter().map(|(t, _)| t.order_val()).collect();
         let mut sorted = vals.clone();
@@ -835,10 +841,10 @@ mod tests {
             armor_soft: ArmorSoft(Attr::new(1.0)),
         };
         for dmg_type in [
-            DamageType::OnlyHealth,
-            DamageType::OnlyShieldSubstitute,
-            DamageType::OnlyShieldDefence,
-            DamageType::OnlyShieldArcane,
+            SurvivalEffTarget::OnlyHealth,
+            SurvivalEffTarget::OnlyShieldSubstitute,
+            SurvivalEffTarget::OnlyShieldDefence,
+            SurvivalEffTarget::OnlyShieldArcane,
         ] {
             assert_eq!(
                 calc_damage_scale(
@@ -878,17 +884,17 @@ mod tests {
         let energy_scale = 1.0 + 100.0 / 100.0;
         // 物理剪切 = 气力 * 锋利 * 能量系数
         assert_eq!(
-            calc_damage_scale(DamageType::PhysicsShears, s, b, m, w_s, w_m, a_s),
+            calc_damage_scale(SurvivalEffTarget::PhysicsShears, s, b, m, w_s, w_m, a_s),
             2.0 * 4.0 * energy_scale
         );
         // 物理冲击 = (气力 + 质量) / 柔韧 * 能量系数
         assert_eq!(
-            calc_damage_scale(DamageType::PhysicsImpact, s, b, m, w_s, w_m, a_s),
+            calc_damage_scale(SurvivalEffTarget::PhysicsImpact, s, b, m, w_s, w_m, a_s),
             (2.0 + 5.0) / 2.0 * energy_scale
         );
         // 魔法奥术 = 信念 * 能量系数
         assert_eq!(
-            calc_damage_scale(DamageType::MagickaArcane, s, b, m, w_s, w_m, a_s),
+            calc_damage_scale(SurvivalEffTarget::MagickaArcane, s, b, m, w_s, w_m, a_s),
             3.0 * energy_scale
         );
     }
@@ -936,9 +942,9 @@ mod tests {
     /// OnlyHealth：绝对值伤害直接作用于血量
     #[test]
     fn only_health_hits_health_directly() {
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyHealth,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyHealth,
             PropAlterEffectType::Val,
             Effect::new("attacker", "real_dmg", -40.0),
         ));
@@ -956,9 +962,9 @@ mod tests {
     fn only_health_heals_up_to_cap() {
         let mut targets = Targets::full();
         targets.health.0.apply_eff(-30.0); // 先扣到 70
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyHealth,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyHealth,
             PropAlterEffectType::Val,
             Effect::new("healer", "heal", 40.0),
         ));
@@ -970,9 +976,9 @@ mod tests {
     #[test]
     fn only_shield_types_hit_only_their_shield() {
         // 替身护盾
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyShieldSubstitute,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyShieldSubstitute,
             PropAlterEffectType::Val,
             Effect::new("a", "break_sub", -40.0),
         ));
@@ -984,9 +990,9 @@ mod tests {
         assert_eq!(targets.arc.0.get_current(), 100.0);
 
         // 防护护盾
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyShieldDefence,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyShieldDefence,
             PropAlterEffectType::Val,
             Effect::new("a", "break_def", -40.0),
         ));
@@ -997,9 +1003,9 @@ mod tests {
         assert_eq!(targets.sub.0.get_current(), 100.0);
 
         // 奥术护盾
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyShieldArcane,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyShieldArcane,
             PropAlterEffectType::Val,
             Effect::new("a", "break_arc", -40.0),
         ));
@@ -1018,9 +1024,9 @@ mod tests {
             defence: ShieldDefence(Prop::new(30.0, 100.0, 0.0)),
             arc: ShieldArcane(Prop::new(100.0, 100.0, 0.0)),
         };
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::PhysicsShears,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::PhysicsShears,
             PropAlterEffectType::Val,
             Effect::new("a", "shear", -100.0),
         ));
@@ -1040,9 +1046,9 @@ mod tests {
             defence: ShieldDefence(Prop::new(100.0, 100.0, 0.0)),
             arc: ShieldArcane(Prop::new(100.0, 100.0, 0.0)),
         };
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::PhysicsImpact,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::PhysicsImpact,
             PropAlterEffectType::Val,
             Effect::new("a", "impact", -100.0),
         ));
@@ -1061,9 +1067,9 @@ mod tests {
             defence: ShieldDefence(Prop::new(100.0, 100.0, 0.0)),
             arc: ShieldArcane(Prop::new(30.0, 100.0, 0.0)),
         };
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::MagickaArcane,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::MagickaArcane,
             PropAlterEffectType::Val,
             Effect::new("a", "arcane", -100.0),
         ));
@@ -1082,14 +1088,14 @@ mod tests {
     #[test]
     fn merge_damages_sums_same_type_and_drains_buffer() {
         let mut targets = Targets::full();
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyHealth,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyHealth,
             PropAlterEffectType::Val,
             Effect::new("a", "hit1", -30.0),
         ));
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyHealth,
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyHealth,
             PropAlterEffectType::Val,
             Effect::new("a", "hit2", -20.0),
         ));
@@ -1102,19 +1108,19 @@ mod tests {
     #[test]
     fn merge_damages_mixes_absolute_and_percent() {
         let mut targets = Targets::full(); // 血量当前值 100
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyHealth,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyHealth,
             PropAlterEffectType::Val,
             Effect::new("a", "flat", -30.0),
         ));
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyHealth,
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyHealth,
             PropAlterEffectType::CurPer,
             Effect::new("a", "cut", -0.2),
         ));
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyHealth,
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyHealth,
             PropAlterEffectType::MaxPer,
             Effect::new("a", "slash", -0.5),
         ));
@@ -1135,14 +1141,14 @@ mod tests {
             defence: ShieldDefence(Prop::new(50.0, 100.0, 0.0)),
             ..Targets::full()
         };
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyShieldDefence,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyShieldDefence,
             PropAlterEffectType::Val,
             Effect::new("a", "break_def", -100.0),
         ));
-        buffer.push(DamageEffect::new(
-            DamageType::PhysicsShears,
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::PhysicsShears,
             PropAlterEffectType::Val,
             Effect::new("a", "shear", -100.0),
         ));
@@ -1162,14 +1168,14 @@ mod tests {
             sub: ShieldSubstitute(Prop::new(50.0, 100.0, 0.0)),
             ..Targets::full()
         };
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyShieldSubstitute,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyShieldSubstitute,
             PropAlterEffectType::Val,
             Effect::new("a", "break_sub", -100.0),
         ));
-        buffer.push(DamageEffect::new(
-            DamageType::PhysicsImpact,
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::PhysicsImpact,
             PropAlterEffectType::Val,
             Effect::new("a", "impact", -100.0),
         ));
@@ -1188,14 +1194,14 @@ mod tests {
             arc: ShieldArcane(Prop::new(50.0, 100.0, 0.0)),
             ..Targets::full()
         };
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyShieldArcane,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyShieldArcane,
             PropAlterEffectType::Val,
             Effect::new("a", "break_arc", -100.0),
         ));
-        buffer.push(DamageEffect::new(
-            DamageType::MagickaArcane,
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::MagickaArcane,
             PropAlterEffectType::Val,
             Effect::new("a", "arcane", -100.0),
         ));
@@ -1210,16 +1216,16 @@ mod tests {
 
     // endregion
 
-    // region: DamageInfo 死因来源
+    // region: HealthInfo 死因来源
 
-    /// DamageInfo：记录第一个「伤血/治疗」效果作为死因来源；纯护盾伤害不记录
+    /// HealthInfo：记录第一个「伤血/治疗」效果作为死因来源；纯护盾伤害不记录
     #[test]
     fn apply_damages_records_first_hurt_heal_source() {
         // 纯护盾伤害 → 无死因来源
         let mut targets = Targets::full();
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyShieldSubstitute,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyShieldSubstitute,
             PropAlterEffectType::Val,
             Effect::new("a", "break_sub", -30.0),
         ));
@@ -1228,14 +1234,14 @@ mod tests {
 
         // 混入真实伤害 → 记录真实伤害的 (来源, 效果名)
         let mut targets = Targets::full();
-        let mut buffer = DamageEffectBuffer::new();
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyShieldSubstitute,
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyShieldSubstitute,
             PropAlterEffectType::Val,
             Effect::new("a", "break_sub", -30.0),
         ));
-        buffer.push(DamageEffect::new(
-            DamageType::OnlyHealth,
+        buffer.push(SurvivalEffect::new(
+            SurvivalEffTarget::OnlyHealth,
             PropAlterEffectType::Val,
             Effect::new("b", "real_dmg", -30.0),
         ));

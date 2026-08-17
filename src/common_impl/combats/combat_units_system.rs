@@ -16,7 +16,7 @@ use crate::{
         cores::{timers::static_timer::StaticTimer, unify_types::FixedName},
         eff_attr_prop::{
             effects::Effect,
-            prop_alter_eff::{PropAlterEffect, alter_abs_value, apply_prop_alter_eff},
+            prop_alter_eff::PropAlterEffect,
             prop_bounds_eff::{PropBoundsEffect, PropBoundsEffectType},
             props::{Prop, PropAlterResult},
             upsert_container::UpsertContainer,
@@ -26,7 +26,7 @@ use crate::{
         combat_additions::ArmorHard,
         combat_inherents::{Belief, Strength},
         combat_units::{Health, Magicka, Stamina},
-        damages::{DamageEffect, DamageEffectBuffer, MagickaEnergyLevel, damage_system},
+        damages::{MagickaEnergyLevel, SurvivalEffBuffer, SurvivalEffect, damage_system},
     },
 };
 
@@ -79,7 +79,7 @@ pub fn gen_three_bars(strength: &Strength, belief: &Belief, config: &ThreeBarsCo
 /// 返回就绪的 `UpperAdd` [`PropBoundsEffect`],由调用方 upsert 进护盾的 `*Effs` 容器,
 /// 上限刷新交给 [`crate::base_lib::eff_attr_prop::prop_systems::try_refresh_dirty_prop_bounds`]。
 ///
-/// 护盾**当前值**的装载由调用方另行构造 `OnlyShieldDefence` 的 [`DamageEffect`] 推入缓冲。
+/// 护盾**当前值**的装载由调用方另行构造 `OnlyShieldDefence` 的 [`SurvivalEffect`] 推入缓冲。
 pub fn gen_shield_defence<S: FixedName>(
     armor_hard: &ArmorHard,
     from_name: S,
@@ -98,12 +98,12 @@ pub fn gen_shield_defence<S: FixedName>(
 /// **不做同步修改**(符合 ECS):上限由每帧 [`crate::base_lib::eff_attr_prop::prop_systems`]
 /// 依脏标签刷新,当前值由伤害管线消费。调用方:
 /// - `bounds_eff` 来自 [`gen_shield_defence`] 或调用方自建;
-/// - `value_eff` 为 `Only*` 类型的 [`DamageEffect`](如 `OnlyShieldDefence`),正值累加护盾当前值。
+/// - `value_eff` 为 `Only*` 类型的 [`SurvivalEffect`](如 `OnlyShieldDefence`),正值累加护盾当前值。
 pub fn load_shield<S: FixedName>(
     shield_effs: &mut UpsertContainer<PropBoundsEffect<S, StaticTimer>>,
-    damage_buffer: &mut DamageEffectBuffer<S>,
+    damage_buffer: &mut SurvivalEffBuffer<S>,
     bounds_eff: PropBoundsEffect<S, StaticTimer>,
-    value_eff: DamageEffect<S>,
+    value_eff: SurvivalEffect<S>,
 ) {
     shield_effs.upsert_replace(bounds_eff);
     damage_buffer.push(value_eff);
@@ -117,7 +117,9 @@ pub fn cost_magicka<S: FixedName>(
     magicka: &mut Magicka,
     eff: PropAlterEffect<S>,
 ) -> PropAlterResult {
-    apply_prop_alter_eff(&mut magicka.0, eff)
+    let prop = &mut magicka.0;
+    let abs_val = eff.calc_alter_val(prop);
+    prop.apply_eff(abs_val)
 }
 
 /// 尝试花费能量(软扣):能量不足则失败,返回 `None` 且值不变
@@ -129,8 +131,9 @@ pub fn try_cost_magicka<S: FixedName>(
     eff: PropAlterEffect<S>,
 ) -> Option<PropAlterResult> {
     // 折算出绝对值(参照目标 Prop 自身),软扣判断是否可支付
-    let abs_val = alter_abs_value(&magicka.0, &eff);
-    magicka.0.apply_eff_checked(abs_val, COST_FLOOR)
+    let prop = &mut magicka.0;
+    let abs_val = eff.calc_alter_val(prop);
+    prop.apply_eff_checked(abs_val, COST_FLOOR)
 }
 
 /// 削韧:削减平衡,返回实际生效值
@@ -141,7 +144,9 @@ pub fn cut_stamina<S: FixedName>(
     stamina: &mut Stamina,
     eff: PropAlterEffect<S>,
 ) -> PropAlterResult {
-    apply_prop_alter_eff(&mut stamina.0, eff)
+    let prop = &mut stamina.0;
+    let abs_val = eff.calc_alter_val(prop);
+    prop.apply_eff(abs_val)
 }
 
 #[cfg(test)]
@@ -152,7 +157,7 @@ mod tests {
             cores::timers::static_timer::StaticTimer,
             eff_attr_prop::{attrs::Attr, prop_alter_eff::PropAlterEffectType, props::Prop},
         },
-        common_impl::combats::{combat_units::ShieldDefence, damages::DamageType},
+        common_impl::combats::{combat_units::ShieldDefence, damages::SurvivalEffTarget},
     };
 
     /// 生成三维:返回血量/平衡满、能量为零的所有权
@@ -212,7 +217,7 @@ mod tests {
     fn load_shield_does_not_mutate_prop_directly() {
         let mut shield_effs: UpsertContainer<PropBoundsEffect<String, StaticTimer>> =
             UpsertContainer::default();
-        let mut damage_buffer = DamageEffectBuffer::new();
+        let mut damage_buffer = SurvivalEffBuffer::new();
         let shield = ShieldDefence(Prop::new(0.0, 0.0, 0.0));
 
         let bounds_eff = gen_shield_defence(
@@ -220,8 +225,8 @@ mod tests {
             "player".to_string(),
             "defence_shield".to_string(),
         );
-        let value_eff = DamageEffect::new(
-            DamageType::OnlyShieldDefence,
+        let value_eff = SurvivalEffect::new(
+            SurvivalEffTarget::OnlyShieldDefence,
             PropAlterEffectType::Val,
             Effect::new("player".to_string(), "shield_spell".to_string(), 80.0),
         );

@@ -28,23 +28,23 @@ use crate::base_lib::{
     },
 };
 
-/// 涉及伤害系统的资源类型
+/// 生存属性类型（生命值、护盾）
 #[derive(Debug, Clone, Copy)]
-pub enum PropAboutDamageType {
+pub enum SurvivalPropType {
     Health,
     ShieldSubstitute,
     ShieldDefence,
     ShieldArcane,
 }
 
-impl PropAboutDamageType {
-    /// 涉及伤害系统的资源类型的层级关系，值是业务约定
+impl SurvivalPropType {
+    /// 生命值护盾的层级关系，值是业务约定
     pub fn order_val(&self) -> usize {
         match self {
-            PropAboutDamageType::Health => 0,
-            PropAboutDamageType::ShieldSubstitute => 1,
-            PropAboutDamageType::ShieldDefence => 2,
-            PropAboutDamageType::ShieldArcane => 2,
+            SurvivalPropType::Health => 0,
+            SurvivalPropType::ShieldSubstitute => 1,
+            SurvivalPropType::ShieldDefence => 2,
+            SurvivalPropType::ShieldArcane => 2,
         }
     }
 }

@@ -5,10 +5,7 @@
 
 use crate::base_lib::{
     cores::unify_types::FixedName,
-    eff_attr_prop::{
-        effects::Effect,
-        props::{Prop, PropAlterResult},
-    },
+    eff_attr_prop::{effects::Effect, props::Prop},
 };
 
 /// 对 Prop 的修改计算方式
@@ -23,7 +20,10 @@ pub enum PropAlterEffectType {
 }
 
 impl PropAlterEffectType {
-    pub fn alter_abs_val(&self, eff_val: f64, prop: &Prop) -> f64 {
+    /// 根据效果类型计算绝对值
+    ///
+    /// 为了内聚 逻辑必须在这里实现 因此需要传入 [`Prop`]
+    pub fn calc_alter_val(&self, eff_val: f64, prop: &Prop) -> f64 {
         match self {
             Self::Val => eff_val,
             Self::CurPer => eff_val * prop.get_current(),
@@ -44,25 +44,12 @@ impl<S: FixedName> PropAlterEffect<S> {
     pub fn new(eff_type: PropAlterEffectType, eff: Effect<S>) -> Self {
         Self { eff_type, eff }
     }
-}
 
-/// 应用修改到 Prop:折算百分比(参照目标 Prop 自身)后调用 [`Prop::apply_eff`]
-///
-/// 直接应用,不入 buffer。返回实际生效值。
-pub fn apply_prop_alter_eff<S: FixedName>(
-    prop: &mut Prop,
-    eff: PropAlterEffect<S>,
-) -> PropAlterResult {
-    let abs_val = alter_abs_value(prop, &eff);
-    prop.apply_eff(abs_val)
-}
-
-/// 折算 `PropAlterEffect` 为绝对值(参照目标 Prop 自身),只算不应用
-///
-/// 供软扣等"先判断能否支付、再决定是否应用"的场景复用同一折算逻辑。
-pub fn alter_abs_value<S: FixedName>(prop: &Prop, eff: &PropAlterEffect<S>) -> f64 {
-    let eff_val = eff.eff.get_effect_value();
-    eff.eff_type.alter_abs_val(eff_val, prop)
+    /// 计算 [`PropAlterEffect`] 为绝对值（参照目标对应的 [`Prop`] ）
+    pub fn calc_alter_val(&self, prop: &Prop) -> f64 {
+        let eff_val = self.eff.get_effect_value();
+        self.eff_type.calc_alter_val(eff_val, prop)
+    }
 }
 
 #[cfg(test)]
@@ -76,7 +63,8 @@ mod tests {
         let mut prop = Prop::new(30.0, 100.0, 0.0);
         let eff =
             PropAlterEffect::new(PropAlterEffectType::Val, Effect::new("from", "cost", -20.0));
-        let res = apply_prop_alter_eff(&mut prop, eff);
+        let abs_val = eff.calc_alter_val(&prop);
+        let res = prop.apply_eff(abs_val);
         assert_eq!(prop.get_current(), 10.0);
         assert_eq!(res.real_eff_val, -20.0);
     }
@@ -90,7 +78,8 @@ mod tests {
             PropAlterEffectType::CurPer,
             Effect::new("from", "cut", -0.5),
         );
-        let res = apply_prop_alter_eff(&mut prop, eff);
+        let abs_val = eff.calc_alter_val(&prop);
+        let res = prop.apply_eff(abs_val);
         assert_eq!(prop.get_current(), 25.0);
         assert_eq!(res.real_eff_val, -25.0);
     }
@@ -104,7 +93,8 @@ mod tests {
             PropAlterEffectType::MaxPer,
             Effect::new("from", "cut", -0.1),
         );
-        let res = apply_prop_alter_eff(&mut prop, eff);
+        let abs_val = eff.calc_alter_val(&prop);
+        let res = prop.apply_eff(abs_val);
         assert_eq!(prop.get_current(), 20.0);
         assert_eq!(res.real_eff_val, -10.0);
     }

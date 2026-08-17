@@ -83,10 +83,10 @@ impl Prop {
     /// - 不适用：血量护盾这种不同伤害类型影响不同层级的复杂逻辑
     ///
     /// 应先复制当前值和上下限作为基准，然后计算百分比得出绝对值、推入伤害队列，之后再 [`Prop::refresh_bounds`] [`Prop::apply_bounds`]
-    pub fn apply_eff(&mut self, eff_val: f64) -> PropAlterResult {
+    pub fn apply_eff(&mut self, val: f64) -> PropAlterResult {
         let old_value = self.current;
 
-        self.current += eff_val;
+        self.current += val;
         self.apply_bounds();
 
         let real_eff_val = self.current - old_value;
@@ -94,9 +94,9 @@ impl Prop {
     }
 
     /// 只有当前值足够才会去应用效果（如法力不够则施放失败）
-    pub fn apply_eff_checked(&mut self, eff_val: f64, ge: f64) -> Option<PropAlterResult> {
-        if self.current + eff_val >= ge {
-            Some(self.apply_eff(eff_val))
+    pub fn apply_eff_checked(&mut self, val: f64, want_ge: f64) -> Option<PropAlterResult> {
+        if self.current + val >= want_ge {
+            Some(self.apply_eff(val))
         } else {
             None
         }
