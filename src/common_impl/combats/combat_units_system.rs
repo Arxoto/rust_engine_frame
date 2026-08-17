@@ -111,7 +111,7 @@ pub fn gen_shield_or_health_upper<S: FixedName, Timer>(
 /// 依脏标签刷新,当前值由伤害管线消费。调用方:
 /// - `bounds_eff` 来自 [`gen_shield_defence`] 或调用方自建;
 /// - `value_eff` 为 `Only*` 类型的 [`SurvivalEffect`](如 `OnlyShieldDefence`),正值累加护盾当前值。
-pub fn load_shield<S: FixedName>(
+pub fn load_shield_or_health_upper<S: FixedName>(
     shield_effs: &mut UpsertContainer<PropBoundsEffect<S, StaticTimer>>,
     svv_eff_buffer: &mut SurvivalEffBuffer<S>,
     bounds_eff: PropBoundsEffect<S, StaticTimer>,
@@ -240,7 +240,7 @@ mod tests {
             "defence_shield".to_string(),
         );
 
-        load_shield(&mut shield_effs, &mut damage_buffer, bounds_eff, svv_eff);
+        load_shield_or_health_upper(&mut shield_effs, &mut damage_buffer, bounds_eff, svv_eff);
 
         // 上限效果已入容器,脏标签置起
         assert_eq!(shield_effs.ele_len(), 1);
