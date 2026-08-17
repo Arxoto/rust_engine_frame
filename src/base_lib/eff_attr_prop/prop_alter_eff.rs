@@ -1,11 +1,12 @@
-//! 对任意 Prop 的通用修改描述与直接应用
-//!
-//! 用于单次瞬时生效的修改(如花费资源、削减平衡),与 [`super::effects::Effect`]
-//! 的"负值 = 减益"语义一致:减益用负 `effect_value`,百分比按目标 Prop 自身折算。
+//! 对任意 Prop 的通用修改描述与修改值计算
 
 use crate::base_lib::{
     cores::unify_types::FixedName,
-    eff_attr_prop::{effects::Effect, props::Prop},
+    eff_attr_prop::{
+        effects::Effect,
+        prop_bounds_eff::{PropBoundsEffect, PropBoundsEffectMidType, PropBoundsEffectType},
+        props::Prop,
+    },
 };
 
 /// 对 Prop 的修改计算方式
@@ -32,7 +33,7 @@ impl PropAlterEffectType {
     }
 }
 
-/// 对 Prop 的修改描述:计算方式 + 效果
+/// 对 Prop 的修改效果: 计算方式 + 效果
 #[derive(Debug, Clone)]
 pub struct PropAlterEffect<S: FixedName> {
     eff_type: PropAlterEffectType,
@@ -45,10 +46,62 @@ impl<S: FixedName> PropAlterEffect<S> {
         Self { eff_type, eff }
     }
 
+    pub fn get_type(&self) -> PropAlterEffectType {
+        self.eff_type
+    }
+
+    pub fn own_eff(self) -> Effect<S> {
+        self.eff
+    }
+
     /// 计算 [`PropAlterEffect`] 为绝对值（参照目标对应的 [`Prop`] ）
     pub fn calc_alter_val(&self, prop: &Prop) -> f64 {
         let eff_val = self.eff.get_effect_value();
         self.eff_type.calc_alter_val(eff_val, prop)
+    }
+
+    // todo add test
+    /// 生成一致的 [`PropAlterEffect`] [`PropBoundsEffect`] 效果
+    ///
+    /// 若是针对下限生效的效果，则不生成 [`PropAlterEffect`] ，应该通过 [`Prop::apply_bounds`] 自动应用影响
+    pub fn gen_alter_bounds_eff<Timer>(
+        prop: &Prop,
+        eff_type: PropBoundsEffectType,
+        mut effect: Effect<S>,
+        duration: Timer,
+    ) -> (Option<PropAlterEffect<S>>, PropBoundsEffect<S, Timer>) {
+        match eff_type {
+            PropBoundsEffectType::UpperAdd => {}
+            PropBoundsEffectType::UpperPer => {}
+            PropBoundsEffectType::LowerAdd => {
+                return (None, PropBoundsEffect::new(eff_type, effect, duration));
+            }
+        };
+
+        let eff_type: PropBoundsEffectMidType = eff_type.into();
+        let eff_val = match eff_type {
+            PropBoundsEffectMidType::BasicAdd => effect.get_effect_value(),
+            PropBoundsEffectMidType::BasicPer => effect.get_effect_value() * prop.get_max_origin(),
+        };
+        effect.set_effect_value(eff_val);
+
+        // 所有的效果都以 BasicAdd 生效
+        let (alter_eff, bounds_eff) = Self::gen_alter_bounds_eff_by_add_val(effect, duration);
+        (Some(alter_eff), bounds_eff)
+    }
+
+    /// 以 BasicAdd 绝对值 的方式，构建一致的 [`PropAlterEffect`] [`PropBoundsEffect`] 效果
+    pub fn gen_alter_bounds_eff_by_add_val<Timer>(
+        effect: Effect<S>,
+        duration: Timer,
+    ) -> (Self, PropBoundsEffect<S, Timer>) {
+        let eff_type = PropAlterEffectType::Val;
+        let prop_alter_effect = Self::new(eff_type, effect.clone());
+
+        let eff_type = PropBoundsEffectType::UpperAdd;
+        let prop_bounds_effect = PropBoundsEffect::new(eff_type, effect, duration);
+
+        (prop_alter_effect, prop_bounds_effect)
     }
 }
 

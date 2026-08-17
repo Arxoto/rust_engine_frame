@@ -144,7 +144,8 @@ mod tests {
     use super::*;
     use crate::{
         base_lib::eff_attr_prop::{
-            attr_systems::try_refresh_dirty_attr, attrs::Attr, upsert_container::UpsertContainer,
+            attr_prop_systems::try_refresh_dirty_attr, attrs::Attr,
+            upsert_container::UpsertContainer,
         },
         common_impl::combats::combat_additions::{
             ArmorHard, ArmorMass, ArmorSoft, WeaponMass, WeaponSharp,

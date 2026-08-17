@@ -30,6 +30,10 @@ impl Prop {
         }
     }
 
+    pub fn get_max_origin(&self) -> f64 {
+        self.upper.get_origin()
+    }
+
     pub fn get_max(&self) -> f64 {
         self.upper.get_current()
     }

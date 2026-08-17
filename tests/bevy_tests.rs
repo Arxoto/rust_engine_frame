@@ -13,7 +13,7 @@ use rust_engine_frame::base_lib::{
     },
     eff_attr_prop::{
         attr_eff::{AttrEffect, AttrEffectType},
-        attr_systems::{clean_expired_element, try_refresh_dirty_attr},
+        attr_prop_systems::{clean_expired_element, try_refresh_dirty_attr},
         attrs::Attr,
         effects::Effect,
         upsert_container::UpsertContainer,

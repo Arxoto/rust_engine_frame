@@ -24,6 +24,42 @@ pub enum PropBoundsEffectTarget {
     Lower,
 }
 
+impl From<PropBoundsEffectType> for PropBoundsEffectTarget {
+    fn from(value: PropBoundsEffectType) -> Self {
+        match value {
+            PropBoundsEffectType::UpperAdd => Self::Upper,
+            PropBoundsEffectType::UpperPer => Self::Upper,
+            PropBoundsEffectType::LowerAdd => Self::Lower,
+        }
+    }
+}
+
+/// 限制修改维度只能基于基础值修改，原因见 [`PropBoundsEffect`]
+#[derive(Clone, Copy, Debug)]
+pub enum PropBoundsEffectMidType {
+    BasicAdd,
+    BasicPer,
+}
+
+impl From<PropBoundsEffectType> for PropBoundsEffectMidType {
+    fn from(value: PropBoundsEffectType) -> Self {
+        match value {
+            PropBoundsEffectType::UpperAdd => Self::BasicAdd,
+            PropBoundsEffectType::UpperPer => Self::BasicPer,
+            PropBoundsEffectType::LowerAdd => Self::BasicAdd,
+        }
+    }
+}
+
+impl From<PropBoundsEffectMidType> for AttrEffectType {
+    fn from(value: PropBoundsEffectMidType) -> Self {
+        match value {
+            PropBoundsEffectMidType::BasicAdd => Self::BasicAdd,
+            PropBoundsEffectMidType::BasicPer => Self::BasicPer,
+        }
+    }
+}
+
 /// Prop 属性边界效果，本质为 [`AttrEffect`] ，但只支持的维度有限制
 ///
 /// 若想在修改上限的同时修改实际值，那么需要同时生成【修改上限】的效果和【修改实际值】的效果
@@ -37,19 +73,12 @@ pub struct PropBoundsEffect<S: FixedName, Timer> {
 
 impl<S: FixedName, Timer> PropBoundsEffect<S, Timer> {
     pub fn new(eff_type: PropBoundsEffectType, effect: Effect<S>, duration: Timer) -> Self {
-        match eff_type {
-            PropBoundsEffectType::UpperAdd => Self {
-                target: PropBoundsEffectTarget::Upper,
-                eff: AttrEffect::new(AttrEffectType::BasicAdd, effect, duration),
-            },
-            PropBoundsEffectType::UpperPer => Self {
-                target: PropBoundsEffectTarget::Upper,
-                eff: AttrEffect::new(AttrEffectType::BasicPer, effect, duration),
-            },
-            PropBoundsEffectType::LowerAdd => Self {
-                target: PropBoundsEffectTarget::Lower,
-                eff: AttrEffect::new(AttrEffectType::BasicAdd, effect, duration),
-            },
+        let target: PropBoundsEffectTarget = eff_type.into();
+        let eff_type: PropBoundsEffectMidType = eff_type.into();
+        let eff_type: AttrEffectType = eff_type.into();
+        Self {
+            target,
+            eff: AttrEffect::new(eff_type, effect, duration),
         }
     }
 

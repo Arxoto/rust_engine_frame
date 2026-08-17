@@ -1,7 +1,10 @@
 use crate::{
     base_lib::{
         cores::unify_types::FixedName,
-        eff_attr_prop::{effects::Effect, prop_alter_eff::PropAlterEffectType},
+        eff_attr_prop::{
+            effects::Effect,
+            prop_alter_eff::{PropAlterEffect, PropAlterEffectType},
+        },
     },
     common_impl::combats::{
         combat_additions::{ArmorHard, ArmorSoft, WeaponMass, WeaponSharp},
@@ -21,6 +24,7 @@ pub struct DamageInfo<S: FixedName> {
     pub first_hurt_heal_from_eff: Option<(S, S)>,
 }
 
+/// 生存类效果（伤害、治疗、护盾）
 #[derive(Debug, Clone)]
 pub struct SurvivalEffect<S: FixedName> {
     /// 伤害类型，伤害针对的哪些目标
@@ -46,6 +50,14 @@ impl<S: FixedName> SurvivalEffect<S> {
             target_type,
             alter_type,
             eff,
+        }
+    }
+
+    pub fn new_from_alter_eff(target_type: SurvivalEffTarget, eff: PropAlterEffect<S>) -> Self {
+        Self {
+            target_type,
+            alter_type: eff.get_type(),
+            eff: eff.own_eff(),
         }
     }
 }

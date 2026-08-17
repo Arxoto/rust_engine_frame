@@ -42,6 +42,10 @@ impl<S: FixedName, Timer> AttrEffect<S, Timer> {
             duration,
         }
     }
+
+    pub fn get_type(&self) -> AttrEffectType {
+        self.eff_type
+    }
 }
 
 impl<S: FixedName, Timer> HasTimer for AttrEffect<S, Timer> {

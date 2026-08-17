@@ -1,13 +1,9 @@
 //! 战斗单位系统
 //!
 //! 设计约束:
-//! - 系统函数不含数值公式/魔法数字(除 [`gen_shield_defence`] 固化的防护盾公式)。
-//! - 奥术/替身护盾只做装载,数值公式是给数值策划的要求,由调用方算好值传入。
-//! - 减益/伤害类入参用负值(与 `EffectMeaning::Bad` 语义一致)。
-//! - 涉及效果的上层封装传完整 [`crate::base_lib::eff_attr_prop::effects::Effect`]:
-//!   持久效果(护盾上限)直接传 `Effect`;即时变更(扣能量/削韧)经
-//!   [`crate::base_lib::eff_attr_prop::prop_alter_eff::PropAlterEffect`] 包装传完整 `Effect`。
-//! - ECS 语义:护盾上限由 [`crate::base_lib::eff_attr_prop::prop_systems`] 每帧依脏标签刷新,
+//! - 护盾只做装载,数值公式是给数值策划的要求,不在代码里体现（初始化生成的防护护盾除外）。
+//! - 减益伤害类入参用负值(与 `EffectMeaning::Bad` 语义一致)。
+//! - ECS 语义:护盾上限由 [`crate::base_lib::eff_attr_prop::attr_prop_systems`] 每帧依脏标签刷新,
 //!   护盾当前值由伤害管线经缓冲消费([`load_shield`] 仅编排不入值);
 //!   即时变更(cost/cut)直接应用,不经缓冲。
 
@@ -17,7 +13,7 @@ use crate::{
         eff_attr_prop::{
             effects::Effect,
             prop_alter_eff::PropAlterEffect,
-            prop_bounds_eff::{PropBoundsEffect, PropBoundsEffectType},
+            prop_bounds_eff::PropBoundsEffect,
             props::{Prop, PropAlterResult},
             upsert_container::UpsertContainer,
         },
@@ -26,7 +22,9 @@ use crate::{
         combat_additions::ArmorHard,
         combat_inherents::{Belief, Strength},
         combat_units::{Health, Magicka, Stamina},
-        damages::{MagickaEnergyLevel, SurvivalEffBuffer, SurvivalEffect, damage_system},
+        damages::{
+            MagickaEnergyLevel, SurvivalEffBuffer, SurvivalEffTarget, SurvivalEffect, damage_system,
+        },
     },
 };
 
@@ -73,40 +71,41 @@ pub fn gen_three_bars(strength: &Strength, belief: &Belief, config: &ThreeBarsCo
     }
 }
 
-/// 根据外赋属性生成防护护盾的**上限效果**
+/// 根据外赋属性计算初始的防护护盾值
 ///
-/// 固化公式 [`damage_system::calc_defence_shield`]:防护护盾值 = 盔甲坚韧当前值。
-/// 返回就绪的 `UpperAdd` [`PropBoundsEffect`],由调用方 upsert 进护盾的 `*Effs` 容器,
-/// 上限刷新交给 [`crate::base_lib::eff_attr_prop::prop_systems::try_refresh_dirty_prop_bounds`]。
-///
-/// 护盾**当前值**的装载由调用方另行构造 `OnlyShieldDefence` 的 [`SurvivalEffect`] 推入缓冲。
+/// 调用方自行生成 [`PropBoundsEffect`] [`SurvivalEffect`]
 pub fn gen_shield_defence<S: FixedName>(
     armor_hard: &ArmorHard,
     from_name: S,
     effect_name: S,
-) -> PropBoundsEffect<S, StaticTimer> {
-    let value = damage_system::calc_defence_shield(armor_hard);
-    PropBoundsEffect::new(
-        PropBoundsEffectType::UpperAdd,
-        Effect::new(from_name, effect_name, value),
-        StaticTimer::inf(),
-    )
+) -> (SurvivalEffect<S>, PropBoundsEffect<S, StaticTimer>) {
+    let shield_defence_val = damage_system::calc_defence_shield(armor_hard);
+    let effect = Effect::new(from_name, effect_name, shield_defence_val);
+
+    let (alter_eff, bounds_eff) =
+        PropAlterEffect::gen_alter_bounds_eff_by_add_val(effect, StaticTimer::inf());
+    let svv_eff =
+        SurvivalEffect::new_from_alter_eff(SurvivalEffTarget::OnlyShieldDefence, alter_eff);
+
+    (svv_eff, bounds_eff)
 }
 
+// todo 入参类型绑定
 /// 装载护盾:编排"上限效果入容器 + 当前值效果入缓冲"
 ///
-/// **不做同步修改**(符合 ECS):上限由每帧 [`crate::base_lib::eff_attr_prop::prop_systems`]
+/// **不做同步修改** 上限由每帧 [`crate::base_lib::eff_attr_prop::attr_prop_systems`]
+///
 /// 依脏标签刷新,当前值由伤害管线消费。调用方:
 /// - `bounds_eff` 来自 [`gen_shield_defence`] 或调用方自建;
 /// - `value_eff` 为 `Only*` 类型的 [`SurvivalEffect`](如 `OnlyShieldDefence`),正值累加护盾当前值。
 pub fn load_shield<S: FixedName>(
     shield_effs: &mut UpsertContainer<PropBoundsEffect<S, StaticTimer>>,
-    damage_buffer: &mut SurvivalEffBuffer<S>,
+    svv_eff_buffer: &mut SurvivalEffBuffer<S>,
     bounds_eff: PropBoundsEffect<S, StaticTimer>,
     value_eff: SurvivalEffect<S>,
 ) {
     shield_effs.upsert_replace(bounds_eff);
-    damage_buffer.push(value_eff);
+    svv_eff_buffer.push(value_eff);
 }
 
 /// 花费能量(硬扣):直接修改,返回实际生效值
@@ -155,9 +154,12 @@ mod tests {
     use crate::{
         base_lib::{
             cores::timers::static_timer::StaticTimer,
-            eff_attr_prop::{attrs::Attr, prop_alter_eff::PropAlterEffectType, props::Prop},
+            eff_attr_prop::{
+                attr_prop_systems::try_refresh_dirty_prop_bounds, attrs::Attr, effects::Effect,
+                prop_alter_eff::PropAlterEffectType, props::Prop,
+            },
         },
-        common_impl::combats::{combat_units::ShieldDefence, damages::SurvivalEffTarget},
+        common_impl::combats::combat_units::ShieldDefence,
     };
 
     /// 生成三维:返回血量/平衡满、能量为零的所有权
@@ -190,10 +192,8 @@ mod tests {
     /// gen_shield_defence:返回就绪的 UpperAdd 上限效果,经 prop_systems 刷新后上限=护盾值
     #[test]
     fn gen_shield_defence_produces_bounds_effect() {
-        use crate::base_lib::eff_attr_prop::prop_systems::try_refresh_dirty_prop_bounds;
-
         let armor_hard = ArmorHard(Attr::new(80.0));
-        let bounds_eff: PropBoundsEffect<String, StaticTimer> = gen_shield_defence(
+        let (_, bounds_eff) = gen_shield_defence(
             &armor_hard,
             "player".to_string(),
             "defence_shield".to_string(),
@@ -220,18 +220,14 @@ mod tests {
         let mut damage_buffer = SurvivalEffBuffer::new();
         let shield = ShieldDefence(Prop::new(0.0, 0.0, 0.0));
 
-        let bounds_eff = gen_shield_defence(
-            &ArmorHard(Attr::new(80.0)),
+        let armor_hard = ArmorHard(Attr::new(80.0));
+        let (svv_eff, bounds_eff) = gen_shield_defence(
+            &armor_hard,
             "player".to_string(),
             "defence_shield".to_string(),
         );
-        let value_eff = SurvivalEffect::new(
-            SurvivalEffTarget::OnlyShieldDefence,
-            PropAlterEffectType::Val,
-            Effect::new("player".to_string(), "shield_spell".to_string(), 80.0),
-        );
 
-        load_shield(&mut shield_effs, &mut damage_buffer, bounds_eff, value_eff);
+        load_shield(&mut shield_effs, &mut damage_buffer, bounds_eff, svv_eff);
 
         // 上限效果已入容器,脏标签置起
         assert_eq!(shield_effs.ele_len(), 1);

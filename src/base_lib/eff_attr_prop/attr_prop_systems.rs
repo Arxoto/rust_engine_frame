@@ -1,3 +1,5 @@
+//! Attr Prop 相关的 System 层
+
 use crate::base_lib::{
     cores::{
         timers::{
@@ -9,6 +11,8 @@ use crate::base_lib::{
     eff_attr_prop::{
         attr_eff::AttrEffect,
         attrs::Attr,
+        prop_bounds_eff::PropBoundsEffect,
+        props::Prop,
         upsert_container::{Upsert, UpsertContainer, UpsertContainerCleaner},
     },
 };
@@ -23,7 +27,7 @@ where
     ll.delete_ele(|ele| ele.get_timer().is_completed(ctx));
 }
 
-/// 刷新脏属性
+/// 刷新 [`Attr`] 脏属性
 pub fn try_refresh_dirty_attr<S: FixedName, Timer>(
     attr: &mut Attr,
     effs: &mut UpsertContainer<AttrEffect<S, Timer>>,
@@ -35,13 +39,25 @@ pub fn try_refresh_dirty_attr<S: FixedName, Timer>(
     }
 }
 
+/// 刷新 [`Prop`] 脏上限
+pub fn try_refresh_dirty_prop_bounds<S: FixedName>(
+    prop: &mut Prop,
+    effs: &mut UpsertContainer<PropBoundsEffect<S, StaticTimer>>,
+) {
+    if effs.is_changed() {
+        effs.reset_changed_flag();
+        prop.refresh_bounds(effs.iter_ele());
+        prop.apply_bounds();
+    }
+}
+
 /// 清理容器空洞【规整处理，业务无关】(薄委托于 [`UpsertContainerCleaner::clean_holes`])
 ///
 /// ```
 /// # use rust_engine_frame::base_lib::cores::timers::static_timer::StaticTimer;
 /// # use rust_engine_frame::base_lib::cores::unify_types::time_type;
 /// # use rust_engine_frame::base_lib::eff_attr_prop::attr_eff::AttrEffect;
-/// # use rust_engine_frame::base_lib::eff_attr_prop::attr_systems::try_clean_hole;
+/// # use rust_engine_frame::base_lib::eff_attr_prop::attr_prop_systems::try_clean_hole;
 /// # use rust_engine_frame::base_lib::eff_attr_prop::attrs::Attr;
 /// # use rust_engine_frame::base_lib::eff_attr_prop::upsert_container::UpsertContainer;
 /// # use rust_engine_frame::base_lib::eff_attr_prop::upsert_container::UpsertContainerCleaner;
@@ -83,7 +99,9 @@ mod tests {
             tick_timer::TickTimer,
             tiny_timer::{Tickable, TimerProgress},
         },
-        eff_attr_prop::{attr_eff::AttrEffectType, effects::Effect},
+        eff_attr_prop::{
+            attr_eff::AttrEffectType, effects::Effect, prop_bounds_eff::PropBoundsEffectType,
+        },
     };
 
     use super::*;
@@ -227,5 +245,48 @@ mod tests {
         let timer = effs.iter_ele().next().unwrap().get_timer();
         assert_eq!(timer.elapsed(&timeline), elapsed_before);
         assert_eq!(timer.remaining(&timeline), remaining_before);
+    }
+
+    /// 容器置脏后刷新:上限被效果抬高,当前值随之钳制
+    #[test]
+    fn refresh_dirty_prop_bounds_applies_upper_effect() {
+        let mut prop = Prop::new(100.0, 100.0, 0.0);
+        let mut effs: UpsertContainer<PropBoundsEffect<String, StaticTimer>> =
+            UpsertContainer::default();
+
+        // upsert 一个提高上限的效果 → 容器置脏
+        effs.upsert_replace(PropBoundsEffect::new(
+            PropBoundsEffectType::UpperAdd,
+            Effect::new_form("buff", "max_hp", 50.0),
+            StaticTimer::inf(),
+        ));
+        assert!(effs.is_changed());
+
+        try_refresh_dirty_prop_bounds(&mut prop, &mut effs);
+        assert_eq!(prop.get_max(), 150.0);
+        assert_eq!(prop.get_current(), 100.0); // 未超上限,不钳制
+
+        // 刷新后脏标签复位:不再动作
+        try_refresh_dirty_prop_bounds(&mut prop, &mut effs);
+        assert_eq!(prop.get_max(), 150.0);
+    }
+
+    /// 当前值超新上限时,刷新后被钳制回上限
+    #[test]
+    fn refresh_dirty_prop_bounds_clamps_over_max() {
+        let mut prop = Prop::new(120.0, 100.0, 0.0); // 当前值已超上限(异常态)
+        let mut effs: UpsertContainer<PropBoundsEffect<String, StaticTimer>> =
+            UpsertContainer::default();
+
+        // 上限被降到 80
+        effs.upsert_replace(PropBoundsEffect::new(
+            PropBoundsEffectType::UpperAdd,
+            Effect::new_form("debuff", "lower_max", -20.0),
+            StaticTimer::inf(),
+        ));
+
+        try_refresh_dirty_prop_bounds(&mut prop, &mut effs);
+        assert_eq!(prop.get_max(), 80.0);
+        assert_eq!(prop.get_current(), 80.0); // 钳制回上限
     }
 }

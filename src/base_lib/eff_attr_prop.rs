@@ -62,10 +62,8 @@ pub mod prop_bounds_eff;
 
 pub mod props;
 
-// systems
-
-pub mod attr_systems;
-
 pub mod prop_alter_eff;
 
-pub mod prop_systems;
+// systems
+
+pub mod attr_prop_systems;
