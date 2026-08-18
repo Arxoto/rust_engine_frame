@@ -64,6 +64,8 @@ pub mod props;
 
 pub mod prop_alter_eff;
 
+pub mod multi_prop;
+
 // systems
 
 pub mod attr_prop_systems;
