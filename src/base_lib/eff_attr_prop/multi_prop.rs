@@ -106,7 +106,6 @@ impl<E: MultiPropEffTargets> From<E> for MultiPropEffTargetIter<E::Layer> {
     }
 }
 
-// todo 基于此重构 damages 模块
 pub mod multi_prop_system {
     use std::cmp::Ordering;
 
