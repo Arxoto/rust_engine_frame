@@ -41,11 +41,69 @@ pub trait MultiPropLayer: Debug + Copy + Eq {
 }
 
 /// 对复合属性的效果定义起始和结束标志
-pub trait MultiPropEff {
+pub trait MultiPropEffTargets: Debug + Copy + Eq {
     type Layer: MultiPropLayer;
 
     fn start_at(&self) -> Self::Layer;
     fn stop_at(&self) -> Self::Layer;
+}
+
+pub struct MultiPropLayerIter<T: MultiPropLayer> {
+    current: Option<T>,
+}
+
+pub struct MultiPropEffTargetIter<T: MultiPropLayer> {
+    current: Option<T>,
+    stop_at: T,
+}
+
+impl<T: MultiPropLayer> Iterator for MultiPropLayerIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(current) = self.current {
+            let next = current.get_next();
+            self.current = if next == current { None } else { Some(next) };
+            Some(current)
+        } else {
+            None
+        }
+    }
+}
+
+impl<T: MultiPropLayer> Iterator for MultiPropEffTargetIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(current) = self.current {
+            if current == self.stop_at {
+                self.current = None;
+            } else {
+                let next = current.get_next();
+                self.current = if next == current { None } else { Some(next) };
+            }
+            Some(current)
+        } else {
+            None
+        }
+    }
+}
+
+impl<E: MultiPropLayer> From<E> for MultiPropLayerIter<E> {
+    fn from(value: E) -> Self {
+        Self {
+            current: Some(value),
+        }
+    }
+}
+
+impl<E: MultiPropEffTargets> From<E> for MultiPropEffTargetIter<E::Layer> {
+    fn from(value: E) -> Self {
+        Self {
+            current: Some(value.start_at()),
+            stop_at: value.stop_at(),
+        }
+    }
 }
 
 // todo 基于此重构 damages 模块
@@ -55,26 +113,39 @@ pub mod multi_prop_system {
     use super::*;
 
     /// 检查属性层级是否合规
-    pub fn check_prop_layer<E: MultiPropLayer>(start_from: &[E]) {
-        for ele in start_from {
-            let mut current_node = *ele;
-            let mut next_node = ele.get_next();
-            while current_node != next_node {
-                // 下一层级必须恰好 -1 同时检查无环
-                if current_node.get_layer() - 1 != next_node.get_layer() {
-                    panic!(
-                        "the next layer must be one number smaller, at {:?} -> {:?}",
-                        current_node, next_node
-                    );
-                }
-                current_node = next_node;
-                next_node = next_node.get_next();
+    pub fn check_multi_prop_layer<E: MultiPropLayer>(start_at: E) {
+        let mut current_node = start_at;
+        let mut next_node = current_node.get_next();
+        while current_node != next_node {
+            // 下一层级必须恰好 -1 同时检查无环
+            if current_node.get_layer() - 1 != next_node.get_layer() {
+                panic!(
+                    "the next layer must be one number smaller, at {:?} -> {:?}",
+                    current_node, next_node
+                );
             }
+            current_node = next_node;
+            next_node = next_node.get_next();
+        }
+    }
+
+    /// 检查复合属性效果定义是否合法（必须可达 stop_at ）
+    pub fn check_multi_prop_eff_targets<E: MultiPropEffTargets>(targets: E) {
+        let stop_at = targets.stop_at();
+        let ll = MultiPropEffTargetIter::from(targets);
+        let mut visited = false;
+        for current in ll {
+            if current == stop_at {
+                visited = true;
+            }
+        }
+        if !visited {
+            panic!("the stop_at not visited");
         }
     }
 
     /// 有限根据底层排序，低的在后面；其次根据顶层排序，低的在后面
-    pub fn rank_multi_prop_eff<E: MultiPropEff>(a: E, b: E) -> Ordering {
+    pub fn rank_multi_prop_eff<E: MultiPropEffTargets>(a: &E, b: &E) -> Ordering {
         let a_stop_layer = a.stop_at().get_layer();
         let b_stop_layer = b.stop_at().get_layer();
         if a_stop_layer == b_stop_layer {

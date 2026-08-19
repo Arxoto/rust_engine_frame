@@ -21,30 +21,43 @@
 //! - 平衡以固定值进行恢复 受击后延迟一段时间继续恢复
 //! - 能量以固定值削减 增长后延迟一段时间继续削减
 
+use strum_macros::EnumIter;
+
 use crate::base_lib::{
     cores::{timers::static_timer::StaticTimer, unify_types::FixedName},
     eff_attr_prop::{
-        prop_bounds_eff::PropBoundsEffect, props::Prop, upsert_container::UpsertContainer,
+        multi_prop::MultiPropLayer, prop_bounds_eff::PropBoundsEffect, props::Prop,
+        upsert_container::UpsertContainer,
     },
 };
 
 /// 生存属性类型（生命值、护盾）
-#[derive(Debug, Clone, Copy)]
-pub enum SurvivalPropType {
+///
+/// 生命值护盾的层级关系的值是业务约定
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter)]
+pub enum SurvivalPropLayer {
     Health,
     ShieldSubstitute,
     ShieldDefence,
     ShieldArcane,
 }
 
-impl SurvivalPropType {
-    /// 生命值护盾的层级关系，值是业务约定
-    pub fn order_val(&self) -> usize {
+impl MultiPropLayer for SurvivalPropLayer {
+    fn get_next(&self) -> Self {
         match self {
-            SurvivalPropType::Health => 0,
-            SurvivalPropType::ShieldSubstitute => 1,
-            SurvivalPropType::ShieldDefence => 2,
-            SurvivalPropType::ShieldArcane => 2,
+            SurvivalPropLayer::Health => Self::Health,
+            SurvivalPropLayer::ShieldSubstitute => Self::Health,
+            SurvivalPropLayer::ShieldDefence => Self::ShieldSubstitute,
+            SurvivalPropLayer::ShieldArcane => Self::ShieldSubstitute,
+        }
+    }
+
+    fn get_layer(&self) -> u8 {
+        match self {
+            SurvivalPropLayer::Health => 0,
+            SurvivalPropLayer::ShieldSubstitute => 1,
+            SurvivalPropLayer::ShieldDefence => 2,
+            SurvivalPropLayer::ShieldArcane => 2,
         }
     }
 }
@@ -76,3 +89,21 @@ pub struct ShieldArcaneEffs<S: FixedName>(pub PropBoundsEffs<S>);
 pub struct HealthEffs<S: FixedName>(pub PropBoundsEffs<S>);
 pub struct StaminaEffs<S: FixedName>(pub PropBoundsEffs<S>);
 pub struct MagickaEffs<S: FixedName>(pub PropBoundsEffs<S>);
+
+#[cfg(test)]
+mod tests {
+    use strum::IntoEnumIterator;
+
+    use crate::base_lib::eff_attr_prop::multi_prop::multi_prop_system;
+
+    use super::*;
+
+    /// 在单元测试中检查以避免运行时开销
+    #[test]
+    fn check_survival_layer() {
+        let all_svv_types: Vec<_> = SurvivalPropLayer::iter().collect();
+        for ele in all_svv_types {
+            multi_prop_system::check_multi_prop_layer(ele);
+        }
+    }
+}

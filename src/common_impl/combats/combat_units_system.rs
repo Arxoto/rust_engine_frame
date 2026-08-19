@@ -4,7 +4,7 @@
 //! - 护盾只做装载,数值公式是给数值策划的要求,不在代码里体现（初始化生成的防护护盾除外）。
 //! - 减益伤害类入参用负值(与 `EffectMeaning::Bad` 语义一致)。
 //! - ECS 语义:护盾上限由 [`crate::base_lib::eff_attr_prop::attr_prop_systems`] 每帧依脏标签刷新,
-//!   护盾当前值由伤害管线经缓冲消费([`load_shield`] 仅编排不入值);
+//!   护盾当前值由伤害管线经缓冲消费([`load_shield_or_health_upper`] 仅编排不入值);
 //!   即时变更(cost/cut)直接应用,不经缓冲。
 
 use crate::{
@@ -23,7 +23,8 @@ use crate::{
         combat_inherents::{Belief, Strength},
         combat_units::{Health, Magicka, Stamina},
         damages::{
-            MagickaEnergyLevel, SurvivalEffBuffer, SurvivalEffTarget, SurvivalEffect, damage_system,
+            MagickaEnergyLevel, SurvivalEffBuffer, SurvivalEffTargets, SurvivalPropEffect,
+            damage_system,
         },
     },
 };
@@ -71,21 +72,19 @@ pub fn gen_three_bars(strength: &Strength, belief: &Belief, config: &ThreeBarsCo
     }
 }
 
-/// 根据外赋属性计算初始的防护护盾值
-///
-/// 调用方自行生成 [`PropBoundsEffect`] [`SurvivalEffect`]
+/// 根据外赋属性计算并生成初始的防护护盾值
 pub fn gen_shield_defence<S: FixedName>(
     armor_hard: &ArmorHard,
     from_name: S,
     effect_name: S,
-) -> (SurvivalEffect<S>, PropBoundsEffect<S, StaticTimer>) {
+) -> (SurvivalPropEffect<S>, PropBoundsEffect<S, StaticTimer>) {
     let shield_defence_val = damage_system::calc_defence_shield(armor_hard);
     let effect = Effect::new(from_name, effect_name, shield_defence_val);
 
     let (alter_eff, bounds_eff) =
         PropAlterEffect::gen_alter_bounds_eff_by_add_val(effect, StaticTimer::inf());
     let svv_eff =
-        SurvivalEffect::new_from_alter_eff(SurvivalEffTarget::OnlyShieldDefence, alter_eff);
+        SurvivalPropEffect::new_from_alter_eff(SurvivalEffTargets::OnlyShieldDefence, alter_eff);
 
     (svv_eff, bounds_eff)
 }
@@ -93,14 +92,14 @@ pub fn gen_shield_defence<S: FixedName>(
 /// 生成通用护盾，也可用于提升生命值最大值
 pub fn gen_shield_or_health_upper<S: FixedName, Timer>(
     prop: &Prop,
-    target_type: SurvivalEffTarget,
+    target_type: SurvivalEffTargets,
     eff_logic: PropBoundsEffectLogic,
     effect: Effect<S>,
     duration: Timer,
-) -> (SurvivalEffect<S>, PropBoundsEffect<S, Timer>) {
+) -> (SurvivalPropEffect<S>, PropBoundsEffect<S, Timer>) {
     let (alter_eff, bounds_eff) =
         PropAlterEffect::gen_alter_bounds_eff_for_upper(prop, eff_logic, effect, duration);
-    let svv_eff = SurvivalEffect::new_from_alter_eff(target_type, alter_eff);
+    let svv_eff = SurvivalPropEffect::new_from_alter_eff(target_type, alter_eff);
     (svv_eff, bounds_eff)
 }
 
@@ -110,12 +109,12 @@ pub fn gen_shield_or_health_upper<S: FixedName, Timer>(
 ///
 /// 依脏标签刷新,当前值由伤害管线消费。调用方:
 /// - `bounds_eff` 来自 [`gen_shield_defence`] 或调用方自建;
-/// - `value_eff` 为 `Only*` 类型的 [`SurvivalEffect`](如 `OnlyShieldDefence`),正值累加护盾当前值。
+/// - `value_eff` 为 `Only*` 类型的 [`SurvivalEffTargets`](如 `OnlyShieldDefence`),正值累加护盾当前值。
 pub fn load_shield_or_health_upper<S: FixedName>(
     shield_effs: &mut UpsertContainer<PropBoundsEffect<S, StaticTimer>>,
     svv_eff_buffer: &mut SurvivalEffBuffer<S>,
     bounds_eff: PropBoundsEffect<S, StaticTimer>,
-    value_eff: SurvivalEffect<S>,
+    value_eff: SurvivalPropEffect<S>,
 ) {
     shield_effs.upsert_replace(bounds_eff);
     svv_eff_buffer.push(value_eff);

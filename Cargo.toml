@@ -18,6 +18,8 @@ bevyproj = ["commonimpl", "bevy"]
 
 [dependencies]
 rustc-hash = "2.1.1"
+strum = "0.28"
+strum_macros = "0.28"
 godot = { version = "0.4.2", optional = true }
 bevy = { version = "0.18.1", optional = true }
 
