@@ -128,7 +128,7 @@ pub fn load_shield_or_health_upper<S: FixedName>(
     svv_eff_buffer.push(value_eff);
 }
 
-/// 花费能量(硬扣):直接修改
+/// 花费能量(硬扣):直接修改 todo 改成 buffer
 pub fn cost_magicka<S: FixedName>(
     magicka: &mut Magicka,
     magicka_upper: &MagickaUpper,
@@ -151,6 +151,8 @@ pub fn try_cost_magicka<S: FixedName>(
 }
 
 /// 削韧:削减平衡,返回实际生效值
+/// 
+/// 由于设计比较简单，无需通过 buffer ，直接生效
 pub fn cut_stamina<S: FixedName>(
     stamina: &mut Stamina,
     stamina_upper: &StaminaUpper,

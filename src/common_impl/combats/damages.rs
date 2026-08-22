@@ -25,8 +25,8 @@ pub struct SurvivalEffBuffer<S: FixedName>(Vec<SurvivalAttrEff<S>>);
 /// 伤害信息，表示每次伤害造成的影响
 #[derive(Debug)]
 pub struct DamageInfo<S: FixedName> {
-    /// 首次造成伤害的来源和效果名称，用于统计死因
-    pub first_hurt_heal_from_eff: Option<(S, S)>,
+    /// 对生命造成的最大伤害的效果，用于统计死因
+    pub max_hurt_heal_eff: Option<Effect<S>>,
 }
 
 /// 生存类效果（伤害、治疗、护盾）
@@ -166,7 +166,7 @@ impl SurvivalEffTargets {
 impl<S: FixedName> Default for DamageInfo<S> {
     fn default() -> Self {
         Self {
-            first_hurt_heal_from_eff: None,
+            max_hurt_heal_eff: None,
         }
     }
 }
@@ -242,7 +242,9 @@ impl MagickaEnergyLevel {
 ///   - 对于 [`Belief`] 成长是平衡的
 pub mod damage_system {
     use crate::{
-        base_lib::eff_attr::attr_layers::AttrLayerEffTargetIter,
+        base_lib::{
+            cores::unify_types::FLOAT_DEAD_ZONE, eff_attr::attr_layers::AttrLayerEffTargetIter,
+        },
         common_impl::combats::combat_units::{
             HealthLower, HealthUpper, ShieldArcaneUpper, ShieldDefenceUpper, ShieldSubstituteUpper,
             SurvivalAttrLayer,
@@ -425,12 +427,14 @@ pub mod damage_system {
         let mut dmg_info: DamageInfo<S> = DamageInfo::default();
         let svv_effs = merged_svv_effs.into_slice();
         for (svv_eff_target, dmg_eff) in svv_effs {
-            if let Some(dmg_eff) = dmg_eff {
+            if let Some(mut dmg_eff) = dmg_eff {
                 // 根据伤害类型计算缩放比例
                 let dmg_scale =
                     damage_system::calc_damage_scale(svv_eff_target, &damage_calc_attrs);
 
                 let mut real_dmg = dmg_scale * dmg_eff.get_effect_value();
+                dmg_eff.set_effect_value(real_dmg); // 更新为实际伤害
+                let mut is_hurt_heal = false;
                 let targets_iter = AttrLayerEffTargetIter::from(svv_eff_target);
                 for svv_layer in targets_iter {
                     let (attr, upper, lower) = match svv_layer {
@@ -460,10 +464,23 @@ pub mod damage_system {
                     attr.clamp_by(lower, upper);
                     let diff_val = attr.get_pending_value() - old_val;
                     real_dmg -= diff_val;
+
+                    // 实际伤害到了生命值
+                    if matches!(svv_layer, SurvivalAttrLayer::Health) && diff_val < -FLOAT_DEAD_ZONE
+                    {
+                        is_hurt_heal = true;
+                    }
                 }
 
-                if dmg_info.first_hurt_heal_from_eff.is_none() && svv_eff_target.is_hurt_heal() {
-                    dmg_info.first_hurt_heal_from_eff = Some(dmg_eff.take_from_eff_name());
+                if is_hurt_heal {
+                    if let Some(hurt_by) = dmg_info.max_hurt_heal_eff.as_mut() {
+                        // 伤害是负数 取最小值
+                        if dmg_eff.get_effect_value() < hurt_by.get_effect_value() {
+                            *hurt_by = dmg_eff;
+                        }
+                    } else {
+                        dmg_info.max_hurt_heal_eff = Some(dmg_eff);
+                    }
                 }
             }
         }
@@ -1185,9 +1202,9 @@ mod tests {
             Effect::new("a", "break_sub", -30.0),
         ));
         let info = run_damage(&mut buffer, &mut targets, &TestAttrs::scale_one());
-        assert_eq!(info.first_hurt_heal_from_eff, None);
+        assert!(info.max_hurt_heal_eff.is_none());
 
-        // 混入真实伤害 → 记录真实伤害的 (来源, 效果名)
+        // 混入真实伤害和切割伤害 → 记录真实伤害，切割伤害没有击穿护盾
         let mut targets = Targets::full();
         let mut buffer = SurvivalEffBuffer::new();
         buffer.push(SurvivalAttrEff::new(
@@ -1200,8 +1217,40 @@ mod tests {
             AttrAlterEffType::Val,
             Effect::new("b", "real_dmg", -30.0),
         ));
+        buffer.push(SurvivalAttrEff::new(
+            SurvivalEffTargets::PhysicsShears,
+            AttrAlterEffType::Val,
+            Effect::new("b", "shear", -60.0),
+        ));
         let info = run_damage(&mut buffer, &mut targets, &TestAttrs::scale_one());
-        assert_eq!(info.first_hurt_heal_from_eff, Some(("b", "real_dmg")));
+        assert_eq!(
+            info.max_hurt_heal_eff.unwrap().take_from_eff_name(),
+            ("b", "real_dmg")
+        );
+
+        // 混入真实伤害和冲击伤害 → 记录冲击伤害，冲击伤害击穿护盾并且伤害值大于真实伤害
+        let mut targets = Targets::full();
+        let mut buffer = SurvivalEffBuffer::new();
+        buffer.push(SurvivalAttrEff::new(
+            SurvivalEffTargets::OnlyShieldSubstitute,
+            AttrAlterEffType::Val,
+            Effect::new("a", "break_sub", -30.0),
+        ));
+        buffer.push(SurvivalAttrEff::new(
+            SurvivalEffTargets::OnlyHealth,
+            AttrAlterEffType::Val,
+            Effect::new("b", "real_dmg", -30.0),
+        ));
+        buffer.push(SurvivalAttrEff::new(
+            SurvivalEffTargets::PhysicsImpact,
+            AttrAlterEffType::Val,
+            Effect::new("b", "impact", -110.0),
+        ));
+        let info = run_damage(&mut buffer, &mut targets, &TestAttrs::scale_one());
+        assert_eq!(
+            info.max_hurt_heal_eff.unwrap().take_from_eff_name(),
+            ("b", "impact")
+        );
     }
 
     // endregion

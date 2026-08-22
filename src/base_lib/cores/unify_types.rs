@@ -4,6 +4,9 @@
 //!
 //! 使用 New Type 创建有明确语义的新类型，增强类型安全性和封装性
 
+/// 允许的 [`f64`] 计算误差，一般科学计算会选择 `1e-12` ，这里给予更大的容错空间
+pub const FLOAT_DEAD_ZONE: f64 = 1e-9;
+
 /// 抽象的时间类型
 #[cfg(feature = "time_type_f64")]
 pub mod time_type {
