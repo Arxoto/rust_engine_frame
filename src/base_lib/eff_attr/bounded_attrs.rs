@@ -16,8 +16,8 @@ impl From<f64> for BoundValue {
     }
 }
 
-impl From<BoundAttr> for BoundValue {
-    fn from(value: BoundAttr) -> Self {
+impl From<&BoundAttr> for BoundValue {
+    fn from(value: &BoundAttr) -> Self {
         Self(value.get_current())
     }
 }

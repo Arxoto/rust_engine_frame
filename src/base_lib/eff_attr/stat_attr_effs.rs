@@ -298,5 +298,4 @@ mod tests {
                 .is_neutral()
         );
     }
-
 }

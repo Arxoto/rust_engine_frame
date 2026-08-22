@@ -80,6 +80,8 @@ pub mod combat_units;
 
 pub mod equips;
 
+pub mod energies;
+
 pub mod damages;
 
 pub mod combat_unit_systems;

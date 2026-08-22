@@ -23,6 +23,8 @@ use crate::{
 pub struct SurvivalEffBuffer<S: FixedName>(Vec<SurvivalAttrEff<S>>);
 
 /// 伤害信息，表示每次伤害造成的影响
+///
+/// 这里不自动判断血量是否为零，因为还在 pending 阶段，管线后续可能还会修改
 #[derive(Debug)]
 pub struct DamageInfo<S: FixedName> {
     /// 对生命造成的最大伤害的效果，用于统计死因
@@ -171,24 +173,6 @@ impl<S: FixedName> Default for DamageInfo<S> {
     }
 }
 
-pub struct MagickaEnergyLevel(f64, f64, f64);
-
-impl MagickaEnergyLevel {
-    pub const fn new(l0: f64, l1: f64, l2: f64) -> MagickaEnergyLevel {
-        MagickaEnergyLevel(l0, l1, l2)
-    }
-
-    pub fn max_energy(&self, v: f64) -> f64 {
-        if v <= self.0 {
-            self.0
-        } else if v <= self.1 {
-            self.1
-        } else {
-            self.2
-        }
-    }
-}
-
 /// ## 衡量伤害公式的平衡性
 ///
 /// - 随着角色成长，【伤害成长】应该与【受伤上限】大致成正比
@@ -245,9 +229,12 @@ pub mod damage_system {
         base_lib::{
             cores::unify_types::FLOAT_DEAD_ZONE, eff_attr::attr_layers::AttrLayerEffTargetIter,
         },
-        common_impl::combats::combat_units::{
-            HealthLower, HealthUpper, ShieldArcaneUpper, ShieldDefenceUpper, ShieldSubstituteUpper,
-            SurvivalAttrLayer,
+        common_impl::combats::{
+            combat_units::{
+                HealthLower, HealthUpper, ShieldArcaneUpper, ShieldDefenceUpper,
+                ShieldSubstituteUpper, SurvivalAttrLayer,
+            },
+            energies::MagickaEnergyLevel,
         },
     };
 
@@ -576,9 +563,7 @@ mod tests {
         DamageCalcAttrs, MergedSurvivalEffs, apply_damages, calc_damage_scale, calc_defence_shield,
         calc_health_max, calc_magicka_max, calc_magicka_value, merge_damages,
     };
-    use super::{
-        DamageInfo, MagickaEnergyLevel, SurvivalAttrEff, SurvivalEffBuffer, SurvivalEffTargets,
-    };
+    use super::{DamageInfo, SurvivalAttrEff, SurvivalEffBuffer, SurvivalEffTargets};
     use crate::base_lib::eff_attr::attr_layers::{AttrLayerEffTargetIter, attr_layer_system};
     use crate::base_lib::eff_attr::bound_attrs::BoundAttr;
     use crate::base_lib::eff_attr::{
@@ -591,6 +576,7 @@ mod tests {
     use crate::common_impl::combats::damages::damage_system::{
         DamageTargetAttrs, DamageTargetMutAttrs,
     };
+    use crate::common_impl::combats::energies::MagickaEnergyLevel;
     use crate::common_impl::combats::{
         combat_additions::{ArmorHard, ArmorSoft, WeaponMass, WeaponSharp},
         combat_inherents::{Belief, Strength},

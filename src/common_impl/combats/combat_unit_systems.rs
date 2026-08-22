@@ -25,10 +25,8 @@ use crate::{
         combat_units::{
             Health, HealthLower, HealthUpper, Magicka, MagickaUpper, Stamina, StaminaUpper,
         },
-        damages::{
-            MagickaEnergyLevel, SurvivalAttrEff, SurvivalEffBuffer, SurvivalEffTargets,
-            damage_system,
-        },
+        damages::{SurvivalAttrEff, SurvivalEffBuffer, SurvivalEffTargets, damage_system},
+        energies::{EnergyEffBuffer, MagickaEnergyLevel},
     },
 };
 
@@ -128,18 +126,12 @@ pub fn load_shield_or_health_upper<S: FixedName>(
     svv_eff_buffer.push(value_eff);
 }
 
-/// 花费能量(硬扣):直接修改 todo 改成 buffer
-pub fn cost_magicka<S: FixedName>(
-    magicka: &mut Magicka,
-    magicka_upper: &MagickaUpper,
-    eff: AttrAlterEff<S>,
-) {
-    let bounded_attr = &mut magicka.0;
-    let abs_val = eff.calc_alter_val(bounded_attr, &magicka_upper.0);
-    bounded_attr.apply_eff(abs_val)
+/// 花费能量(硬扣): 直接修改, 推入 buffer
+pub fn cost_magicka<S: FixedName>(buffer: &mut EnergyEffBuffer<S>, eff: AttrAlterEff<S>) {
+    buffer.push(eff);
 }
 
-/// 尝试花费能量(软扣):能量不足则失败
+/// 尝试花费能量(软扣): 能量不足则失败, 顺序必须在能量系统消费 buffer 之后
 pub fn try_cost_magicka<S: FixedName>(
     magicka: &mut Magicka,
     magicka_upper: &MagickaUpper,
@@ -150,8 +142,8 @@ pub fn try_cost_magicka<S: FixedName>(
     bounded_attr.apply_eff_checked(COST_FLOOR, abs_val, COST_FLOOR)
 }
 
-/// 削韧:削减平衡,返回实际生效值
-/// 
+/// 削韧: 削减平衡, 返回实际生效值
+///
 /// 由于设计比较简单，无需通过 buffer ，直接生效
 pub fn cut_stamina<S: FixedName>(
     stamina: &mut Stamina,

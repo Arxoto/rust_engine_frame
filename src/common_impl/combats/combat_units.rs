@@ -62,6 +62,36 @@ impl AttrLayerType for SurvivalAttrLayer {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter)]
+pub enum EnergyAttrLayer {
+    Magicka,
+    ExternalEnergy,
+}
+
+impl AttrLayerType for EnergyAttrLayer {
+    fn get_next(&self) -> Self {
+        match self {
+            EnergyAttrLayer::Magicka => Self::Magicka,
+            EnergyAttrLayer::ExternalEnergy => Self::Magicka,
+        }
+    }
+
+    fn get_layer(&self) -> u8 {
+        match self {
+            EnergyAttrLayer::Magicka => 0,
+            EnergyAttrLayer::ExternalEnergy => 1,
+        }
+    }
+}
+
+impl EnergyAttrLayer {
+    /// 能量消耗统一路径
+    #[inline]
+    pub fn start_at() -> Self {
+        Self::ExternalEnergy
+    }
+}
+
 /// 替身护盾 被伤害系统控制；
 pub struct ShieldSubstitute(pub BoundedAttr);
 
@@ -77,8 +107,11 @@ pub struct Health(pub BoundedAttr);
 /// 耐力（平衡） 被冲击韧性系统控制； 基础值和最大值固定，清空时触发倒地
 pub struct Stamina(pub BoundedAttr);
 
-/// 能量（气势） 被战时评价系统控制； 基础值被【信念】的基础值和能级系统影响
+/// 魔能（气势） 被战时评价系统控制； 基础值被【信念】的基础值和能级系统影响
 pub struct Magicka(pub BoundedAttr);
+
+/// 外部能源 环境逸散的自由态能量
+pub struct ExternalEnergy(pub BoundedAttr);
 
 // region: 批量定义
 
@@ -116,6 +149,14 @@ mod tests {
     fn check_survival_layer() {
         let all_svv_types: Vec<_> = SurvivalAttrLayer::iter().collect();
         for ele in all_svv_types {
+            attr_layer_system::check_attr_layer(ele);
+        }
+    }
+
+    #[test]
+    fn check_energy_layer() {
+        let layers: Vec<_> = EnergyAttrLayer::iter().collect();
+        for ele in layers {
             attr_layer_system::check_attr_layer(ele);
         }
     }
