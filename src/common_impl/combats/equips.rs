@@ -1,7 +1,7 @@
 //! 战斗相关的装备（武器、盔甲），直接影响【外赋属性】
 
 use crate::{
-    base_lib::{cores::unify_types::FixedName, eff_attr_prop::upsert_container::Upsert},
+    base_lib::{cores::unify_types::FixedName, eff_attr::upsert_container::Upsert},
     common_impl::combats::combat_additions::{
         ArmorHardEffs, ArmorMassEffs, ArmorSoftEffs, WeaponMassEffs, WeaponSharpEffs,
     },
@@ -106,16 +106,16 @@ impl<S: FixedName> EquipArmor<S> {
 mod equip_system {
     use crate::base_lib::{
         cores::{timers::static_timer::StaticTimer, unify_types::FixedName},
-        eff_attr_prop::{
-            attr_eff::{AttrEffId, AttrEffect, AttrEffectType},
+        eff_attr::{
             effects::Effect,
+            stat_attr_effs::{StatAttrEff, StatAttrEffId, StatAttrEffType},
             upsert_container::UpsertContainer,
         },
     };
 
     /// id 与 [`add_attr_eff`] 中 eff 赋值逻辑保持一致
-    pub fn gen_attr_eff_id<S: FixedName>(char_name: &S, equip_name: &S) -> AttrEffId<S> {
-        AttrEffId {
+    pub fn gen_attr_eff_id<S: FixedName>(char_name: &S, equip_name: &S) -> StatAttrEffId<S> {
+        StatAttrEffId {
             eff: equip_name.clone(),
             from: char_name.clone(),
         }
@@ -128,10 +128,10 @@ mod equip_system {
         char_name: &S,
         equip_name: &S,
         equip_value: f64,
-        effs: &mut UpsertContainer<AttrEffect<S, StaticTimer>>,
+        effs: &mut UpsertContainer<StatAttrEff<S, StaticTimer>>,
     ) {
-        let attr_eff = AttrEffect::new(
-            AttrEffectType::BasicAdd,
+        let attr_eff = StatAttrEff::new(
+            StatAttrEffType::BasicAdd,
             Effect::new(char_name.clone(), equip_name.clone(), equip_value),
             StaticTimer::inf(),
         );
@@ -143,8 +143,8 @@ mod equip_system {
 mod tests {
     use super::*;
     use crate::{
-        base_lib::eff_attr_prop::{
-            attr_prop_systems::try_refresh_dirty_attr, attrs::Attr,
+        base_lib::eff_attr::{
+            attr_systems::try_refresh_dirty_stat_attr, stat_attrs::StatAttr,
             upsert_container::UpsertContainer,
         },
         common_impl::combats::combat_additions::{
@@ -158,8 +158,8 @@ mod tests {
     /// 业务上其他有限时长效果仍需时间线 + clean_expired_element,与本测试无关。
     #[test]
     fn equip_weapon_chain_reflects_to_attr() {
-        let mut sharp_attr = WeaponSharp(Attr::new(10.0));
-        let mut mass_attr = WeaponMass(Attr::new(5.0));
+        let mut sharp_attr = WeaponSharp(StatAttr::new(10.0));
+        let mut mass_attr = WeaponMass(StatAttr::new(5.0));
         let mut sharp_effs: WeaponSharpEffs<String> = WeaponSharpEffs(UpsertContainer::default());
         let mut mass_effs: WeaponMassEffs<String> = WeaponMassEffs(UpsertContainer::default());
 
@@ -168,16 +168,16 @@ mod tests {
 
         // 穿上:写入外赋属性效果 → 刷新
         weapon.equip(&char_name, &mut sharp_effs, &mut mass_effs);
-        try_refresh_dirty_attr(&mut sharp_attr.0, &mut sharp_effs.0);
-        try_refresh_dirty_attr(&mut mass_attr.0, &mut mass_effs.0);
+        try_refresh_dirty_stat_attr(&mut sharp_attr.0, &mut sharp_effs.0);
+        try_refresh_dirty_stat_attr(&mut mass_attr.0, &mut mass_effs.0);
 
         assert_eq!(sharp_attr.0.get_current(), 18.0); // 10 + 锋利 8
         assert_eq!(mass_attr.0.get_current(), 8.0); // 5 + 质量 3
 
         // 脱掉:删除效果 → 刷新 → 回落
         weapon.take_off(&char_name, &mut sharp_effs, &mut mass_effs);
-        try_refresh_dirty_attr(&mut sharp_attr.0, &mut sharp_effs.0);
-        try_refresh_dirty_attr(&mut mass_attr.0, &mut mass_effs.0);
+        try_refresh_dirty_stat_attr(&mut sharp_attr.0, &mut sharp_effs.0);
+        try_refresh_dirty_stat_attr(&mut mass_attr.0, &mut mass_effs.0);
 
         assert_eq!(sharp_attr.0.get_current(), 10.0);
         assert_eq!(mass_attr.0.get_current(), 5.0);
@@ -186,9 +186,9 @@ mod tests {
     /// EquipArmor 链:equip → 刷新 → 坚韧/柔韧/质量生效;take_off → 回落
     #[test]
     fn equip_armor_chain_reflects_to_attr() {
-        let mut hard_attr = ArmorHard(Attr::new(20.0));
-        let mut soft_attr = ArmorSoft(Attr::new(10.0));
-        let mut mass_attr = ArmorMass(Attr::new(5.0));
+        let mut hard_attr = ArmorHard(StatAttr::new(20.0));
+        let mut soft_attr = ArmorSoft(StatAttr::new(10.0));
+        let mut mass_attr = ArmorMass(StatAttr::new(5.0));
         let mut hard_effs: ArmorHardEffs<String> = ArmorHardEffs(UpsertContainer::default());
         let mut soft_effs: ArmorSoftEffs<String> = ArmorSoftEffs(UpsertContainer::default());
         let mut mass_effs: ArmorMassEffs<String> = ArmorMassEffs(UpsertContainer::default());
@@ -197,18 +197,18 @@ mod tests {
         let char_name = "player".to_string();
 
         armor.equip(&char_name, &mut hard_effs, &mut soft_effs, &mut mass_effs);
-        try_refresh_dirty_attr(&mut hard_attr.0, &mut hard_effs.0);
-        try_refresh_dirty_attr(&mut soft_attr.0, &mut soft_effs.0);
-        try_refresh_dirty_attr(&mut mass_attr.0, &mut mass_effs.0);
+        try_refresh_dirty_stat_attr(&mut hard_attr.0, &mut hard_effs.0);
+        try_refresh_dirty_stat_attr(&mut soft_attr.0, &mut soft_effs.0);
+        try_refresh_dirty_stat_attr(&mut mass_attr.0, &mut mass_effs.0);
 
         assert_eq!(hard_attr.0.get_current(), 50.0); // 20 + 坚韧 30
         assert_eq!(soft_attr.0.get_current(), 16.0); // 10 + 柔韧 6
         assert_eq!(mass_attr.0.get_current(), 7.0); // 5 + 质量 2
 
         armor.take_off(&char_name, &mut hard_effs, &mut soft_effs, &mut mass_effs);
-        try_refresh_dirty_attr(&mut hard_attr.0, &mut hard_effs.0);
-        try_refresh_dirty_attr(&mut soft_attr.0, &mut soft_effs.0);
-        try_refresh_dirty_attr(&mut mass_attr.0, &mut mass_effs.0);
+        try_refresh_dirty_stat_attr(&mut hard_attr.0, &mut hard_effs.0);
+        try_refresh_dirty_stat_attr(&mut soft_attr.0, &mut soft_effs.0);
+        try_refresh_dirty_stat_attr(&mut mass_attr.0, &mut mass_effs.0);
 
         assert_eq!(hard_attr.0.get_current(), 20.0);
         assert_eq!(soft_attr.0.get_current(), 10.0);

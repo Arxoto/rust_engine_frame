@@ -14,6 +14,11 @@
 //! - 作用到哪个对象就关联到哪个对象上
 //! - 特殊如“对血量的修改幅度增加10%”，理解为对“效果”生效的效果，需添加独立的效果列表，每次修改时检查（插件模式）
 //!
+//! ## 属性类型的命名
+//!
+//! - 游戏行业，一般把实体上的属性称为 `Attribute` ，而把游戏引擎编辑器可见的字段或者网络复制字段称为 `Property`
+//! - 编程中一般认为 `Attribute` 编译时元数据标记， `Property` 运行时数据封装
+//!
 //! ## 架构选型问题
 //!
 //! 面向数据ECS架构 or 面向对象直接持有 （属性和容器应该是【直接被持有】还是【作为一个组件】）
@@ -54,18 +59,22 @@ pub mod upsert_container;
 
 pub mod effects;
 
-pub mod attr_eff;
+pub mod modifiers;
 
-pub mod attrs;
+pub mod stat_attr_effs;
 
-pub mod prop_bounds_eff;
+pub mod stat_attrs;
 
-pub mod props;
+pub mod bound_attr_effs;
 
-pub mod prop_alter_eff;
+pub mod bound_attrs;
 
-pub mod multi_prop;
+pub mod bounded_attrs;
+
+pub mod bounded_attr_effs;
+
+pub mod attr_layers;
 
 // systems
 
-pub mod attr_prop_systems;
+pub mod attr_systems;

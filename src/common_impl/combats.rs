@@ -82,4 +82,4 @@ pub mod equips;
 
 pub mod damages;
 
-pub mod combat_units_system;
+pub mod combat_unit_systems;

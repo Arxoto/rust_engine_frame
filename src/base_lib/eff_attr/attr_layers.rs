@@ -1,7 +1,9 @@
 //! 复合属性
 //!
+//! ## 设计原因
+//!
 //! 需求描述
-//! - 处理【伤害】效果时，可能影响【血量】【护盾】等多个不同的属性， [`super::props::Prop`] 里的方法难以支撑业务复杂性
+//! - 处理【伤害】效果时，可能影响【血量】【护盾】等多个不同的属性， [`super::bounded_attrs`] 里的方法难以支撑业务复杂性
 //! - 为统一抽象，专门封装此模块
 //!
 //! 需求分析
@@ -33,7 +35,7 @@
 use std::fmt::Debug;
 
 /// 自定义复合属性的层级类型
-pub trait MultiPropLayer: Debug + Copy + Eq {
+pub trait AttrLayerType: Debug + Copy + Eq {
     /// 指向自己说明是底层
     fn get_next(&self) -> Self;
     /// 获取当前层级，下一层级必须是上一层级的数值 -1
@@ -41,23 +43,23 @@ pub trait MultiPropLayer: Debug + Copy + Eq {
 }
 
 /// 对复合属性的效果定义起始和结束标志
-pub trait MultiPropEffTargets: Debug + Copy + Eq {
-    type Layer: MultiPropLayer;
+pub trait AttrLayerEffTarget: Debug + Copy + Eq {
+    type Layer: AttrLayerType;
 
     fn start_at(&self) -> Self::Layer;
     fn stop_at(&self) -> Self::Layer;
 }
 
-pub struct MultiPropLayerIter<T: MultiPropLayer> {
+pub struct AttrLayerTypeIter<T: AttrLayerType> {
     current: Option<T>,
 }
 
-pub struct MultiPropEffTargetIter<T: MultiPropLayer> {
+pub struct AttrLayerEffTargetIter<T: AttrLayerType> {
     current: Option<T>,
     stop_at: T,
 }
 
-impl<T: MultiPropLayer> Iterator for MultiPropLayerIter<T> {
+impl<T: AttrLayerType> Iterator for AttrLayerTypeIter<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -71,7 +73,7 @@ impl<T: MultiPropLayer> Iterator for MultiPropLayerIter<T> {
     }
 }
 
-impl<T: MultiPropLayer> Iterator for MultiPropEffTargetIter<T> {
+impl<T: AttrLayerType> Iterator for AttrLayerEffTargetIter<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -89,7 +91,7 @@ impl<T: MultiPropLayer> Iterator for MultiPropEffTargetIter<T> {
     }
 }
 
-impl<E: MultiPropLayer> From<E> for MultiPropLayerIter<E> {
+impl<E: AttrLayerType> From<E> for AttrLayerTypeIter<E> {
     fn from(value: E) -> Self {
         Self {
             current: Some(value),
@@ -97,7 +99,7 @@ impl<E: MultiPropLayer> From<E> for MultiPropLayerIter<E> {
     }
 }
 
-impl<E: MultiPropEffTargets> From<E> for MultiPropEffTargetIter<E::Layer> {
+impl<E: AttrLayerEffTarget> From<E> for AttrLayerEffTargetIter<E::Layer> {
     fn from(value: E) -> Self {
         Self {
             current: Some(value.start_at()),
@@ -106,13 +108,13 @@ impl<E: MultiPropEffTargets> From<E> for MultiPropEffTargetIter<E::Layer> {
     }
 }
 
-pub mod multi_prop_system {
+pub mod attr_layer_system {
     use std::cmp::Ordering;
 
     use super::*;
 
     /// 检查属性层级是否合规
-    pub fn check_multi_prop_layer<E: MultiPropLayer>(start_at: E) {
+    pub fn check_attr_layer<E: AttrLayerType>(start_at: E) {
         let mut current_node = start_at;
         let mut next_node = current_node.get_next();
         while current_node != next_node {
@@ -129,9 +131,9 @@ pub mod multi_prop_system {
     }
 
     /// 检查复合属性效果定义是否合法（必须可达 stop_at ）
-    pub fn check_multi_prop_eff_targets<E: MultiPropEffTargets>(targets: E) {
-        let stop_at = targets.stop_at();
-        let ll = MultiPropEffTargetIter::from(targets);
+    pub fn check_attr_layer_eff_target<E: AttrLayerEffTarget>(eff_target: E) {
+        let stop_at = eff_target.stop_at();
+        let ll = AttrLayerEffTargetIter::from(eff_target);
         let mut visited = false;
         for current in ll {
             if current == stop_at {
@@ -144,7 +146,7 @@ pub mod multi_prop_system {
     }
 
     /// 有限根据底层排序，低的在后面；其次根据顶层排序，低的在后面
-    pub fn rank_multi_prop_eff<E: MultiPropEffTargets>(a: &E, b: &E) -> Ordering {
+    pub fn rank_attr_layer_eff<E: AttrLayerEffTarget>(a: &E, b: &E) -> Ordering {
         let a_stop_layer = a.stop_at().get_layer();
         let b_stop_layer = b.stop_at().get_layer();
         if a_stop_layer == b_stop_layer {
