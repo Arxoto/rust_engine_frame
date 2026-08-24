@@ -55,7 +55,11 @@
 //!   - 效果逻辑适合作为 System ，新增效果解耦合
 //!   - UI 展示角色所有效果，适合容器管理，作为实体是否合适，待 ECS 熟练后确认 todo
 
+// todo 将属性效果移除计时器能力，通过外部buff控制计时器的生命周期，效果容器使用 slotmap 以提升查询性能
+
 pub mod upsert_container;
+
+pub mod eff_collections;
 
 pub mod effects;
 

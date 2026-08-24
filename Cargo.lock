@@ -4295,6 +4295,7 @@ dependencies = [
  "bevy",
  "godot",
  "rustc-hash 2.1.2",
+ "slotmap",
  "strum",
  "strum_macros",
 ]

@@ -58,6 +58,14 @@ cargo update
   - 另一种数据结构 Slab/SlotMap ，其 key 由库生成、适用于可以不自由指定 key 的场景，其底层是 Vec 具有极高的性能，但大量删除不新增会导致内存碎片化
     - Slab 简单高效，但没有版本号机制，删除后 key 可能被重用，存在 ABA 问题
     - SlotMap 具有版本号机制，删除后 key 不会被重用
+    - SlotMap 共有三种变体
+      - SlotMap 删除使用空槽位替代，均衡全能
+      - HopSlotMap 记录下个非空空槽位距离，插入和删除慢一倍（更新跳跃距离）、随机访问一致、遍历较快（跳跃空槽位），但是【维护者宣布后续不再维护】
+      - DenseSlotMap 内部维护值的密集数组和索引的稀疏数组，删除最慢（值移动和更新索引）、插入和随机访问稍慢（两次索引）、遍历最快（密集数组）
+    - SlotMap 同时附带两种数据结构以供数据关联
+      - SecondaryMap 底层是 Vec ，适用于大部分 Key 都需要关联一个数据的情况（数据密集型）
+      - SparseSecondaryMap 底层是 HashMap ，适合数据稀疏型，因为其 Key 是 SlotMap 自动生成的索引，因此无需考虑哈希攻击，可以借助 FxHashMap 进一步压榨性能
+      - `let mut ex_map: SparseSecondaryMap<_, ValueType, FxBuildHasher> = SparseSecondaryMap::with_hasher(FxBuildHasher::default());`
 - 编译优化选项 (in Cargo.toml, see <https://doc.rust-lang.org/cargo/reference/profiles.html>)
   - 构建命令 `cargo build --release`
   - 编译优化等级 `opt-level = 3`

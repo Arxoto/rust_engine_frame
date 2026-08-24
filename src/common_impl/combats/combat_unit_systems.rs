@@ -154,3 +154,5 @@ pub fn cut_stamina<S: FixedName>(
     let abs_val = eff.calc_alter_val(bounded_attr, &stamina_upper.0);
     bounded_attr.apply_eff(abs_val)
 }
+
+// todo 增加复合属性的显示函数
