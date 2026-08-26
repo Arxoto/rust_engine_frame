@@ -51,9 +51,9 @@ impl<S: FixedName> EquipWeapon<S> {
         weapon_sharp_effs: &mut WeaponSharpEffs<S>,
         weapon_mass_effs: &mut WeaponMassEffs<S>,
     ) {
-        let eff_id = equip_system::gen_attr_eff_id(char_name, &self.name);
-        weapon_sharp_effs.0.delete_ele(|e| e.matched_id(&eff_id));
-        weapon_mass_effs.0.delete_ele(|e| e.matched_id(&eff_id));
+        let eff_id_ref = equip_system::gen_attr_eff_id(char_name, &self.name);
+        weapon_sharp_effs.0.delete_ele(|e| e.id_ref() == eff_id_ref);
+        weapon_mass_effs.0.delete_ele(|e| e.id_ref() == eff_id_ref);
     }
 }
 
@@ -96,10 +96,10 @@ impl<S: FixedName> EquipArmor<S> {
         armor_soft_effs: &mut ArmorSoftEffs<S>,
         armor_mass_effs: &mut ArmorMassEffs<S>,
     ) {
-        let attr_eff_id = equip_system::gen_attr_eff_id(char_name, &self.name);
-        armor_hard_effs.0.delete_ele(|e| e.matched_id(&attr_eff_id));
-        armor_soft_effs.0.delete_ele(|e| e.matched_id(&attr_eff_id));
-        armor_mass_effs.0.delete_ele(|e| e.matched_id(&attr_eff_id));
+        let eff_id_ref = equip_system::gen_attr_eff_id(char_name, &self.name);
+        armor_hard_effs.0.delete_ele(|e| e.id_ref() == eff_id_ref);
+        armor_soft_effs.0.delete_ele(|e| e.id_ref() == eff_id_ref);
+        armor_mass_effs.0.delete_ele(|e| e.id_ref() == eff_id_ref);
     }
 }
 
@@ -107,17 +107,20 @@ mod equip_system {
     use crate::base_lib::{
         cores::{timers::static_timer::StaticTimer, unify_types::FixedName},
         eff_attr::{
-            effects::Effect,
-            stat_attr_effs::{StatAttrEff, StatAttrEffId, StatAttrEffType},
+            effects::{EffIdRef, Effect},
+            stat_attr_effs::{StatAttrEff, StatAttrEffType},
             upsert_container::UpsertContainer,
         },
     };
 
     /// id 与 [`add_attr_eff`] 中 eff 赋值逻辑保持一致
-    pub fn gen_attr_eff_id<S: FixedName>(char_name: &S, equip_name: &S) -> StatAttrEffId<S> {
-        StatAttrEffId {
-            eff: equip_name.clone(),
-            from: char_name.clone(),
+    pub fn gen_attr_eff_id<'a, S: FixedName>(
+        char_name: &'a S,
+        equip_name: &'a S,
+    ) -> EffIdRef<'a, S> {
+        EffIdRef {
+            from_name: char_name,
+            effect_name: equip_name,
         }
     }
 

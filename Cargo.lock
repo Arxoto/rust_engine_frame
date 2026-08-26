@@ -4294,6 +4294,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "godot",
+ "indexmap",
  "rustc-hash 2.1.2",
  "slotmap",
  "strum",

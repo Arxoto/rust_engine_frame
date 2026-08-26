@@ -2,7 +2,7 @@
 //!
 //! 类型命名开始与游戏玩法相关
 
-pub mod buff_collections;
-
 // Combat System Component
 pub mod combats;
+
+pub mod buffs;

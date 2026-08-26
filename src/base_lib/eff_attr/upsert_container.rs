@@ -7,22 +7,21 @@ use crate::base_lib::cores::unify_types::time_type;
 /// 可合并类型
 pub trait Upsert {
     type Id: Eq + Hash + Clone + Debug;
+    type IdRef<'a>: Eq + Hash + Copy + Clone + Debug
+    where
+        Self: 'a;
 
     /// 获取 id ，为能够自由组合字段，返回克隆后的所有权
     fn gen_id(&self) -> Self::Id;
 
     /// 为快速比较，避免多次获取 id 引起不必要的克隆
-    fn matched_id(&self, id: &Self::Id) -> bool;
+    fn id_ref<'a>(&'a self) -> Self::IdRef<'a>;
+}
 
-    /// 为快速比较，避免多次获取 id 引起不必要的克隆
-    fn has_same_id(&self, other: &Self) -> bool;
-
+pub mod upsert_system {
     /// 直接替换，若想实现特殊效果（效果堆叠等）自己实现
     #[inline]
-    fn replace(old: &mut Self, new: Self)
-    where
-        Self: Sized,
-    {
+    pub fn replace<T: Sized>(old: &mut T, new: T) {
         *old = new;
     }
 }
@@ -79,7 +78,7 @@ impl<E: Upsert> UpsertContainer<E> {
     where
         F: Fn(&mut E, E),
     {
-        let located_slot = Self::locate_slot(&mut self.ll, |ele| ele.has_same_id(&new_ele));
+        let located_slot = Self::locate_slot(&mut self.ll, |ele| ele.id_ref() == new_ele.id_ref());
         if let Some(old_ele_slot) = located_slot {
             // 槽位逻辑上不可能为空
             if let Some(old_ele) = old_ele_slot {
@@ -97,9 +96,9 @@ impl<E: Upsert> UpsertContainer<E> {
         self.changed_flag = true;
     }
 
-    /// 添加或更新:同 id 整体替换为 new(默认合并策略,即 [`Upsert::replace`]),无则新增
+    /// 添加或更新:同 id 整体替换为 new(默认合并策略,即 [`upsert_system::replace`]),无则新增
     pub fn upsert_replace(&mut self, new_ele: E) {
-        self.upsert_ele(new_ele, Upsert::replace);
+        self.upsert_ele(new_ele, upsert_system::replace);
     }
 
     /// 删除（幂等：重复删除无副作用）
@@ -243,17 +242,14 @@ mod tests {
 
     impl Upsert for TestEff {
         type Id = u32;
+        type IdRef<'a> = u32;
 
         fn gen_id(&self) -> Self::Id {
             self.id
         }
 
-        fn matched_id(&self, id: &Self::Id) -> bool {
-            self.id == *id
-        }
-
-        fn has_same_id(&self, other: &Self) -> bool {
-            self.id == other.id
+        fn id_ref(&self) -> Self::IdRef<'_> {
+            self.id
         }
     }
 

@@ -1,7 +1,7 @@
 use crate::base_lib::{
     cores::{timers::tiny_timer::HasTimer, unify_types::FixedName},
     eff_attr::{
-        effects::{Effect, EffectMean, EffectMeaning},
+        effects::{EffId, EffIdRef, Effect, EffectMean, EffectMeaning},
         modifiers::{ADDITION_BASE_LINE, AnchorModifier, PERCENT_BASE_LINE},
         upsert_container::Upsert,
     },
@@ -68,29 +68,19 @@ impl<S: FixedName, Timer> HasTimer for BoundAttrEff<S, Timer> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct BoundAttrEffId<S: FixedName> {
-    pub eff: S,
-    pub from: S,
-}
-
 impl<S: FixedName, Timer> Upsert for BoundAttrEff<S, Timer> {
-    type Id = BoundAttrEffId<S>;
+    type Id = EffId<S>;
+    type IdRef<'a>
+        = EffIdRef<'a, S>
+    where
+        Self: 'a;
 
     fn gen_id(&self) -> Self::Id {
-        BoundAttrEffId {
-            eff: self.eff.get_effect_name().clone(),
-            from: self.eff.get_from_name().clone(),
-        }
+        self.eff.gen_id()
     }
 
-    fn matched_id(&self, id: &Self::Id) -> bool {
-        *self.eff.get_effect_name() == id.eff && *self.eff.get_from_name() == id.from
-    }
-
-    fn has_same_id(&self, other: &Self) -> bool {
-        self.eff.get_effect_name() == other.eff.get_effect_name()
-            && self.eff.get_from_name() == other.eff.get_from_name()
+    fn id_ref<'a>(&'a self) -> Self::IdRef<'a> {
+        self.eff.id_ref()
     }
 }
 

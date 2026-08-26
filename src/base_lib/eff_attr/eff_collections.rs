@@ -24,26 +24,38 @@ impl<Eff> Default for EffCollection<Eff> {
 
 impl<Eff> EffCollection<Eff> {
     pub fn new() -> Self {
-        Self { ll: SlotMap::new(), changed_flag: false }
+        Self {
+            ll: SlotMap::new(),
+            changed_flag: false,
+        }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Eff> {
         self.ll.iter().map(|(_, v)| v)
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Eff> {
+    pub fn insert(&mut self, value: Eff) -> DefaultKey {
         self.changed_flag = true;
-        self.ll.iter_mut().map(|(_, v)| v)
+        self.ll.insert(value)
     }
 
-    pub fn insert(&mut self, v: Eff) -> DefaultKey {
-        self.changed_flag = true;
-        self.ll.insert(v)
-    }
-
-    pub fn remove(&mut self, k: DefaultKey) {
-        if let Some(_) = self.ll.remove(k) {
+    pub fn remove(&mut self, key: DefaultKey) -> Option<Eff> {
+        let value_opt = self.ll.remove(key);
+        if value_opt.is_some() {
             self.changed_flag = true;
         }
+        value_opt
+    }
+
+    pub fn get_mut(&mut self, key: DefaultKey) -> Option<&mut Eff> {
+        let value_opt = self.ll.get_mut(key);
+        if value_opt.is_some() {
+            self.changed_flag = true;
+        }
+        value_opt
+    }
+
+    pub fn reset_flag(&mut self) {
+        self.changed_flag = false;
     }
 }

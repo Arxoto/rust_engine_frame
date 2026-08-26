@@ -1,3 +1,5 @@
+use crate::base_lib::{cores::unify_types::FixedName, eff_attr::upsert_container::Upsert};
+
 /// 效果描述 不实现具体效果
 ///
 /// 可与计时器组合实现复杂效果：
@@ -13,7 +15,7 @@
 ///
 /// 注意：若允许不同来源的效果可叠加，那么必然会导致伤害结算存在误差：叠加产生的额外收益算谁的，这划分给谁都不合适，也许可以算成团队收益
 #[derive(Clone, Debug)]
-pub struct Effect<S> {
+pub struct Effect<S: FixedName> {
     /// 效果来源，始终是角色名称，一般用于结算记录
     from_name: S,
     /// 效果名称，一般与来源效果名称相关，用作事件触发时主要根据名称生效作用
@@ -22,7 +24,7 @@ pub struct Effect<S> {
     effect_value: f64,
 }
 
-impl<S> Effect<S> {
+impl<S: FixedName> Effect<S> {
     pub fn new(from_name: S, effect_name: S, effect_value: f64) -> Self {
         Self {
             from_name,
@@ -64,6 +66,42 @@ impl<S> Effect<S> {
     }
 
     // endregion
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct EffId<S: FixedName> {
+    pub from_name: S,
+    pub effect_name: S,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct EffIdRef<'a, S: FixedName> {
+    pub from_name: &'a S,
+    pub effect_name: &'a S,
+}
+
+impl<'a, S: FixedName> Copy for EffIdRef<'a, S> {}
+
+impl<S: FixedName> Upsert for Effect<S> {
+    type Id = EffId<S>;
+    type IdRef<'a>
+        = EffIdRef<'a, S>
+    where
+        Self: 'a;
+
+    fn gen_id(&self) -> Self::Id {
+        EffId {
+            from_name: self.from_name.clone(),
+            effect_name: self.effect_name.clone(),
+        }
+    }
+
+    fn id_ref<'a>(&'a self) -> Self::IdRef<'a> {
+        EffIdRef {
+            from_name: &self.from_name,
+            effect_name: &self.effect_name,
+        }
+    }
 }
 
 /// 判断增益或减益效果
