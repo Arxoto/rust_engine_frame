@@ -18,7 +18,7 @@ use rustc_hash::FxBuildHasher;
 
 use crate::{
     base_lib::{cores::unify_types::FixedName, eff_attr::upsert_container::Upsert},
-    common_impl::buffs::buff_definition::Buff,
+    common_impl::buffs::buff_definition::{BuffChanger, BuffMeta},
 };
 
 type FxIndexMap<K, V> = IndexMap<K, V, FxBuildHasher>;
@@ -28,8 +28,16 @@ fn new_fx_index_map<K, V>() -> FxIndexMap<K, V> {
     IndexMap::with_hasher(FxBuildHasher)
 }
 
+type BuffKey<const SORTED: bool, S> = <BuffMeta<SORTED, S> as Upsert>::Id;
+
+/// todo 包含计时器
+pub(super) struct BuffValue<const SORTED: bool, S: FixedName, Ctx> {
+    pub(super) meta: BuffMeta<SORTED, S>,
+    pub(super) changer: Box<dyn BuffChanger<Ctx>>,
+}
+
 pub struct BuffCollection<const SORTED: bool, S: FixedName, Ctx> {
-    ll: FxIndexMap<<Buff<SORTED, S, Ctx> as Upsert>::Id, Buff<SORTED, S, Ctx>>,
+    ll: FxIndexMap<BuffKey<SORTED, S>, BuffValue<SORTED, S, Ctx>>,
 }
 
 impl<const SORTED: bool, S: FixedName, Ctx> Default for BuffCollection<SORTED, S, Ctx> {
@@ -45,14 +53,21 @@ impl<const SORTED: bool, S: FixedName, Ctx> BuffCollection<SORTED, S, Ctx> {
         }
     }
 
-    pub fn remove(
-        &mut self,
-        key: &<Buff<SORTED, S, Ctx> as Upsert>::Id,
-    ) -> Option<Buff<SORTED, S, Ctx>> {
+    #[inline]
+    pub(super) fn remove(&mut self, key: &BuffKey<SORTED, S>) -> Option<BuffValue<SORTED, S, Ctx>> {
         if SORTED {
             self.ll.shift_remove(key)
         } else {
             self.ll.swap_remove(key)
         }
+    }
+
+    /// for upsert
+    #[inline]
+    pub(super) fn entry(
+        &mut self,
+        key: BuffKey<SORTED, S>,
+    ) -> indexmap::map::Entry<'_, BuffKey<SORTED, S>, BuffValue<SORTED, S, Ctx>> {
+        self.ll.entry(key)
     }
 }
