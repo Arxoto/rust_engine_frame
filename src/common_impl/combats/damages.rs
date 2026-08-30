@@ -5,7 +5,7 @@ use crate::{
         cores::unify_types::FixedName,
         eff_attr::{
             attr_layers::AttrLayerEffTarget,
-            bounded_attr_effs::{AttrAlterEff, AttrAlterEffType},
+            bounded_attr_modifiers::{AttrAlterEff, AttrAlterEffType},
             effects::Effect,
         },
     },
@@ -227,7 +227,8 @@ impl<S: FixedName> Default for DamageInfo<S> {
 pub mod damage_system {
     use crate::{
         base_lib::{
-            cores::unify_types::FLOAT_DEAD_ZONE, eff_attr::attr_layers::AttrLayerEffTargetIter,
+            cores::unify_types::FLOAT_DEAD_ZONE,
+            eff_attr::{attr_layers::AttrLayerEffTargetIter, modifier_collections::ModifiableAttr},
         },
         common_impl::combats::{
             combat_units::{
@@ -566,8 +567,9 @@ mod tests {
     use super::{DamageInfo, SurvivalAttrEff, SurvivalEffBuffer, SurvivalEffTargets};
     use crate::base_lib::eff_attr::attr_layers::{AttrLayerEffTargetIter, attr_layer_system};
     use crate::base_lib::eff_attr::bound_attrs::BoundAttr;
+    use crate::base_lib::eff_attr::effects::EffId;
     use crate::base_lib::eff_attr::{
-        bounded_attr_effs::AttrAlterEffType, bounded_attrs::BoundedAttr, effects::Effect,
+        bounded_attr_modifiers::AttrAlterEffType, bounded_attrs::BoundedAttr, effects::Effect,
         stat_attrs::StatAttr,
     };
     use crate::common_impl::combats::combat_units::{
@@ -1211,7 +1213,10 @@ mod tests {
         let info = run_damage(&mut buffer, &mut targets, &TestAttrs::scale_one());
         assert_eq!(
             info.max_hurt_heal_eff.unwrap().take_from_eff_name(),
-            ("b", "real_dmg")
+            EffId {
+                from_name: "b",
+                effect_name: "real_dmg"
+            }
         );
 
         // 混入真实伤害和冲击伤害 → 记录冲击伤害，冲击伤害击穿护盾并且伤害值大于真实伤害
@@ -1235,7 +1240,10 @@ mod tests {
         let info = run_damage(&mut buffer, &mut targets, &TestAttrs::scale_one());
         assert_eq!(
             info.max_hurt_heal_eff.unwrap().take_from_eff_name(),
-            ("b", "impact")
+            EffId {
+                from_name: "b",
+                effect_name: "impact"
+            }
         );
     }
 

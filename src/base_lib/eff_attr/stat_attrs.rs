@@ -1,6 +1,6 @@
-use crate::base_lib::{
-    cores::unify_types::FixedName,
-    eff_attr::stat_attr_effs::{StatAttrEff, StatAttrModifier},
+use crate::base_lib::eff_attr::{
+    modifier_collections::ModifiableAttr,
+    stat_attr_modifiers::{StatAttrAggregator, StatAttrModifier},
 };
 
 /// 状态属性，常用于各种系统的源端，比如 “攻击力/防御力”
@@ -21,26 +21,27 @@ impl StatAttr {
             current: origin,
         }
     }
+}
 
-    pub fn get_origin(&self) -> f64 {
+impl ModifiableAttr<StatAttrModifier> for StatAttr {
+    fn get_origin(&self) -> f64 {
         self.origin
     }
 
-    pub fn get_current(&self) -> f64 {
+    fn get_current(&self) -> f64 {
         self.current
     }
 
-    /// 刷新属性，在效果更新后
-    pub fn refresh_value<'a, S: FixedName + 'a, Timer: 'a>(
-        &mut self,
-        effs: impl Iterator<Item = &'a StatAttrEff<S, Timer>>,
-    ) {
-        let mut modifier = StatAttrModifier::default();
+    fn refresh_value<'a>(&mut self, modifiers: impl Iterator<Item = &'a StatAttrModifier>)
+    where
+        StatAttrModifier: 'a,
+    {
+        let mut aggregator = StatAttrAggregator::default();
 
-        for ele in effs {
-            modifier.reduce(ele);
+        for ele in modifiers {
+            aggregator.reduce(ele);
         }
 
-        self.current = modifier.apply_modify(self.origin)
+        self.current = aggregator.apply_modify(self.origin)
     }
 }

@@ -1,4 +1,4 @@
-use crate::base_lib::{cores::unify_types::FixedName, eff_attr::upsert_container::Upsert};
+use crate::base_lib::{cores::unify_types::FixedName, eff_attr::upserts::Upsert};
 
 /// 效果描述 不实现具体效果
 ///
@@ -33,7 +33,7 @@ impl<S: FixedName> Effect<S> {
         }
     }
 
-    pub fn new_form<T: Into<S>>(from_name: T, effect_name: T, effect_value: f64) -> Self {
+    pub fn new_from(from_name: impl Into<S>, effect_name: impl Into<S>, effect_value: f64) -> Self {
         let from_name: S = from_name.into();
         let effect_name: S = effect_name.into();
         Self {
@@ -45,8 +45,11 @@ impl<S: FixedName> Effect<S> {
 
     // region: getter setter
 
-    pub fn take_from_eff_name(self) -> (S, S) {
-        (self.from_name, self.effect_name)
+    pub fn take_from_eff_name(self) -> EffId<S> {
+        EffId {
+            from_name: self.from_name,
+            effect_name: self.effect_name,
+        }
     }
 
     pub fn get_from_name(&self) -> &S {

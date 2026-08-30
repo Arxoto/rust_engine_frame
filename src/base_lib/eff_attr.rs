@@ -57,25 +57,25 @@
 
 // todo 将属性效果移除计时器能力，通过外部buff控制计时器的生命周期，效果容器使用 slotmap 以提升查询性能
 
-pub mod upsert_container;
+pub mod upserts;
 
-pub mod eff_collections;
+pub mod modifier_collections;
 
 pub mod effects;
 
-pub mod modifiers;
+pub mod aggregators;
 
-pub mod stat_attr_effs;
+pub mod stat_attr_modifiers;
 
 pub mod stat_attrs;
 
-pub mod bound_attr_effs;
+pub mod bound_attr_modifiers;
 
 pub mod bound_attrs;
 
 pub mod bounded_attrs;
 
-pub mod bounded_attr_effs;
+pub mod bounded_attr_modifiers;
 
 pub mod attr_layers;
 

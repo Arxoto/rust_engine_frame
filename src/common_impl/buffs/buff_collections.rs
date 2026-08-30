@@ -17,7 +17,7 @@ use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 
 use crate::{
-    base_lib::{cores::unify_types::FixedName, eff_attr::upsert_container::Upsert},
+    base_lib::{cores::unify_types::FixedName, eff_attr::upserts::Upsert},
     common_impl::buffs::buff_definition::{BuffChanger, BuffMeta},
 };
 

@@ -2,11 +2,9 @@
 //!
 //! 字段设为 pub 支持拆分平铺到实体中去
 
-use crate::base_lib::{
-    cores::{timers::static_timer::StaticTimer, unify_types::FixedName},
-    eff_attr::{
-        stat_attr_effs::StatAttrEff, stat_attrs::StatAttr, upsert_container::UpsertContainer,
-    },
+use crate::base_lib::eff_attr::{
+    modifier_collections::ModifierCollection, stat_attr_modifiers::StatAttrModifier,
+    stat_attrs::StatAttr,
 };
 
 /// 武器锋利度
@@ -24,8 +22,8 @@ pub struct ArmorSoft(pub StatAttr);
 /// 盔甲质量
 pub struct ArmorMass(pub StatAttr);
 
-pub struct WeaponSharpEffs<S: FixedName>(pub UpsertContainer<StatAttrEff<S, StaticTimer>>);
-pub struct WeaponMassEffs<S: FixedName>(pub UpsertContainer<StatAttrEff<S, StaticTimer>>);
-pub struct ArmorHardEffs<S: FixedName>(pub UpsertContainer<StatAttrEff<S, StaticTimer>>);
-pub struct ArmorSoftEffs<S: FixedName>(pub UpsertContainer<StatAttrEff<S, StaticTimer>>);
-pub struct ArmorMassEffs<S: FixedName>(pub UpsertContainer<StatAttrEff<S, StaticTimer>>);
+pub struct WeaponSharpEffs(pub ModifierCollection<StatAttrModifier>);
+pub struct WeaponMassEffs(pub ModifierCollection<StatAttrModifier>);
+pub struct ArmorHardEffs(pub ModifierCollection<StatAttrModifier>);
+pub struct ArmorSoftEffs(pub ModifierCollection<StatAttrModifier>);
+pub struct ArmorMassEffs(pub ModifierCollection<StatAttrModifier>);

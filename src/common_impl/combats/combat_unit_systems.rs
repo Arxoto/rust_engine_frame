@@ -7,16 +7,18 @@
 //!   护盾当前值由伤害管线经缓冲消费([`load_shield_or_health_upper`] 仅编排不入值);
 //!   即时变更(cost/cut)直接应用,不经缓冲。
 
+use slotmap::DefaultKey;
+
 use crate::{
     base_lib::{
-        cores::{timers::static_timer::StaticTimer, unify_types::FixedName},
+        cores::unify_types::FixedName,
         eff_attr::{
-            bound_attr_effs::{BoundAttrEff, BoundAttrEffType},
+            bound_attr_modifiers::{BoundAttrModifier, BoundAttrModifyDimension},
             bound_attrs::BoundAttr,
-            bounded_attr_effs::AttrAlterEff,
+            bounded_attr_modifiers::AttrAlterEff,
             bounded_attrs::BoundedAttr,
             effects::Effect,
-            upsert_container::UpsertContainer,
+            modifier_collections::ModifierCollection,
         },
     },
     common_impl::combats::{
@@ -86,12 +88,11 @@ pub fn gen_shield_defence<S: FixedName>(
     armor_hard: &ArmorHard,
     from_name: S,
     effect_name: S,
-) -> (BoundAttrEff<S, StaticTimer>, SurvivalAttrEff<S>) {
+) -> (BoundAttrModifier, SurvivalAttrEff<S>) {
     let shield_defence_val = damage_system::calc_defence_shield(armor_hard);
     let effect = Effect::new(from_name, effect_name, shield_defence_val);
 
-    let (bound_eff, alter_eff) =
-        AttrAlterEff::gen_effs_for_upper_bound_by_val(effect, StaticTimer::inf());
+    let (bound_eff, alter_eff) = AttrAlterEff::gen_effs_for_upper_bound_by_val(effect);
     let svv_eff =
         SurvivalAttrEff::new_from_alter_eff(SurvivalEffTargets::OnlyShieldDefence, alter_eff);
 
@@ -101,12 +102,11 @@ pub fn gen_shield_defence<S: FixedName>(
 /// 生成通用护盾，也可用于提升生命值最大值
 pub fn gen_shield_or_health_upper<S: FixedName>(
     upper_bound: &BoundAttr,
-    eff_type: BoundAttrEffType,
+    eff_type: BoundAttrModifyDimension,
     effect: Effect<S>,
-    duration: StaticTimer,
-) -> (BoundAttrEff<S, StaticTimer>, SurvivalAttrEff<S>) {
+) -> (BoundAttrModifier, SurvivalAttrEff<S>) {
     let (bound_eff, alter_eff) =
-        AttrAlterEff::gen_effs_for_upper_bound(upper_bound, eff_type, effect, duration);
+        AttrAlterEff::gen_effs_for_upper_bound(upper_bound, eff_type, effect);
     let svv_eff =
         SurvivalAttrEff::new_from_alter_eff(SurvivalEffTargets::OnlyShieldDefence, alter_eff);
 
@@ -117,13 +117,13 @@ pub fn gen_shield_or_health_upper<S: FixedName>(
 ///
 /// **不做同步修改** 由 system 驱动更新
 pub fn load_shield_or_health_upper<S: FixedName>(
-    shield_effs: &mut UpsertContainer<BoundAttrEff<S, StaticTimer>>,
+    shield_effs: &mut ModifierCollection<BoundAttrModifier>,
     svv_eff_buffer: &mut SurvivalEffBuffer<S>,
-    bounds_eff: BoundAttrEff<S, StaticTimer>,
+    bounds_eff: BoundAttrModifier,
     value_eff: SurvivalAttrEff<S>,
-) {
-    shield_effs.upsert_replace(bounds_eff);
+) -> DefaultKey {
     svv_eff_buffer.push(value_eff);
+    shield_effs.insert(bounds_eff)
 }
 
 /// 花费能量(硬扣): 直接修改, 推入 buffer

@@ -23,12 +23,9 @@
 
 use strum_macros::EnumIter;
 
-use crate::base_lib::{
-    cores::{timers::static_timer::StaticTimer, unify_types::FixedName},
-    eff_attr::{
-        attr_layers::AttrLayerType, bound_attr_effs::BoundAttrEff, bound_attrs::BoundAttr,
-        bounded_attrs::BoundedAttr, upsert_container::UpsertContainer,
-    },
+use crate::base_lib::eff_attr::{
+    attr_layers::AttrLayerType, bound_attr_modifiers::BoundAttrModifier, bound_attrs::BoundAttr,
+    bounded_attrs::BoundedAttr, modifier_collections::ModifierCollection,
 };
 
 /// 生存属性类型（生命值、护盾）
@@ -124,15 +121,15 @@ pub struct MagickaUpper(pub BoundAttr);
 pub struct HealthLower(pub BoundAttr);
 
 /// 类型别名 资源上下限效果的容器
-type BoundAttrEffs<S> = UpsertContainer<BoundAttrEff<S, StaticTimer>>;
+type BoundAttrEffs = ModifierCollection<BoundAttrModifier>;
 
-pub struct ShieldSubstituteUpperEffs<S: FixedName>(pub BoundAttrEffs<S>);
-pub struct ShieldDefenceUpperEffs<S: FixedName>(pub BoundAttrEffs<S>);
-pub struct ShieldArcaneUpperEffs<S: FixedName>(pub BoundAttrEffs<S>);
-pub struct HealthUpperEffs<S: FixedName>(pub BoundAttrEffs<S>);
-pub struct StaminaUpperEffs<S: FixedName>(pub BoundAttrEffs<S>);
-pub struct MagickaUpperEffs<S: FixedName>(pub BoundAttrEffs<S>);
-pub struct HealthLowerEffs<S: FixedName>(pub BoundAttrEffs<S>);
+pub struct ShieldSubstituteUpperEffs(pub BoundAttrEffs);
+pub struct ShieldDefenceUpperEffs(pub BoundAttrEffs);
+pub struct ShieldArcaneUpperEffs(pub BoundAttrEffs);
+pub struct HealthUpperEffs(pub BoundAttrEffs);
+pub struct StaminaUpperEffs(pub BoundAttrEffs);
+pub struct MagickaUpperEffs(pub BoundAttrEffs);
+pub struct HealthLowerEffs(pub BoundAttrEffs);
 
 // endregion
 

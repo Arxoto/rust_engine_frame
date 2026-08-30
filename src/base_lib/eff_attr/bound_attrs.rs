@@ -1,6 +1,6 @@
-use crate::base_lib::{
-    cores::unify_types::FixedName,
-    eff_attr::bound_attr_effs::{BoundAttrEff, BoundAttrModifier},
+use crate::base_lib::eff_attr::{
+    bound_attr_modifiers::{BoundAttrAggregator, BoundAttrModifier},
+    modifier_collections::ModifiableAttr,
 };
 
 /// 边界约束属性，用于限制某属性的上下界限
@@ -22,26 +22,27 @@ impl BoundAttr {
             current: origin,
         }
     }
+}
 
-    pub fn get_origin(&self) -> f64 {
+impl ModifiableAttr<BoundAttrModifier> for BoundAttr {
+    fn get_origin(&self) -> f64 {
         self.origin
     }
 
-    pub fn get_current(&self) -> f64 {
+    fn get_current(&self) -> f64 {
         self.current
     }
 
-    /// 刷新属性，在效果更新后
-    pub fn refresh_value<'a, S: FixedName + 'a, Timer: 'a>(
-        &mut self,
-        effs: impl Iterator<Item = &'a BoundAttrEff<S, Timer>>,
-    ) {
-        let mut modifier = BoundAttrModifier::default();
+    fn refresh_value<'a>(&mut self, modifiers: impl Iterator<Item = &'a BoundAttrModifier>)
+    where
+        BoundAttrModifier: 'a,
+    {
+        let mut aggregator = BoundAttrAggregator::default();
 
-        for ele in effs {
-            modifier.reduce(ele);
+        for ele in modifiers {
+            aggregator.reduce(ele);
         }
 
-        self.current = modifier.apply_modify(self.origin);
+        self.current = aggregator.apply_modify(self.origin);
     }
 }

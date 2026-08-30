@@ -2,16 +2,21 @@ pub(super) const ADDITION_BASE_LINE: f64 = 0.0;
 pub(super) const PERCENT_BASE_LINE: f64 = 0.0;
 pub(super) const MULT_BASE_LINE: f64 = 1.0;
 
-/// 基准锚点值的修改器
+pub trait InvalidModifier {
+    /// 无实际效果的修改器，用作占位
+    fn new_invalid() -> Self;
+}
+
+/// 基础聚合器
 ///
 /// 只允许在基础值上进行修改，具备极佳的“修改可预测性”
 #[derive(Debug)]
-pub(super) struct AnchorModifier {
+pub(super) struct BasicAggregator {
     addition: f64,
     percent: f64,
 }
 
-impl Default for AnchorModifier {
+impl Default for BasicAggregator {
     fn default() -> Self {
         Self {
             addition: ADDITION_BASE_LINE,
@@ -20,7 +25,7 @@ impl Default for AnchorModifier {
     }
 }
 
-impl AnchorModifier {
+impl BasicAggregator {
     pub fn reduce_add(&mut self, v: f64) {
         self.addition += v
     }
@@ -35,17 +40,17 @@ impl AnchorModifier {
     }
 }
 
-/// 聚合值的修改器
+/// 高级聚合器
 ///
 /// 支持多源公式合并，保证了“时间一致性”
 #[derive(Debug)]
-pub(super) struct AggregateModifier {
-    basic: AnchorModifier,
+pub(super) struct AdvancedAggregator {
+    basic: BasicAggregator,
     final_pct: f64,
     final_mult: f64,
 }
 
-impl Default for AggregateModifier {
+impl Default for AdvancedAggregator {
     fn default() -> Self {
         Self {
             basic: Default::default(),
@@ -55,7 +60,7 @@ impl Default for AggregateModifier {
     }
 }
 
-impl AggregateModifier {
+impl AdvancedAggregator {
     pub fn reduce_basic_add(&mut self, v: f64) {
         self.basic.reduce_add(v);
     }

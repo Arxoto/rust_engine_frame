@@ -2,7 +2,7 @@ use crate::base_lib::{
     cores::unify_types::FixedName,
     eff_attr::{
         effects::{EffId, EffIdRef, Effect},
-        upsert_container::Upsert,
+        upserts::Upsert,
     },
 };
 
@@ -29,7 +29,7 @@ pub enum BuffChangeType {
 }
 
 impl BuffChangeType {
-    fn apply<Ctx>(&self, buff_changer: &Box<dyn BuffChanger<Ctx>>, ctx: Ctx) {
+    fn apply<Ctx>(&self, buff_changer: &dyn BuffChanger<Ctx>, ctx: Ctx) {
         match self {
             BuffChangeType::Reset => buff_changer.reset(ctx),
             BuffChangeType::Unmount => buff_changer.unmount(ctx),
@@ -37,7 +37,7 @@ impl BuffChangeType {
     }
 }
 
-pub trait BuffLogic<const SORTED: bool, S: FixedName, Ctx> {
+pub trait BuffMountLogic<const SORTED: bool, S: FixedName, Ctx> {
     fn mount_buff(&self, buff: &BuffMeta<SORTED, S>, ctx: Ctx) -> Box<dyn BuffChanger<Ctx>>;
 }
 
@@ -50,7 +50,7 @@ impl<const SORTED: bool, S: FixedName> BuffMeta<SORTED, S> {
         self.stack = self.stack.saturating_sub(self.sub_stack_expired);
     }
 
-    pub fn apply_buff_change<Ctx>(&self, buff_changer: &Box<dyn BuffChanger<Ctx>>, ctx: Ctx) {
+    pub fn apply_buff_change<Ctx>(&self, buff_changer: &dyn BuffChanger<Ctx>, ctx: Ctx) {
         let change_type = self.gen_change_type();
         change_type.apply(buff_changer, ctx);
     }
@@ -103,7 +103,7 @@ where
 }
 
 impl<F1, F2> BuffChangerImpl<F1, F2> {
-    pub fn new<Ctx>(reset_fn: F1, unmount_fn: F2) -> Box<dyn BuffChanger<Ctx>>
+    pub fn create<Ctx>(reset_fn: F1, unmount_fn: F2) -> Box<dyn BuffChanger<Ctx>>
     where
         F1: Fn(Ctx) + 'static,
         F2: Fn(Ctx) + 'static,

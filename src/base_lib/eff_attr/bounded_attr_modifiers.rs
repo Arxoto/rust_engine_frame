@@ -3,10 +3,11 @@
 use crate::base_lib::{
     cores::unify_types::FixedName,
     eff_attr::{
-        bound_attr_effs::{BoundAttrEff, BoundAttrEffType},
+        bound_attr_modifiers::{BoundAttrModifier, BoundAttrModifyDimension},
         bound_attrs::BoundAttr,
         bounded_attrs::BoundedAttr,
         effects::Effect,
+        modifier_collections::ModifiableAttr,
     },
 };
 
@@ -70,29 +71,25 @@ impl<S: FixedName> AttrAlterEff<S> {
     /// 基于属性上限的修改效果，生成数值一致的 [`BoundAttrEff`] [`AttrAlterEff`] 效果
     ///
     /// 若是针对下限生效的效果，则应该通过下限钳制自动修正
-    pub fn gen_effs_for_upper_bound<Timer>(
+    pub fn gen_effs_for_upper_bound(
         upper_bound: &BoundAttr,
-        eff_type: BoundAttrEffType,
+        eff_type: BoundAttrModifyDimension,
         mut effect: Effect<S>,
-        duration: Timer,
-    ) -> (BoundAttrEff<S, Timer>, Self) {
+    ) -> (BoundAttrModifier, Self) {
         let eff_val = eff_type.calc_real_val(upper_bound.get_current(), effect.get_effect_value());
         effect.set_effect_value(eff_val);
 
-        Self::gen_effs_for_upper_bound_by_val(effect, duration)
+        Self::gen_effs_for_upper_bound_by_val(effect)
     }
 
-    pub fn gen_effs_for_upper_bound_by_val<Timer>(
-        effect: Effect<S>,
-        duration: Timer,
-    ) -> (BoundAttrEff<S, Timer>, Self) {
+    pub fn gen_effs_for_upper_bound_by_val(effect: Effect<S>) -> (BoundAttrModifier, Self) {
+        let dimension = BoundAttrModifyDimension::BasicAdd;
+        let bound_attr_modifier = BoundAttrModifier::new(dimension, effect.get_effect_value());
+
         let eff_type = AttrAlterEffType::Val;
-        let attr_alter_eff = Self::new(eff_type, effect.clone());
+        let attr_alter_eff = Self::new(eff_type, effect);
 
-        let eff_type = BoundAttrEffType::BasicAdd;
-        let bound_attr_eff = BoundAttrEff::new(eff_type, effect, duration);
-
-        (bound_attr_eff, attr_alter_eff)
+        (bound_attr_modifier, attr_alter_eff)
     }
 }
 

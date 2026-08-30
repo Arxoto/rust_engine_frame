@@ -1,6 +1,8 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::base_lib::{cores::unify_types::FixedName, eff_attr::bounded_attr_effs::AttrAlterEff};
+use crate::base_lib::{
+    cores::unify_types::FixedName, eff_attr::bounded_attr_modifiers::AttrAlterEff,
+};
 
 /// 能量消耗统一路径，因此无需自定义效果类型
 #[derive(Debug)]

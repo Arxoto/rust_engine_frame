@@ -1,4 +1,4 @@
-use crate::base_lib::eff_attr::bound_attrs::BoundAttr;
+use crate::base_lib::eff_attr::{bound_attrs::BoundAttr, modifier_collections::ModifiableAttr};
 
 #[derive(Debug)]
 pub struct AttrAlterResult {
