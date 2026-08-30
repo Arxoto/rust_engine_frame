@@ -17,8 +17,17 @@ use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 
 use crate::{
-    base_lib::{cores::unify_types::FixedName, eff_attr::upserts::Upsert},
-    common_impl::buffs::buff_definition::{BuffChanger, BuffMeta},
+    base_lib::{
+        cores::{
+            timers::{
+                tick_timer::TickTimer,
+                tick_trigger::{FewShotTickTrigger, InfiniteTickTrigger},
+            },
+            unify_types::FixedName,
+        },
+        eff_attr::upserts::Upsert,
+    },
+    common_impl::buffs::buff_definition::{BuffChanger, BuffMeta, BuffTrigger},
 };
 
 type FxIndexMap<K, V> = IndexMap<K, V, FxBuildHasher>;
@@ -30,14 +39,20 @@ fn new_fx_index_map<K, V>() -> FxIndexMap<K, V> {
 
 type BuffKey<const SORTED: bool, S> = <BuffMeta<SORTED, S> as Upsert>::Id;
 
-/// todo 包含计时器
-pub(super) struct BuffValue<const SORTED: bool, S: FixedName, Ctx> {
-    pub(super) meta: BuffMeta<SORTED, S>,
-    pub(super) changer: Box<dyn BuffChanger<Ctx>>,
+pub enum BuffRuntime<const SORTED: bool, S: FixedName, Ctx> {
+    Stat(TickTimer, Box<dyn BuffChanger<SORTED, S, Ctx>>),
+    InfTriger(InfiniteTickTrigger, Box<dyn BuffTrigger<SORTED, S, Ctx>>),
+    FewShotTriger(FewShotTickTrigger, Box<dyn BuffTrigger<SORTED, S, Ctx>>),
 }
 
+pub(super) struct BuffEntity<const SORTED: bool, S: FixedName, Ctx> {
+    pub(super) meta: BuffMeta<SORTED, S>,
+    pub(super) runtime: BuffRuntime<SORTED, S, Ctx>,
+}
+
+/// 在 OO 中，可以使用该实现，在 ECS 中建议一个 Buff 作为一个 subEntity
 pub struct BuffCollection<const SORTED: bool, S: FixedName, Ctx> {
-    ll: FxIndexMap<BuffKey<SORTED, S>, BuffValue<SORTED, S, Ctx>>,
+    ll: FxIndexMap<BuffKey<SORTED, S>, BuffEntity<SORTED, S, Ctx>>,
 }
 
 impl<const SORTED: bool, S: FixedName, Ctx> Default for BuffCollection<SORTED, S, Ctx> {
@@ -54,7 +69,10 @@ impl<const SORTED: bool, S: FixedName, Ctx> BuffCollection<SORTED, S, Ctx> {
     }
 
     #[inline]
-    pub(super) fn remove(&mut self, key: &BuffKey<SORTED, S>) -> Option<BuffValue<SORTED, S, Ctx>> {
+    pub(super) fn remove(
+        &mut self,
+        key: &BuffKey<SORTED, S>,
+    ) -> Option<BuffEntity<SORTED, S, Ctx>> {
         if SORTED {
             self.ll.shift_remove(key)
         } else {
@@ -67,7 +85,7 @@ impl<const SORTED: bool, S: FixedName, Ctx> BuffCollection<SORTED, S, Ctx> {
     pub(super) fn entry(
         &mut self,
         key: BuffKey<SORTED, S>,
-    ) -> indexmap::map::Entry<'_, BuffKey<SORTED, S>, BuffValue<SORTED, S, Ctx>> {
+    ) -> indexmap::map::Entry<'_, BuffKey<SORTED, S>, BuffEntity<SORTED, S, Ctx>> {
         self.ll.entry(key)
     }
 }

@@ -17,8 +17,28 @@ pub struct BuffMeta<const SORTED: bool, S: FixedName> {
     pub sub_stack_expired: u32,
 }
 
-pub trait BuffChanger<Ctx> {
-    fn reset(&self, ctx: Ctx);
+// region: TriggerBuff
+
+pub trait BuffTrigger<const SORTED: bool, S: FixedName, Ctx> {
+    fn trigger(&self, buff: &BuffMeta<SORTED, S>, ctx: Ctx);
+}
+
+impl<const SORTED: bool, S, Ctx, F> BuffTrigger<SORTED, S, Ctx> for F
+where
+    S: FixedName,
+    F: Fn(&BuffMeta<SORTED, S>, Ctx),
+{
+    fn trigger(&self, buff: &BuffMeta<SORTED, S>, ctx: Ctx) {
+        self(buff, ctx)
+    }
+}
+
+// endregion
+
+// region: StatBuff
+
+pub trait BuffChanger<const SORTED: bool, S: FixedName, Ctx> {
+    fn reset(&self, buff: &BuffMeta<SORTED, S>, ctx: Ctx);
     fn unmount(&self, ctx: Ctx);
 }
 
@@ -29,16 +49,25 @@ pub enum BuffChangeType {
 }
 
 impl BuffChangeType {
-    fn apply<Ctx>(&self, buff_changer: &dyn BuffChanger<Ctx>, ctx: Ctx) {
+    fn apply<const SORTED: bool, S: FixedName, Ctx>(
+        &self,
+        buff_changer: &dyn BuffChanger<SORTED, S, Ctx>,
+        buff: &BuffMeta<SORTED, S>,
+        ctx: Ctx,
+    ) {
         match self {
-            BuffChangeType::Reset => buff_changer.reset(ctx),
+            BuffChangeType::Reset => buff_changer.reset(buff, ctx),
             BuffChangeType::Unmount => buff_changer.unmount(ctx),
         }
     }
 }
 
 pub trait BuffMountLogic<const SORTED: bool, S: FixedName, Ctx> {
-    fn mount_buff(&self, buff: &BuffMeta<SORTED, S>, ctx: Ctx) -> Box<dyn BuffChanger<Ctx>>;
+    fn mount_buff(
+        &self,
+        buff: &BuffMeta<SORTED, S>,
+        ctx: Ctx,
+    ) -> Box<dyn BuffChanger<SORTED, S, Ctx>>;
 }
 
 impl<const SORTED: bool, S: FixedName> BuffMeta<SORTED, S> {
@@ -50,9 +79,14 @@ impl<const SORTED: bool, S: FixedName> BuffMeta<SORTED, S> {
         self.stack = self.stack.saturating_sub(self.sub_stack_expired);
     }
 
-    pub fn apply_buff_change<Ctx>(&self, buff_changer: &dyn BuffChanger<Ctx>, ctx: Ctx) {
+    pub fn apply_buff_change<Ctx>(
+        &self,
+        buff_changer: &dyn BuffChanger<SORTED, S, Ctx>,
+        buff: &BuffMeta<SORTED, S>,
+        ctx: Ctx,
+    ) {
         let change_type = self.gen_change_type();
-        change_type.apply(buff_changer, ctx);
+        change_type.apply(buff_changer, buff, ctx);
     }
 
     fn gen_change_type(&self) -> BuffChangeType {
@@ -89,13 +123,14 @@ pub struct BuffChangerImpl<F1, F2> {
     unmount_fn: F2,
 }
 
-impl<Ctx, F1, F2> BuffChanger<Ctx> for BuffChangerImpl<F1, F2>
+impl<const SORTED: bool, S: FixedName, Ctx, F1, F2> BuffChanger<SORTED, S, Ctx>
+    for BuffChangerImpl<F1, F2>
 where
-    F1: Fn(Ctx),
+    F1: Fn(&BuffMeta<SORTED, S>, Ctx),
     F2: Fn(Ctx),
 {
-    fn reset(&self, ctx: Ctx) {
-        (self.reset_fn)(ctx)
+    fn reset(&self, buff: &BuffMeta<SORTED, S>, ctx: Ctx) {
+        (self.reset_fn)(buff, ctx)
     }
     fn unmount(&self, ctx: Ctx) {
         (self.unmount_fn)(ctx)
@@ -103,9 +138,12 @@ where
 }
 
 impl<F1, F2> BuffChangerImpl<F1, F2> {
-    pub fn create<Ctx>(reset_fn: F1, unmount_fn: F2) -> Box<dyn BuffChanger<Ctx>>
+    pub fn create<const SORTED: bool, S: FixedName, Ctx>(
+        reset_fn: F1,
+        unmount_fn: F2,
+    ) -> Box<dyn BuffChanger<SORTED, S, Ctx>>
     where
-        F1: Fn(Ctx) + 'static,
+        F1: Fn(&BuffMeta<SORTED, S>, Ctx) + 'static,
         F2: Fn(Ctx) + 'static,
     {
         Box::new(Self {
@@ -114,5 +152,7 @@ impl<F1, F2> BuffChangerImpl<F1, F2> {
         })
     }
 }
+
+// endregion
 
 // endregion
