@@ -68,7 +68,7 @@ impl<S: FixedName> AttrAlterEff<S> {
             .calc_alter_val(eff_val, bounded_attr, upper_bound)
     }
 
-    /// 基于属性上限的修改效果，生成数值一致的 [`BoundAttrEff`] [`AttrAlterEff`] 效果
+    /// 基于属性上限的修改效果，生成数值一致的 [`BoundAttrModifier`] [`AttrAlterEff`] 效果
     ///
     /// 若是针对下限生效的效果，则应该通过下限钳制自动修正
     pub fn gen_effs_for_upper_bound(

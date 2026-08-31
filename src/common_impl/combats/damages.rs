@@ -5,7 +5,7 @@ use crate::{
         cores::unify_types::FixedName,
         eff_attr::{
             attr_layers::AttrLayerEffTarget,
-            bounded_attr_modifiers::{AttrAlterEff, AttrAlterEffType},
+            bounded_attr_effs::{AttrAlterEff, AttrAlterEffType},
             effects::Effect,
         },
     },
@@ -45,7 +45,6 @@ impl<S: FixedName> SurvivalAttrEff<S> {
     /// 构造单次伤害效果
     ///
     /// 推入 [`SurvivalEffBuffer`] 后由伤害系统消费。
-    #[must_use]
     pub fn new(
         target_type: SurvivalEffTargets,
         alter_type: AttrAlterEffType,
@@ -75,7 +74,6 @@ impl<S: FixedName> Default for SurvivalEffBuffer<S> {
 
 impl<S: FixedName> SurvivalEffBuffer<S> {
     /// 构造空的伤害缓冲
-    #[must_use]
     pub fn new() -> Self {
         Self(Vec::new())
     }
@@ -86,13 +84,11 @@ impl<S: FixedName> SurvivalEffBuffer<S> {
     }
 
     /// 缓冲内伤害效果数量
-    #[must_use]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
     /// 缓冲是否为空
-    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -235,14 +231,13 @@ pub mod damage_system {
                 HealthLower, HealthUpper, ShieldArcaneUpper, ShieldDefenceUpper,
                 ShieldSubstituteUpper, SurvivalAttrLayer,
             },
-            energies::MagickaEnergyLevel,
+            energies::energy_system,
         },
     };
 
     use super::*;
 
     const BOUNDED_ATTR_LOWER: f64 = 0.0;
-    const MAGICKA_BASELINE: f64 = 100.0;
 
     #[derive(Debug)]
     pub struct MergedSurvivalEffs<S: FixedName> {
@@ -324,7 +319,7 @@ pub mod damage_system {
         let mut merged_svv_effs = MergedSurvivalEffs::<S>::default();
 
         // get the ownership
-        for dmg_eff in survival_eff_buffer.0.drain(0..) {
+        for dmg_eff in survival_eff_buffer.0.drain(..) {
             let SurvivalAttrEff {
                 target_type,
                 alter_type,
@@ -491,7 +486,7 @@ pub mod damage_system {
     /// - 魔法奥术 [`SurvivalEffTargets::MagickaArcane`]
     ///   - 直接正相关 [`Belief`]
     ///   - 同时正相关 [`Magicka`]
-    pub fn calc_damage_scale(
+    pub(super) fn calc_damage_scale(
         svv_eff_target: SurvivalEffTargets,
         damage_calc_attrs: &DamageCalcAttrs,
     ) -> f64 {
@@ -522,35 +517,21 @@ pub mod damage_system {
             SurvivalEffTargets::MagickaArcane => source_belief.0.get_current(),
         };
 
+        // 尽量保证增幅
         // 能量越高伤害越高 不使用双方能量差是为了防止在高能量状态下，小怪低能量形成的碾压，导致堆怪没威胁
-        let base_scale =
-            0.0_f64.max(1.0 + source_magicka.0.get_snapshot_value() / MAGICKA_BASELINE);
+        let scale_by_magicka = 0.0_f64.max(1.0 + energy_system::calc_magicka_scale(source_magicka));
 
-        damage_scale * base_scale
+        damage_scale * scale_by_magicka
     }
 
     /// [`Strength`] 影响 [`Health`]
+    #[inline]
     pub fn calc_health_max(health_base: f64, health_scale: f64, strength: &Strength) -> f64 {
         health_base + health_scale * strength.0.get_origin()
     }
 
-    /// [`Belief`] 影响【原始能量】
-    pub fn calc_magicka_value(magicka_base: f64, magicka_scale: f64, belief: &Belief) -> f64 {
-        magicka_base + magicka_scale * belief.0.get_origin()
-    }
-
-    /// 【原始能量】影响 [`Magicka`]
-    pub fn calc_magicka_max(
-        magicka_base: f64,
-        magicka_scale: f64,
-        belief: &Belief,
-        magicka_energy_level: &MagickaEnergyLevel,
-    ) -> f64 {
-        let magicka_value = calc_magicka_value(magicka_base, magicka_scale, belief);
-        magicka_energy_level.max_energy(magicka_value)
-    }
-
     /// [`ArmorHard`] 影响 [`ShieldDefence`]
+    #[inline]
     pub fn calc_defence_shield(armor_hard: &ArmorHard) -> f64 {
         armor_hard.0.get_current()
     }
@@ -562,14 +543,14 @@ mod tests {
 
     use super::damage_system::{
         DamageCalcAttrs, MergedSurvivalEffs, apply_damages, calc_damage_scale, calc_defence_shield,
-        calc_health_max, calc_magicka_max, calc_magicka_value, merge_damages,
+        calc_health_max, merge_damages,
     };
     use super::{DamageInfo, SurvivalAttrEff, SurvivalEffBuffer, SurvivalEffTargets};
     use crate::base_lib::eff_attr::attr_layers::{AttrLayerEffTargetIter, attr_layer_system};
     use crate::base_lib::eff_attr::bound_attrs::BoundAttr;
     use crate::base_lib::eff_attr::effects::EffId;
     use crate::base_lib::eff_attr::{
-        bounded_attr_modifiers::AttrAlterEffType, bounded_attrs::BoundedAttr, effects::Effect,
+        bounded_attr_effs::AttrAlterEffType, bounded_attrs::BoundedAttr, effects::Effect,
         stat_attrs::StatAttr,
     };
     use crate::common_impl::combats::combat_units::{
@@ -578,7 +559,6 @@ mod tests {
     use crate::common_impl::combats::damages::damage_system::{
         DamageTargetAttrs, DamageTargetMutAttrs,
     };
-    use crate::common_impl::combats::energies::MagickaEnergyLevel;
     use crate::common_impl::combats::{
         combat_additions::{ArmorHard, ArmorSoft, WeaponMass, WeaponSharp},
         combat_inherents::{Belief, Strength},
@@ -846,28 +826,6 @@ mod tests {
     fn calc_health_max_scales_with_strength_origin() {
         let strength = Strength(StatAttr::new(10.0));
         assert_eq!(calc_health_max(100.0, 5.0, &strength), 150.0);
-    }
-
-    /// calc_magicka_value：Belief 影响原始能量，magicka_base + magicka_scale * belief.origin
-    #[test]
-    fn calc_magicka_value_scales_with_belief_origin() {
-        let belief = Belief(StatAttr::new(10.0));
-        assert_eq!(calc_magicka_value(50.0, 3.0, &belief), 80.0);
-    }
-
-    /// calc_magicka_max：先算原始能量，再按能级取对应层级上限
-    #[test]
-    fn calc_magicka_max_takes_energy_level() {
-        let levels = MagickaEnergyLevel::new(100.0, 200.0, 300.0);
-        // 原始能量 50 + 3*10 = 80 → 第一能级上限 100
-        let belief = Belief(StatAttr::new(10.0));
-        assert_eq!(calc_magicka_max(50.0, 3.0, &belief, &levels), 100.0);
-        // 原始能量 50 + 3*50 = 200 → 第二能级上限 200
-        let belief = Belief(StatAttr::new(50.0));
-        assert_eq!(calc_magicka_max(50.0, 3.0, &belief, &levels), 200.0);
-        // 原始能量 50 + 3*80 = 290 → 第三能级上限 300
-        let belief = Belief(StatAttr::new(80.0));
-        assert_eq!(calc_magicka_max(50.0, 3.0, &belief, &levels), 300.0);
     }
 
     /// calc_defence_shield：ArmorHard 影响 ShieldDefence，返回 armor_hard 当前值

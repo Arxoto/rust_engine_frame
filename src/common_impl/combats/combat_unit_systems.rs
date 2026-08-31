@@ -15,7 +15,7 @@ use crate::{
         eff_attr::{
             bound_attr_modifiers::{BoundAttrModifier, BoundAttrModifyDimension},
             bound_attrs::BoundAttr,
-            bounded_attr_modifiers::AttrAlterEff,
+            bounded_attr_effs::AttrAlterEff,
             bounded_attrs::BoundedAttr,
             effects::Effect,
             modifier_collections::ModifierCollection,
@@ -28,12 +28,11 @@ use crate::{
             Health, HealthLower, HealthUpper, Magicka, MagickaUpper, Stamina, StaminaUpper,
         },
         damages::{SurvivalAttrEff, SurvivalEffBuffer, SurvivalEffTargets, damage_system},
-        energies::{EnergyEffBuffer, MagickaEnergyLevel},
+        energies::{MagickaEnergyLevel, energy_system},
     },
 };
 
-/// 花费能量后允许的最低值(资源下限门槛,即时扣减用)
-const COST_FLOOR: f64 = 0.0;
+const BOUNDED_ATTR_LOWER: f64 = 0.0;
 
 /// 初始化三维的配置参数(由上层传入,不含魔法数字)
 pub struct ThreeBarsConfig {
@@ -65,7 +64,7 @@ pub struct ThreeBars {
 pub fn gen_three_bars(strength: &Strength, belief: &Belief, config: &ThreeBarsConfig) -> ThreeBars {
     let health_max =
         damage_system::calc_health_max(config.health_base, config.health_scale, strength);
-    let magicka_max = damage_system::calc_magicka_max(
+    let magicka_max = energy_system::calc_magicka_max(
         config.magicka_base,
         config.magicka_scale,
         belief,
@@ -116,6 +115,7 @@ pub fn gen_shield_or_health_upper<S: FixedName>(
 /// 装载护盾: 编排"上限效果入容器 + 当前值效果入缓冲"
 ///
 /// **不做同步修改** 由 system 驱动更新
+#[must_use]
 pub fn load_shield_or_health_upper<S: FixedName>(
     shield_effs: &mut ModifierCollection<BoundAttrModifier>,
     svv_eff_buffer: &mut SurvivalEffBuffer<S>,
@@ -126,25 +126,9 @@ pub fn load_shield_or_health_upper<S: FixedName>(
     shield_effs.insert(bounds_eff)
 }
 
-/// 花费能量(硬扣): 直接修改, 推入 buffer
-pub fn cost_magicka<S: FixedName>(buffer: &mut EnergyEffBuffer<S>, eff: AttrAlterEff<S>) {
-    buffer.push(eff);
-}
-
-/// 尝试花费能量(软扣): 能量不足则失败, 顺序必须在能量系统消费 buffer 之后
-pub fn try_cost_magicka<S: FixedName>(
-    magicka: &mut Magicka,
-    magicka_upper: &MagickaUpper,
-    eff: AttrAlterEff<S>,
-) -> bool {
-    let bounded_attr = &mut magicka.0;
-    let abs_val = eff.calc_alter_val(bounded_attr, &magicka_upper.0);
-    bounded_attr.apply_eff_checked(COST_FLOOR, abs_val, COST_FLOOR)
-}
-
-/// 削韧: 削减平衡, 返回实际生效值
+/// 削韧: 削减平衡
 ///
-/// 由于设计比较简单，无需通过 buffer ，直接生效
+/// 由于设计比较简单，无需通过 buffer ，直接修改 pending
 pub fn cut_stamina<S: FixedName>(
     stamina: &mut Stamina,
     stamina_upper: &StaminaUpper,
@@ -155,4 +139,10 @@ pub fn cut_stamina<S: FixedName>(
     bounded_attr.apply_eff(abs_val)
 }
 
-// todo 增加复合属性的显示函数
+/// 由于一帧内的削韧都没有应用钳制，因此在帧末尾需要调用钳制方法
+pub fn clamp_stamina<S: FixedName>(stamina: &mut Stamina, stamina_upper: &StaminaUpper) {
+    let bounded_attr = &mut stamina.0;
+    bounded_attr.clamp_by(BOUNDED_ATTR_LOWER, &stamina_upper.0);
+}
+
+// todo 增加复合属性的渲染显示函数

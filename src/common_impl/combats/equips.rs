@@ -101,7 +101,6 @@ impl EquipArmorSlot {
 }
 
 /// 触发装备的属性效果
-#[inline]
 fn add_attr_eff(
     equip_value: f64,
     key: &mut Option<DefaultKey>,
@@ -114,7 +113,6 @@ fn add_attr_eff(
     *key = Some(effs.insert(attr_eff));
 }
 
-#[inline]
 fn rm_attr_eff(key: &mut Option<DefaultKey>, effs: &mut ModifierCollection<StatAttrModifier>) {
     if let Some(key) = key {
         effs.remove(*key);

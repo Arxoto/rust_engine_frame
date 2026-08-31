@@ -59,7 +59,6 @@ impl<PureTag: FixedName> ActionData<PureTag> {
     /// 公开构造路径：上层无需访问私有字段即可创建动作数据
     ///
     /// `order`（注册顺序）在注册时自动赋值，无需传入。
-    #[must_use]
     pub fn new(
         id: i64,
         priority: u16,

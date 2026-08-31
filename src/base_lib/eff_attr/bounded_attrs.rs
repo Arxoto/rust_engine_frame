@@ -10,6 +10,21 @@ pub struct AttrAlterResult {
 #[derive(Debug)]
 pub struct BoundValue(f64);
 
+impl BoundValue {
+    #[inline]
+    pub fn get_value(v: impl Into<BoundValue>) -> f64 {
+        let value: Self = v.into();
+        value.0
+    }
+
+    #[inline]
+    pub fn clamp(lower: impl Into<BoundValue>, upper: impl Into<BoundValue>, v: f64) -> f64 {
+        let lower = BoundValue::get_value(lower);
+        let upper = BoundValue::get_value(upper);
+        lower.max(upper.min(v))
+    }
+}
+
 impl From<f64> for BoundValue {
     fn from(value: f64) -> Self {
         Self(value)
@@ -52,17 +67,11 @@ impl BoundedAttr {
     }
 
     /// 钳制 应用上下界限
-    pub fn clamp_by<V1, V2>(&mut self, lower: V1, upper: V2)
-    where
-        BoundValue: From<V1>,
-        BoundValue: From<V2>,
-    {
-        let lower = BoundValue::from(lower).0;
-        let upper = BoundValue::from(upper).0;
-
-        let old_v = self.pending;
-        let new_v = lower.max(upper.min(old_v));
-        self.pending = new_v;
+    ///
+    /// - 一般情况下，应该是一帧内批量生效效果，然后单次钳制；
+    /// - 特别的，对于复合属性，由于需要计算效果传递，因此必须每次计算都进行钳制；
+    pub fn clamp_by(&mut self, lower: impl Into<BoundValue>, upper: impl Into<BoundValue>) {
+        self.pending = BoundValue::clamp(lower, upper, self.pending);
     }
 
     /// 考虑到公式计算的复杂性，这里只支持输入具体值，不做统一的计算公式抽象
@@ -71,19 +80,25 @@ impl BoundedAttr {
     }
 
     /// 只有当前值足够才会去应用效果（如法力不够则施放失败）
-    pub fn apply_eff_checked<V>(&mut self, lower: V, val: f64, want_gt: f64) -> bool
-    where
-        BoundValue: From<V>,
-    {
-        let lower = BoundValue::from(lower).0;
+    pub fn apply_eff_checked(
+        &mut self,
+        lower: impl Into<BoundValue>,
+        upper: impl Into<BoundValue>,
+        val: f64,
+        want_gt: f64,
+    ) -> bool {
+        let new_pending = self.pending + val;
+        let new_clamped = BoundValue::clamp(lower, upper, new_pending);
 
-        if lower.max(self.pending + val) >= want_gt {
-            self.pending += val;
+        if new_clamped >= want_gt {
+            self.pending = new_clamped;
             true
         } else {
             false
         }
     }
 }
+
+// todo 抽象 应用效果值 特征
 
 // todo test clamp_by & apply_eff_checked

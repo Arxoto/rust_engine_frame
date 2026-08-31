@@ -53,7 +53,6 @@ impl PlayerCharacterController {
     ///
     /// `input_buffer_window` 为预输入缓冲时长（键缓冲窗口），
     /// 参考 [`InstructionBufferedJustOn::new`]。
-    #[must_use]
     pub fn new(player_input: PlayerInput, input_buffer_window: time_type::T) -> Self {
         Self {
             look_angle: player_input.look_angle,

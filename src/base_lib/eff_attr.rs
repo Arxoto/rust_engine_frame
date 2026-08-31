@@ -75,7 +75,7 @@ pub mod bound_attrs;
 
 pub mod bounded_attrs;
 
-pub mod bounded_attr_modifiers;
+pub mod bounded_attr_effs;
 
 pub mod attr_layers;
 
