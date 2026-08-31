@@ -27,8 +27,10 @@ use crate::{
         combat_units::{
             Health, HealthLower, HealthUpper, Magicka, MagickaUpper, Stamina, StaminaUpper,
         },
-        damages::{SurvivalAttrEff, SurvivalEffBuffer, SurvivalEffTargets, damage_system},
-        energies::{MagickaEnergyLevel, energy_system},
+        damage_systems,
+        damages::{SurvivalAttrEff, SurvivalEffBuffer, SurvivalEffTargets},
+        energies::MagickaEnergyLevel,
+        energy_systems,
     },
 };
 
@@ -63,8 +65,8 @@ pub struct ThreeBars {
 /// - 能量:`current = 0`、`max` 经 [`damage_system::calc_magicka_max`]
 pub fn gen_three_bars(strength: &Strength, belief: &Belief, config: &ThreeBarsConfig) -> ThreeBars {
     let health_max =
-        damage_system::calc_health_max(config.health_base, config.health_scale, strength);
-    let magicka_max = energy_system::calc_magicka_max(
+        damage_systems::calc_health_max(config.health_base, config.health_scale, strength);
+    let magicka_max = energy_systems::calc_magicka_max(
         config.magicka_base,
         config.magicka_scale,
         belief,
@@ -88,7 +90,7 @@ pub fn gen_shield_defence<S: FixedName>(
     from_name: S,
     effect_name: S,
 ) -> (BoundAttrModifier, SurvivalAttrEff<S>) {
-    let shield_defence_val = damage_system::calc_defence_shield(armor_hard);
+    let shield_defence_val = damage_systems::calc_defence_shield(armor_hard);
     let effect = Effect::new(from_name, effect_name, shield_defence_val);
 
     let (bound_eff, alter_eff) = AttrAlterEff::gen_effs_for_upper_bound_by_val(effect);
