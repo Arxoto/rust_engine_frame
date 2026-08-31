@@ -14,9 +14,9 @@ use crate::{
         cores::unify_types::FixedName,
         eff_attr::{
             bound_attr_modifiers::{BoundAttrModifier, BoundAttrModifyDimension},
-            bound_attrs::BoundAttr,
+            bound_attrs::{BoundAttr, BoundRange},
             bounded_attr_effs::AttrAlterEff,
-            bounded_attrs::BoundedAttr,
+            bounded_attrs::{Alterable, BoundedAlterable, BoundedAttr},
             effects::Effect,
             modifier_collections::ModifierCollection,
         },
@@ -138,13 +138,16 @@ pub fn cut_stamina<S: FixedName>(
 ) {
     let bounded_attr = &mut stamina.0;
     let abs_val = eff.calc_alter_val(bounded_attr, &stamina_upper.0);
-    bounded_attr.apply_eff(abs_val)
+    bounded_attr.apply_alter(abs_val)
 }
 
 /// 由于一帧内的削韧都没有应用钳制，因此在帧末尾需要调用钳制方法
 pub fn clamp_stamina<S: FixedName>(stamina: &mut Stamina, stamina_upper: &StaminaUpper) {
     let bounded_attr = &mut stamina.0;
-    bounded_attr.clamp_by(BOUNDED_ATTR_LOWER, &stamina_upper.0);
+    bounded_attr.clamp_by(BoundRange {
+        lower: BOUNDED_ATTR_LOWER,
+        upper: &stamina_upper.0,
+    });
 }
 
 // todo 增加复合属性的渲染显示函数

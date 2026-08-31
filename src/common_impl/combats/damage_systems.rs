@@ -55,6 +55,8 @@ use crate::{
         cores::unify_types::{FLOAT_DEAD_ZONE, FixedName},
         eff_attr::{
             attr_layers::{AttrLayerEffTarget, AttrLayerEffTargetIter},
+            bound_attrs::BoundRange,
+            bounded_attrs::{Alterable, BoundedAlterable},
             effects::Effect,
             modifier_collections::ModifiableAttr,
         },
@@ -275,8 +277,8 @@ pub fn apply_damages<S: FixedName>(
                     ),
                 };
                 let old_val = attr.get_pending_value();
-                attr.apply_eff(real_dmg);
-                attr.clamp_by(lower, upper);
+                attr.apply_alter(real_dmg);
+                attr.clamp_by(BoundRange { lower, upper });
                 let diff_val = attr.get_pending_value() - old_val;
                 real_dmg -= diff_val;
 
@@ -650,7 +652,7 @@ mod tests {
     #[test]
     fn only_health_heals_up_to_cap() {
         let mut targets = Targets::full();
-        targets.heal.0.apply_eff(-30.0); // 先扣到 70
+        targets.heal.0.apply_alter(-30.0); // 先扣到 70
         let mut buffer = SurvivalEffBuffer::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyHealth,

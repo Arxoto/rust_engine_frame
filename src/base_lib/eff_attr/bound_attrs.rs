@@ -46,3 +46,51 @@ impl ModifiableAttr<BoundAttrModifier> for BoundAttr {
         self.current = aggregator.apply_modify(self.origin);
     }
 }
+
+/// 有界属性的约束值，用于自动转换
+#[derive(Debug)]
+pub struct BoundValue(f64);
+
+impl BoundValue {
+    #[inline]
+    pub fn get_value(v: impl Into<BoundValue>) -> f64 {
+        let value: Self = v.into();
+        value.0
+    }
+}
+
+impl From<f64> for BoundValue {
+    fn from(value: f64) -> Self {
+        Self(value)
+    }
+}
+
+impl From<&BoundAttr> for BoundValue {
+    fn from(value: &BoundAttr) -> Self {
+        Self(value.get_current())
+    }
+}
+
+/// 上下界限约束
+#[derive(Debug)]
+pub struct BoundRange<Lower, Upper>
+where
+    BoundValue: From<Lower>,
+    BoundValue: From<Upper>,
+{
+    pub lower: Lower,
+    pub upper: Upper,
+}
+
+impl<Lower, Upper> BoundRange<Lower, Upper>
+where
+    BoundValue: From<Lower>,
+    BoundValue: From<Upper>,
+{
+    #[inline]
+    pub fn clamp(self, v: f64) -> f64 {
+        let lower = BoundValue::get_value(self.lower);
+        let upper = BoundValue::get_value(self.upper);
+        lower.max(upper.min(v))
+    }
+}
