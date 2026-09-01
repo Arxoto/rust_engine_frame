@@ -5,7 +5,6 @@ use crate::{
             attr_layers::AttrLayerTypeIter,
             bound_attrs::BoundRange,
             bounded_attr_effs::AttrAlterEff,
-            bounded_attrs::{Alterable, AlterableSafety},
             modifier_collections::ModifiableAttr,
         },
     },

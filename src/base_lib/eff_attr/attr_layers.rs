@@ -50,10 +50,12 @@ pub trait AttrLayerEffTarget: Debug + Copy + Eq {
     fn stop_at(&self) -> Self::Layer;
 }
 
+#[derive(Debug, Clone)]
 pub struct AttrLayerTypeIter<T: AttrLayerType> {
     current: Option<T>,
 }
 
+#[derive(Debug, Clone)]
 pub struct AttrLayerEffTargetIter<T: AttrLayerType> {
     current: Option<T>,
     stop_at: T,

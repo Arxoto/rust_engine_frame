@@ -79,7 +79,7 @@ pub mod bounded_attr_effs;
 
 pub mod attr_layers;
 
-pub mod compound_attrs;
+pub mod compound_attr_systems;
 
 // systems
 
