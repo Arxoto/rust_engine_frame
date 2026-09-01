@@ -56,7 +56,7 @@ use crate::{
         eff_attr::{
             attr_layers::{AttrLayerEffTarget, AttrLayerEffTargetIter},
             bound_attrs::BoundRange,
-            bounded_attrs::{Alterable, BoundedAlterable},
+            bounded_attrs::Alterable,
             effects::Effect,
             modifier_collections::ModifiableAttr,
         },

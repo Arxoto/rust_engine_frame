@@ -5,7 +5,7 @@ use crate::{
             attr_layers::AttrLayerTypeIter,
             bound_attrs::BoundRange,
             bounded_attr_effs::AttrAlterEff,
-            bounded_attrs::{Alterable, BoundedAlterable},
+            bounded_attrs::{Alterable, AlterableSafety},
             modifier_collections::ModifiableAttr,
         },
     },
@@ -56,7 +56,7 @@ pub fn try_cost_magicka<S: FixedName>(
 ) -> bool {
     let bounded_attr = &mut magicka.0;
     let abs_val = eff.calc_alter_val(bounded_attr, &magicka_upper.0);
-    bounded_attr.apply_alter_checked(
+    bounded_attr.apply_alter_safety(
         BoundRange::new(COST_FLOOR, &magicka_upper.0),
         abs_val,
         COST_FLOOR,

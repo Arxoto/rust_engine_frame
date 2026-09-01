@@ -16,7 +16,7 @@ use crate::{
             bound_attr_modifiers::{BoundAttrModifier, BoundAttrModifyDimension},
             bound_attrs::{BoundAttr, BoundRange},
             bounded_attr_effs::AttrAlterEff,
-            bounded_attrs::{Alterable, BoundedAlterable, BoundedAttr},
+            bounded_attrs::{Alterable, BoundedAttr},
             effects::Effect,
             modifier_collections::ModifierCollection,
         },
