@@ -57,15 +57,13 @@ pub fn try_cost_magicka<S: FixedName>(
     let bounded_attr = &mut magicka.0;
     let abs_val = eff.calc_alter_val(bounded_attr, &magicka_upper.0);
     bounded_attr.apply_alter_checked(
-        BoundRange {
-            lower: COST_FLOOR,
-            upper: &magicka_upper.0,
-        },
+        BoundRange::new(COST_FLOOR, &magicka_upper.0),
         abs_val,
         COST_FLOOR,
     )
 }
 
+// todo 通过 BoundedAlterable 实现
 fn apply_magicka_val_checked(
     magicka_upper: &MagickaUpper,
     magicka: &mut Magicka,
@@ -102,10 +100,7 @@ fn apply_magicka_val(
 
         let old_val = attr.get_pending_value();
         attr.apply_alter(val);
-        attr.clamp_by(BoundRange {
-            lower: COST_FLOOR,
-            upper: &magicka_upper.0,
-        });
+        attr.clamp_by(BoundRange::new(COST_FLOOR, &magicka_upper.0));
         let diff_val = attr.get_pending_value() - old_val;
 
         val -= diff_val;

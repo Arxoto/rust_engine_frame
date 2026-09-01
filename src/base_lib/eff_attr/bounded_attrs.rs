@@ -52,18 +52,14 @@ impl Alterable for BoundedAttr {
     }
 }
 
-impl<Lower, Upper> BoundedAlterable<BoundRange<Lower, Upper>> for BoundedAttr
-where
-    BoundValue: From<Lower>,
-    BoundValue: From<Upper>,
-{
-    fn clamp_by(&mut self, bound_by: BoundRange<Lower, Upper>) {
+impl BoundedAlterable<BoundRange> for BoundedAttr {
+    fn clamp_by(&mut self, bound_by: BoundRange) {
         self.pending = bound_by.clamp(self.pending);
     }
 
     fn apply_alter_checked(
         &mut self,
-        bound_by: BoundRange<Lower, Upper>,
+        bound_by: BoundRange,
         assert_ge: f64,
         delta_val: f64,
     ) -> bool {

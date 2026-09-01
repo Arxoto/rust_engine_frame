@@ -73,24 +73,20 @@ impl From<&BoundAttr> for BoundValue {
 
 /// 上下界限约束
 #[derive(Debug)]
-pub struct BoundRange<Lower, Upper>
-where
-    BoundValue: From<Lower>,
-    BoundValue: From<Upper>,
-{
-    pub lower: Lower,
-    pub upper: Upper,
+pub struct BoundRange {
+    lower: f64,
+    upper: f64,
 }
 
-impl<Lower, Upper> BoundRange<Lower, Upper>
-where
-    BoundValue: From<Lower>,
-    BoundValue: From<Upper>,
-{
+impl BoundRange {
+    pub fn new(lower: impl Into<BoundValue>, upper: impl Into<BoundValue>) -> Self {
+        let lower = BoundValue::get_value(lower);
+        let upper = BoundValue::get_value(upper);
+        Self { lower, upper }
+    }
+
     #[inline]
     pub fn clamp(self, v: f64) -> f64 {
-        let lower = BoundValue::get_value(self.lower);
-        let upper = BoundValue::get_value(self.upper);
-        lower.max(upper.min(v))
+        self.lower.max(self.upper.min(v))
     }
 }

@@ -278,10 +278,11 @@ pub fn apply_damages<S: FixedName>(
                 };
                 let old_val = attr.get_pending_value();
                 attr.apply_alter(real_dmg);
-                attr.clamp_by(BoundRange { lower, upper });
+                attr.clamp_by(BoundRange::new(lower, upper));
                 let diff_val = attr.get_pending_value() - old_val;
                 real_dmg -= diff_val;
 
+                // todo 优化成匹配最后一个
                 // 实际伤害到了生命值
                 if matches!(svv_layer, SurvivalAttrLayer::Health) && diff_val < -FLOAT_DEAD_ZONE {
                     is_hurt_heal = true;

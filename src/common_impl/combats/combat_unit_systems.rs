@@ -144,10 +144,7 @@ pub fn cut_stamina<S: FixedName>(
 /// 由于一帧内的削韧都没有应用钳制，因此在帧末尾需要调用钳制方法
 pub fn clamp_stamina<S: FixedName>(stamina: &mut Stamina, stamina_upper: &StaminaUpper) {
     let bounded_attr = &mut stamina.0;
-    bounded_attr.clamp_by(BoundRange {
-        lower: BOUNDED_ATTR_LOWER,
-        upper: &stamina_upper.0,
-    });
+    bounded_attr.clamp_by(BoundRange::new(BOUNDED_ATTR_LOWER, &stamina_upper.0));
 }
 
 // todo 增加复合属性的渲染显示函数
