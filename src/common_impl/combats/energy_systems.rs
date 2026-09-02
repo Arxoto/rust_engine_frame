@@ -2,15 +2,17 @@ use crate::{
     base_lib::{
         cores::unify_types::FixedName,
         eff_attr::{
-            attr_layers::AttrLayerTypeIter, bound_attrs::BoundRange,
-            bounded_attr_effs::AttrAlterEff, modifier_collections::ModifiableAttr,
+            attr_layers::{AttrLayerEffTarget, AttrLayerEffTargetIter},
+            bounded_attr_effs::AttrAlterEff,
+            compound_attr_systems,
+            modifier_collections::ModifiableAttr,
         },
     },
     common_impl::combats::{
         combat_inherents::Belief,
         energies::{
-            EnergyAttrLayer, EnergyEffBuffer, ExternalEnergy, Magicka, MagickaEnergyLevel,
-            MagickaUpper,
+            EnergyAttrRef, EnergyBoundRef, EnergyEffBuffer, EnergyEffTargets, ExternalEnergy,
+            ExternalEnergyUpper, Magicka, MagickaEnergyLevel, MagickaUpper,
         },
     },
 };
@@ -27,84 +29,63 @@ pub fn cost_magicka<S: FixedName>(buffer: &mut EnergyEffBuffer<S>, eff: AttrAlte
 
 /// 结算能量花费，处理 [`cost_magicka`] 中推入 buffer 的效果
 pub fn apply_magicka_cost<S: FixedName>(
-    magicka_upper: &MagickaUpper,
     magicka: &mut Magicka,
     ex_energy: &mut ExternalEnergy,
+    magicka_upper: &MagickaUpper,
+    ex_energy_upper: &ExternalEnergyUpper,
     eff_buffer: &mut EnergyEffBuffer<S>,
 ) {
     if eff_buffer.is_empty() {
         return;
     }
 
-    let mut sum_val = 0.0;
+    // merge
+
+    let mut delta_val = 0.0;
     for eff in eff_buffer.drain(..) {
         let real_val = eff.calc_alter_val(&magicka.0, &magicka_upper.0);
-        sum_val += real_val;
+        delta_val += real_val;
     }
 
-    apply_magicka_val(magicka_upper, magicka, ex_energy, sum_val);
+    // alter
+
+    let mut attrs = EnergyAttrRef { magicka, ex_energy };
+    let attr_bounds = EnergyBoundRef {
+        magicka_upper,
+        ex_energy_upper,
+    };
+    let energy_layers = AttrLayerEffTargetIter::from(EnergyEffTargets::default());
+
+    compound_attr_systems::apply_alter(&mut attrs, &attr_bounds, energy_layers, delta_val);
 }
 
 /// 尝试花费能量(软扣): 直接修改 pending ，能量不足则失败
-/// todo 扣除逻辑应该合并进层级属性
 pub fn try_cost_magicka<S: FixedName>(
-    magicka_upper: &MagickaUpper,
     magicka: &mut Magicka,
     ex_energy: &mut ExternalEnergy,
+    magicka_upper: &MagickaUpper,
+    ex_energy_upper: &ExternalEnergyUpper,
     eff: AttrAlterEff<S>,
 ) -> bool {
-    let bounded_attr = &mut magicka.0;
-    let abs_val = eff.calc_alter_val(bounded_attr, &magicka_upper.0);
-    bounded_attr.apply_alter_safety(
-        BoundRange::new(COST_FLOOR, &magicka_upper.0),
-        abs_val,
+    let delta_val = eff.calc_alter_val(&magicka.0, &magicka_upper.0);
+
+    let mut attrs = EnergyAttrRef { magicka, ex_energy };
+    let attr_bounds = EnergyBoundRef {
+        magicka_upper,
+        ex_energy_upper,
+    };
+    let energy_layers = AttrLayerEffTargetIter::from(EnergyEffTargets::default());
+
+    let target_layer = EnergyEffTargets::default().stop_at();
+
+    compound_attr_systems::apply_alter_safety(
+        &mut attrs,
+        &attr_bounds,
+        energy_layers,
+        delta_val,
+        target_layer,
         COST_FLOOR,
     )
-}
-
-// todo 通过 BoundedAlterable 实现
-fn apply_magicka_val_checked(
-    magicka_upper: &MagickaUpper,
-    magicka: &mut Magicka,
-    ex_energy: &mut ExternalEnergy,
-    mut val: f64,
-) -> bool {
-    let mut current_pending = 0.0;
-    // 消耗能量只有一种路径，因此直接全路径遍历
-    let energy_layers = AttrLayerTypeIter::from(EnergyAttrLayer::start_at());
-    for energy_layer in energy_layers {
-        let attr = match energy_layer {
-            EnergyAttrLayer::Magicka => &mut magicka.0,
-            EnergyAttrLayer::ExternalEnergy => &mut ex_energy.0,
-        };
-
-        current_pending += attr.get_pending_value();
-    }
-
-    todo!()
-}
-
-// todo 这里的 upper 和 lower 调用有问题，当轮到 ex_energy 时不应使用 magicka 的钳制
-fn apply_magicka_val(
-    magicka_upper: &MagickaUpper,
-    magicka: &mut Magicka,
-    ex_energy: &mut ExternalEnergy,
-    mut val: f64,
-) {
-    let energy_layers = AttrLayerTypeIter::from(EnergyAttrLayer::start_at());
-    for energy_layer in energy_layers {
-        let attr = match energy_layer {
-            EnergyAttrLayer::Magicka => &mut magicka.0,
-            EnergyAttrLayer::ExternalEnergy => &mut ex_energy.0,
-        };
-
-        let old_val = attr.get_pending_value();
-        attr.apply_alter(val);
-        attr.clamp_by(BoundRange::new(COST_FLOOR, &magicka_upper.0));
-        let diff_val = attr.get_pending_value() - old_val;
-
-        val -= diff_val;
-    }
 }
 
 /// [`Belief`] 影响【原始能量】

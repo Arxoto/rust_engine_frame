@@ -31,6 +31,8 @@ pub use super::energies::MagickaUpper;
 pub use super::energies::MagickaUpperEffs;
 
 pub use super::energies::ExternalEnergy;
+pub use super::energies::ExternalEnergyUpper;
+pub use super::energies::ExternalEnergyUpperEffs;
 
 pub use super::damages::Health;
 pub use super::damages::HealthLower;

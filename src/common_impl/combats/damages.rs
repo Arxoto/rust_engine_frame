@@ -13,7 +13,7 @@ use crate::base_lib::{
     },
 };
 
-// region: 属性
+// region: 属性定义
 
 /// 替身护盾 被伤害系统控制；
 pub struct ShieldSubstitute(pub BoundedAttr);
@@ -40,6 +40,8 @@ pub struct HealthUpperEffs(pub ModifierCollection<BoundAttrModifier>);
 pub struct HealthLowerEffs(pub ModifierCollection<BoundAttrModifier>);
 
 // endregion
+
+// region: 属性层级
 
 /// 生存属性类型（生命值、护盾）
 ///
@@ -72,81 +74,9 @@ impl AttrLayerType for SurvivalAttrLayer {
     }
 }
 
-/// 存放伤害或治疗效果的 buffer
-#[derive(Debug)]
-pub struct SurvivalEffBuffer<S: FixedName>(pub Vec<SurvivalAttrEff<S>>);
+// endregion
 
-/// 伤害信息，表示每次伤害造成的影响
-///
-/// 这里不自动判断血量是否为零，因为还在 pending 阶段，管线后续可能还会修改
-#[derive(Debug)]
-pub struct DamageInfo<S: FixedName> {
-    /// 对生命造成的最大伤害的效果，用于统计死因
-    pub max_hurt_heal_eff: Option<Effect<S>>,
-}
-
-/// 生存类效果（伤害、治疗、护盾）
-#[derive(Debug, Clone)]
-pub struct SurvivalAttrEff<S: FixedName> {
-    /// 伤害类型，伤害针对的哪层属性
-    pub target_type: SurvivalEffTargets,
-    /// 伤害生效方式（绝对值或是百分比）
-    pub alter_type: AttrAlterEffType,
-    pub eff: Effect<S>,
-}
-
-impl<S: FixedName> SurvivalAttrEff<S> {
-    /// 构造单次伤害效果
-    ///
-    /// 推入 [`SurvivalEffBuffer`] 后由伤害系统消费。
-    pub fn new(
-        target_type: SurvivalEffTargets,
-        alter_type: AttrAlterEffType,
-        eff: Effect<S>,
-    ) -> Self {
-        Self {
-            target_type,
-            alter_type,
-            eff,
-        }
-    }
-
-    pub fn new_from_alter_eff(target_type: SurvivalEffTargets, eff: AttrAlterEff<S>) -> Self {
-        Self {
-            target_type,
-            alter_type: eff.get_type(),
-            eff: eff.take_eff(),
-        }
-    }
-}
-
-impl<S: FixedName> Default for SurvivalEffBuffer<S> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<S: FixedName> SurvivalEffBuffer<S> {
-    /// 构造空的伤害缓冲
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
-
-    /// 推入一次伤害效果
-    pub fn push(&mut self, dmg_eff: SurvivalAttrEff<S>) {
-        self.0.push(dmg_eff);
-    }
-
-    /// 缓冲内伤害效果数量
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    /// 缓冲是否为空
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-}
+// region: 效果定义
 
 /// 生存效果生效目标
 ///
@@ -213,6 +143,87 @@ impl SurvivalEffTargets {
     pub fn is_hurt_heal(&self) -> bool {
         self.stop_at() == SurvivalAttrLayer::Health
     }
+}
+
+/// 生存类效果（伤害、治疗、护盾）
+#[derive(Debug, Clone)]
+pub struct SurvivalAttrEff<S: FixedName> {
+    /// 伤害类型，伤害针对的哪层属性
+    pub(super) target_type: SurvivalEffTargets,
+    pub(super) alter_eff: AttrAlterEff<S>,
+}
+
+impl<S: FixedName> SurvivalAttrEff<S> {
+    /// 构造单次伤害效果
+    ///
+    /// 推入 [`SurvivalEffBuffer`] 后由伤害系统消费。
+    pub fn new(
+        target_type: SurvivalEffTargets,
+        alter_type: AttrAlterEffType,
+        eff: Effect<S>,
+    ) -> Self {
+        Self {
+            target_type,
+            alter_eff: AttrAlterEff::new(alter_type, eff),
+        }
+    }
+
+    pub fn new_from_alter_eff(target_type: SurvivalEffTargets, alter_eff: AttrAlterEff<S>) -> Self {
+        Self {
+            target_type,
+            alter_eff,
+        }
+    }
+}
+
+// endregion
+
+// region: 效果 buffer
+
+/// 存放伤害或治疗效果的 buffer
+#[derive(Debug)]
+pub struct SurvivalEffBuffer<S: FixedName>(pub Vec<SurvivalAttrEff<S>>);
+
+impl<S: FixedName> Default for SurvivalEffBuffer<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<S: FixedName> SurvivalEffBuffer<S> {
+    /// 构造空的伤害缓冲
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    /// 推入一次伤害效果
+    #[inline]
+    pub fn push(&mut self, dmg_eff: SurvivalAttrEff<S>) {
+        self.0.push(dmg_eff);
+    }
+
+    /// 缓冲内伤害效果数量
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// 缓冲是否为空
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+// endregion
+
+/// 伤害信息，表示每次伤害造成的影响
+///
+/// 这里不自动判断血量是否为零，因为还在 pending 阶段，管线后续可能还会修改
+#[derive(Debug)]
+pub struct DamageInfo<S: FixedName> {
+    /// 对生命造成的最大伤害的效果，用于统计死因
+    pub max_hurt_heal_eff: Option<Effect<S>>,
 }
 
 impl<S: FixedName> Default for DamageInfo<S> {

@@ -5,8 +5,12 @@ use strum_macros::EnumIter;
 use crate::base_lib::{
     cores::unify_types::FixedName,
     eff_attr::{
-        attr_layers::AttrLayerType, bound_attr_modifiers::BoundAttrModifier,
-        bound_attrs::BoundAttr, bounded_attr_effs::AttrAlterEff, bounded_attrs::BoundedAttr,
+        attr_layers::{AttrLayerEffTarget, AttrLayerType},
+        bound_attr_modifiers::BoundAttrModifier,
+        bound_attrs::{BoundAttr, BoundRange},
+        bounded_attr_effs::AttrAlterEff,
+        bounded_attrs::BoundedAttr,
+        compound_attr_systems::{CompoundAttr, CompoundAttrBound},
         modifier_collections::ModifierCollection,
     },
 };
@@ -21,12 +25,68 @@ pub struct ExternalEnergy(pub BoundedAttr);
 
 pub struct MagickaUpper(pub BoundAttr);
 pub struct MagickaUpperEffs(pub ModifierCollection<BoundAttrModifier>);
+pub struct ExternalEnergyUpper(pub BoundAttr);
+pub struct ExternalEnergyUpperEffs(pub ModifierCollection<BoundAttrModifier>);
+
+pub const MAGICKA_ENERGY_LOWER: f64 = 0.0;
+
+// endregion
+
+// region: 属性层级
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter)]
+pub enum EnergyAttrLayer {
+    Magicka,
+    ExternalEnergy,
+}
+
+impl AttrLayerType for EnergyAttrLayer {
+    fn get_next(&self) -> Self {
+        match self {
+            EnergyAttrLayer::Magicka => Self::Magicka,
+            EnergyAttrLayer::ExternalEnergy => Self::Magicka,
+        }
+    }
+
+    fn get_layer(&self) -> u8 {
+        match self {
+            EnergyAttrLayer::Magicka => 0,
+            EnergyAttrLayer::ExternalEnergy => 1,
+        }
+    }
+}
+
+// endregion
+
+// region: 效果定义
+
+/// 能量消耗统一路径
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, EnumIter)]
+pub enum EnergyEffTargets {
+    #[default]
+    Standard,
+}
+
+impl AttrLayerEffTarget for EnergyEffTargets {
+    type Layer = EnergyAttrLayer;
+
+    fn start_at(&self) -> Self::Layer {
+        match self {
+            EnergyEffTargets::Standard => EnergyAttrLayer::ExternalEnergy,
+        }
+    }
+
+    fn stop_at(&self) -> Self::Layer {
+        match self {
+            EnergyEffTargets::Standard => EnergyAttrLayer::Magicka,
+        }
+    }
+}
 
 // endregion
 
 // region: 能量消耗效果 Buffer
 
-/// 能量消耗统一路径，因此无需自定义效果类型
 #[derive(Debug)]
 pub struct EnergyEffBuffer<S: FixedName>(Vec<AttrAlterEff<S>>);
 
@@ -52,6 +112,48 @@ impl<S: FixedName> DerefMut for EnergyEffBuffer<S> {
 
 // endregion
 
+// region: 实现复合属性
+
+pub struct EnergyAttrRef<'a> {
+    pub magicka: &'a mut Magicka,
+    pub ex_energy: &'a mut ExternalEnergy,
+}
+
+impl CompoundAttr<EnergyEffTargets> for EnergyAttrRef<'_> {
+    fn get_attr(
+        &mut self,
+        target_layer: <EnergyEffTargets as AttrLayerEffTarget>::Layer,
+    ) -> &mut BoundedAttr {
+        match target_layer {
+            EnergyAttrLayer::Magicka => &mut self.magicka.0,
+            EnergyAttrLayer::ExternalEnergy => &mut self.ex_energy.0,
+        }
+    }
+}
+
+pub struct EnergyBoundRef<'a> {
+    pub magicka_upper: &'a MagickaUpper,
+    pub ex_energy_upper: &'a ExternalEnergyUpper,
+}
+
+impl CompoundAttrBound<EnergyEffTargets> for EnergyBoundRef<'_> {
+    fn get_bound_range(
+        &self,
+        target_layer: <EnergyEffTargets as AttrLayerEffTarget>::Layer,
+    ) -> BoundRange {
+        match target_layer {
+            EnergyAttrLayer::Magicka => {
+                BoundRange::new(MAGICKA_ENERGY_LOWER, &self.magicka_upper.0)
+            }
+            EnergyAttrLayer::ExternalEnergy => {
+                BoundRange::new(MAGICKA_ENERGY_LOWER, &self.ex_energy_upper.0)
+            }
+        }
+    }
+}
+
+// endregion
+
 // region: 魔法能级
 
 /// 魔法能级划分
@@ -70,41 +172,6 @@ impl MagickaEnergyLevel {
         } else {
             self.2
         }
-    }
-}
-
-// endregion
-
-// region: 能量消耗逻辑
-
-/// 能量消耗：目前仅一种消耗逻辑，只有一种路径
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter)]
-pub enum EnergyAttrLayer {
-    Magicka,
-    ExternalEnergy,
-}
-
-impl AttrLayerType for EnergyAttrLayer {
-    fn get_next(&self) -> Self {
-        match self {
-            EnergyAttrLayer::Magicka => Self::Magicka,
-            EnergyAttrLayer::ExternalEnergy => Self::Magicka,
-        }
-    }
-
-    fn get_layer(&self) -> u8 {
-        match self {
-            EnergyAttrLayer::Magicka => 0,
-            EnergyAttrLayer::ExternalEnergy => 1,
-        }
-    }
-}
-
-impl EnergyAttrLayer {
-    /// 能量消耗统一路径
-    #[inline]
-    pub fn start_at() -> Self {
-        Self::ExternalEnergy
     }
 }
 

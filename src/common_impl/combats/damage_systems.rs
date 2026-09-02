@@ -160,9 +160,10 @@ pub fn merge_damages<S: FixedName>(
     for dmg_eff in survival_eff_buffer.0.drain(..) {
         let SurvivalAttrEff {
             target_type,
-            alter_type,
-            eff,
+            alter_eff,
         } = dmg_eff;
+        let alter_type = alter_eff.get_type();
+        let eff = alter_eff.take_eff();
 
         // 根据伤害类型找到百分比参照物
         let (base_bounded, base_bound) = match target_type.stop_at() {
