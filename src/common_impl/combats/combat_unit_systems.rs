@@ -24,12 +24,13 @@ use crate::{
     common_impl::combats::{
         combat_additions::ArmorHard,
         combat_inherents::{Belief, Strength},
-        combat_units::{
-            Health, HealthLower, HealthUpper, Magicka, MagickaUpper, Stamina, StaminaUpper,
-        },
+        combat_units::{Stamina, StaminaUpper},
         damage_systems,
-        damages::{SurvivalAttrEff, SurvivalEffBuffer, SurvivalEffTargets},
-        energies::MagickaEnergyLevel,
+        damages::{
+            Health, HealthLower, HealthUpper, SurvivalAttrEff, SurvivalEffBuffer,
+            SurvivalEffTargets,
+        },
+        energies::{Magicka, MagickaEnergyLevel, MagickaUpper},
         energy_systems,
     },
 };

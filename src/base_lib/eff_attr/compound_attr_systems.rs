@@ -7,9 +7,7 @@
 //! P.S. 这里为简化逻辑，效果遍历的逻辑放在调用方实现
 
 use crate::base_lib::eff_attr::{
-    attr_layers::AttrLayerEffTarget,
-    bound_attrs::BoundRange,
-    bounded_attrs::BoundedAttr,
+    attr_layers::AttrLayerEffTarget, bound_attrs::BoundRange, bounded_attrs::BoundedAttr,
 };
 
 pub trait CompoundAttr<EffTarget: AttrLayerEffTarget> {

@@ -76,8 +76,6 @@ pub mod combat_inherents;
 
 pub mod combat_additions;
 
-pub mod combat_units;
-
 pub mod equips;
 
 pub mod energies;
@@ -87,5 +85,7 @@ pub mod energy_systems;
 pub mod damages;
 
 pub mod damage_systems;
+
+pub mod combat_units;
 
 pub mod combat_unit_systems;

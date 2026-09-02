@@ -147,7 +147,9 @@ pub mod attr_layer_system {
         }
     }
 
-    /// 有限根据底层排序，低的在后面；其次根据顶层排序，低的在后面
+    /// 属性效果排序
+    ///
+    /// 优先根据底层排序，低的在后面；其次根据顶层排序，低的在后面
     pub fn rank_attr_layer_eff<E: AttrLayerEffTarget>(a: &E, b: &E) -> Ordering {
         let a_stop_layer = a.stop_at().get_layer();
         let b_stop_layer = b.stop_at().get_layer();

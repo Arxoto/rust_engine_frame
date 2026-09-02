@@ -1,16 +1,76 @@
 use strum_macros::EnumIter;
 
-use crate::{
-    base_lib::{
-        cores::unify_types::FixedName,
-        eff_attr::{
-            attr_layers::AttrLayerEffTarget,
-            bounded_attr_effs::{AttrAlterEff, AttrAlterEffType},
-            effects::Effect,
-        },
+use crate::base_lib::{
+    cores::unify_types::FixedName,
+    eff_attr::{
+        attr_layers::{AttrLayerEffTarget, AttrLayerType},
+        bound_attr_modifiers::BoundAttrModifier,
+        bound_attrs::BoundAttr,
+        bounded_attr_effs::{AttrAlterEff, AttrAlterEffType},
+        bounded_attrs::BoundedAttr,
+        effects::Effect,
+        modifier_collections::ModifierCollection,
     },
-    common_impl::combats::combat_units::SurvivalAttrLayer,
 };
+
+// region: 属性
+
+/// 替身护盾 被伤害系统控制；
+pub struct ShieldSubstitute(pub BoundedAttr);
+
+/// 防护护盾 被伤害系统控制；
+pub struct ShieldDefence(pub BoundedAttr);
+
+/// 奥术护盾 被伤害系统控制；
+pub struct ShieldArcane(pub BoundedAttr);
+
+/// 血量 被伤害系统控制； 基础值被【气力】的基础值影响
+pub struct Health(pub BoundedAttr);
+
+pub struct ShieldSubstituteUpper(pub BoundAttr);
+pub struct ShieldDefenceUpper(pub BoundAttr);
+pub struct ShieldArcaneUpper(pub BoundAttr);
+pub struct HealthUpper(pub BoundAttr);
+pub struct HealthLower(pub BoundAttr);
+
+pub struct ShieldSubstituteUpperEffs(pub ModifierCollection<BoundAttrModifier>);
+pub struct ShieldDefenceUpperEffs(pub ModifierCollection<BoundAttrModifier>);
+pub struct ShieldArcaneUpperEffs(pub ModifierCollection<BoundAttrModifier>);
+pub struct HealthUpperEffs(pub ModifierCollection<BoundAttrModifier>);
+pub struct HealthLowerEffs(pub ModifierCollection<BoundAttrModifier>);
+
+// endregion
+
+/// 生存属性类型（生命值、护盾）
+///
+/// 生命值护盾的层级关系的值是业务约定
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter)]
+pub enum SurvivalAttrLayer {
+    Health,
+    ShieldSubstitute,
+    ShieldDefence,
+    ShieldArcane,
+}
+
+impl AttrLayerType for SurvivalAttrLayer {
+    fn get_next(&self) -> Self {
+        match self {
+            SurvivalAttrLayer::Health => Self::Health,
+            SurvivalAttrLayer::ShieldSubstitute => Self::Health,
+            SurvivalAttrLayer::ShieldDefence => Self::ShieldSubstitute,
+            SurvivalAttrLayer::ShieldArcane => Self::ShieldSubstitute,
+        }
+    }
+
+    fn get_layer(&self) -> u8 {
+        match self {
+            SurvivalAttrLayer::Health => 0,
+            SurvivalAttrLayer::ShieldSubstitute => 1,
+            SurvivalAttrLayer::ShieldDefence => 2,
+            SurvivalAttrLayer::ShieldArcane => 2,
+        }
+    }
+}
 
 /// 存放伤害或治疗效果的 buffer
 #[derive(Debug)]
@@ -174,6 +234,15 @@ mod tests {
 
     use super::*;
 
+    // 在单元测试中检查复合属性的层级规划，以避免运行时开销
+
+    #[test]
+    fn check_survival_layer() {
+        for ele in SurvivalAttrLayer::iter() {
+            attr_layer_system::check_attr_layer(ele);
+        }
+    }
+
     #[test]
     fn check_survival_eff() {
         for targets in SurvivalEffTargets::iter() {
@@ -181,6 +250,7 @@ mod tests {
         }
     }
 
+    /// 检查预设的效果生效顺序
     #[test]
     fn check_survival_eff_slice() {
         let effs: MergedSurvivalEffs<String> = MergedSurvivalEffs::default();

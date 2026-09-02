@@ -63,12 +63,12 @@ use crate::{
     common_impl::combats::{
         combat_additions::{ArmorHard, ArmorSoft, WeaponMass, WeaponSharp},
         combat_inherents::{Belief, Strength},
-        combat_units::{
-            Health, HealthLower, HealthUpper, Magicka, ShieldArcane, ShieldArcaneUpper,
+        damages::{
+            DamageInfo, Health, HealthLower, HealthUpper, ShieldArcane, ShieldArcaneUpper,
             ShieldDefence, ShieldDefenceUpper, ShieldSubstitute, ShieldSubstituteUpper,
-            SurvivalAttrLayer,
+            SurvivalAttrEff, SurvivalAttrLayer, SurvivalEffBuffer, SurvivalEffTargets,
         },
-        damages::{DamageInfo, SurvivalAttrEff, SurvivalEffBuffer, SurvivalEffTargets},
+        energies::Magicka,
         energy_systems,
     },
 };

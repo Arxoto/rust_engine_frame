@@ -2,16 +2,16 @@ use crate::{
     base_lib::{
         cores::unify_types::FixedName,
         eff_attr::{
-            attr_layers::AttrLayerTypeIter,
-            bound_attrs::BoundRange,
-            bounded_attr_effs::AttrAlterEff,
-            modifier_collections::ModifiableAttr,
+            attr_layers::AttrLayerTypeIter, bound_attrs::BoundRange,
+            bounded_attr_effs::AttrAlterEff, modifier_collections::ModifiableAttr,
         },
     },
     common_impl::combats::{
         combat_inherents::Belief,
-        combat_units::{EnergyAttrLayer, ExternalEnergy, Magicka, MagickaUpper},
-        energies::{EnergyEffBuffer, MagickaEnergyLevel},
+        energies::{
+            EnergyAttrLayer, EnergyEffBuffer, ExternalEnergy, Magicka, MagickaEnergyLevel,
+            MagickaUpper,
+        },
     },
 };
 
@@ -70,6 +70,7 @@ fn apply_magicka_val_checked(
     mut val: f64,
 ) -> bool {
     let mut current_pending = 0.0;
+    // 消耗能量只有一种路径，因此直接全路径遍历
     let energy_layers = AttrLayerTypeIter::from(EnergyAttrLayer::start_at());
     for energy_layer in energy_layers {
         let attr = match energy_layer {
