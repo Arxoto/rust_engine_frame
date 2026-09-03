@@ -118,7 +118,7 @@ pub struct EnergyAttrRef<'a> {
 }
 
 impl CompoundAttr<EnergyEffTargets> for EnergyAttrRef<'_> {
-    fn get_attr(
+    fn get_attr_mut(
         &mut self,
         target_layer: <EnergyEffTargets as AttrLayerEffTarget>::Layer,
     ) -> &mut BoundedAttr {
@@ -135,7 +135,7 @@ pub struct EnergyBoundRef<'a> {
 }
 
 impl CompoundAttrBound<EnergyEffTargets> for EnergyBoundRef<'_> {
-    fn get_bound_range(
+    fn gen_bound_range(
         &self,
         target_layer: <EnergyEffTargets as AttrLayerEffTarget>::Layer,
     ) -> BoundRange {

@@ -1,5 +1,3 @@
-use std::ops::{Deref, DerefMut};
-
 use strum_macros::EnumIter;
 
 use crate::base_lib::{
@@ -143,13 +141,6 @@ impl AttrLayerEffTarget for SurvivalEffTargets {
     }
 }
 
-impl SurvivalEffTargets {
-    /// 能否对血量造成伤害
-    pub fn is_hurt_heal(&self) -> bool {
-        self.stop_at() == SurvivalAttrLayer::Health
-    }
-}
-
 /// 生存类效果（伤害、治疗、护盾）
 #[derive(Debug, Clone)]
 pub struct SurvivalAttrEff<S: FixedName> {
@@ -194,17 +185,13 @@ impl<S: FixedName> Default for SurvivalEffBuffer<S> {
     }
 }
 
-impl<S: FixedName> Deref for SurvivalEffBuffer<S> {
-    type Target = Vec<(SurvivalEffTargets, Effect<S>)>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl<S: FixedName> SurvivalEffBuffer<S> {
+    pub fn push(&mut self, eff: (SurvivalEffTargets, Effect<S>)) {
+        self.0.push(eff);
     }
-}
 
-impl<S: FixedName> DerefMut for SurvivalEffBuffer<S> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+    pub fn take_effs(&mut self) -> impl Iterator<Item = (SurvivalEffTargets, Effect<S>)> {
+        self.0.drain(..)
     }
 }
 
@@ -220,7 +207,7 @@ pub struct SurvivalAttrRef<'a> {
 }
 
 impl CompoundAttr<SurvivalEffTargets> for SurvivalAttrRef<'_> {
-    fn get_attr(
+    fn get_attr_mut(
         &mut self,
         target_layer: <SurvivalEffTargets as AttrLayerEffTarget>::Layer,
     ) -> &mut BoundedAttr {
@@ -241,23 +228,38 @@ pub struct SurvivalBoundRef<'a> {
     pub shield_arcane_upper: &'a ShieldArcaneUpper,
 }
 
+impl SurvivalBoundRef<'_> {
+    #[inline]
+    pub fn get_upper(
+        &self,
+        target_layer: <SurvivalEffTargets as AttrLayerEffTarget>::Layer,
+    ) -> &BoundAttr {
+        match target_layer {
+            SurvivalAttrLayer::Health => &self.health_upper.0,
+            SurvivalAttrLayer::ShieldSubstitute => &self.shield_substitute_upper.0,
+            SurvivalAttrLayer::ShieldDefence => &self.shield_defence_upper.0,
+            SurvivalAttrLayer::ShieldArcane => &self.shield_arcane_upper.0,
+        }
+    }
+}
+
 impl CompoundAttrBound<SurvivalEffTargets> for SurvivalBoundRef<'_> {
-    fn get_bound_range(
+    fn gen_bound_range(
         &self,
         target_layer: <SurvivalEffTargets as AttrLayerEffTarget>::Layer,
     ) -> BoundRange {
         match target_layer {
             SurvivalAttrLayer::Health => {
-                BoundRange::new(&self.health_lower.0, &self.health_upper.0)
+                BoundRange::new(&self.health_lower.0, self.get_upper(target_layer))
             }
             SurvivalAttrLayer::ShieldSubstitute => {
-                BoundRange::new(SHIELD_LOWER, &self.shield_substitute_upper.0)
+                BoundRange::new(SHIELD_LOWER, self.get_upper(target_layer))
             }
             SurvivalAttrLayer::ShieldDefence => {
-                BoundRange::new(SHIELD_LOWER, &self.shield_defence_upper.0)
+                BoundRange::new(SHIELD_LOWER, self.get_upper(target_layer))
             }
             SurvivalAttrLayer::ShieldArcane => {
-                BoundRange::new(SHIELD_LOWER, &self.shield_arcane_upper.0)
+                BoundRange::new(SHIELD_LOWER, self.get_upper(target_layer))
             }
         }
     }
@@ -271,32 +273,7 @@ pub struct SurvivalEffBufferOld<S: FixedName>(pub Vec<SurvivalAttrEff<S>>);
 
 impl<S: FixedName> Default for SurvivalEffBufferOld<S> {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<S: FixedName> SurvivalEffBufferOld<S> {
-    /// 构造空的伤害缓冲
-    pub fn new() -> Self {
         Self(Vec::new())
-    }
-
-    /// 推入一次伤害效果
-    #[inline]
-    pub fn push(&mut self, dmg_eff: SurvivalAttrEff<S>) {
-        self.0.push(dmg_eff);
-    }
-
-    /// 缓冲内伤害效果数量
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    /// 缓冲是否为空
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
     }
 }
 

@@ -11,14 +11,14 @@ use crate::base_lib::eff_attr::{
 };
 
 pub trait CompoundAttr<EffTarget: AttrLayerEffTarget> {
-    fn get_attr(
+    fn get_attr_mut(
         &mut self,
         target_layer: <EffTarget as AttrLayerEffTarget>::Layer,
     ) -> &mut BoundedAttr;
 }
 
 pub trait CompoundAttrBound<EffTarget: AttrLayerEffTarget> {
-    fn get_bound_range(&self, target_layer: <EffTarget as AttrLayerEffTarget>::Layer)
+    fn gen_bound_range(&self, target_layer: <EffTarget as AttrLayerEffTarget>::Layer)
     -> BoundRange;
 }
 
@@ -32,8 +32,8 @@ pub fn apply_alter<EffTarget>(
     EffTarget: AttrLayerEffTarget,
 {
     for current_layer in layer_iter {
-        let attr = compound_attr.get_attr(current_layer);
-        let bound_range = compound_attr_bound.get_bound_range(current_layer);
+        let attr = compound_attr.get_attr_mut(current_layer);
+        let bound_range = compound_attr_bound.gen_bound_range(current_layer);
 
         let old_val = attr.get_pending_value();
         attr.apply_alter(delta_val);
@@ -66,8 +66,8 @@ where
 {
     let layer_iter_cloned = layer_iter.clone();
     for current_layer in layer_iter {
-        let attr = compound_attr.get_attr(current_layer);
-        let bound_range = compound_attr_bound.get_bound_range(current_layer);
+        let attr = compound_attr.get_attr_mut(current_layer);
+        let bound_range = compound_attr_bound.gen_bound_range(current_layer);
 
         let old_val = attr.get_pending_value();
         let new_val = attr.calc_clamped_pending(bound_range, delta_val);

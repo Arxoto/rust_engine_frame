@@ -125,7 +125,7 @@ pub fn load_shield_or_health_upper<S: FixedName>(
     bounds_eff: BoundAttrModifier,
     value_eff: SurvivalAttrEff<S>,
 ) -> DefaultKey {
-    svv_eff_buffer.push(value_eff);
+    svv_eff_buffer.0.push(value_eff);
     shield_effs.insert(bounds_eff)
 }
 
