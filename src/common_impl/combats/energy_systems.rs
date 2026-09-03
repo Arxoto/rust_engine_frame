@@ -23,7 +23,15 @@ const COST_FLOOR: f64 = 0.0;
 const MAGICKA_BASELINE: f64 = 100.0;
 
 /// 花费能量(硬扣): 推入 buffer
-pub fn cost_magicka<S: FixedName>(buffer: &mut EnergyEffBuffer<S>, eff: AttrAlterEff<S>) {
+pub fn cost_magicka<S: FixedName>(
+    magicka: &Magicka,
+    magicka_upper: &MagickaUpper,
+    buffer: &mut EnergyEffBuffer<S>,
+    eff: AttrAlterEff<S>,
+) {
+    let real_val = eff.calc_alter_val(&magicka.0, &magicka_upper.0);
+    let mut eff = eff.take_eff();
+    eff.set_effect_value(real_val);
     buffer.push(eff);
 }
 
@@ -43,8 +51,7 @@ pub fn apply_magicka_cost<S: FixedName>(
 
     let mut delta_val = 0.0;
     for eff in eff_buffer.drain(..) {
-        let real_val = eff.calc_alter_val(&magicka.0, &magicka_upper.0);
-        delta_val += real_val;
+        delta_val += eff.get_effect_value();
     }
 
     // alter

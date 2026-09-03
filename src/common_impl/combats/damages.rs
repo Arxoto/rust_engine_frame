@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use strum_macros::EnumIter;
 
 use crate::base_lib::{
@@ -5,15 +7,19 @@ use crate::base_lib::{
     eff_attr::{
         attr_layers::{AttrLayerEffTarget, AttrLayerType},
         bound_attr_modifiers::BoundAttrModifier,
-        bound_attrs::BoundAttr,
+        bound_attrs::{BoundAttr, BoundRange},
         bounded_attr_effs::{AttrAlterEff, AttrAlterEffType},
         bounded_attrs::BoundedAttr,
+        compound_attr_systems::{CompoundAttr, CompoundAttrBound},
         effects::Effect,
         modifier_collections::ModifierCollection,
     },
 };
 
 // region: 属性定义
+
+/// 血量 被伤害系统控制； 基础值被【气力】的基础值影响
+pub struct Health(pub BoundedAttr);
 
 /// 替身护盾 被伤害系统控制；
 pub struct ShieldSubstitute(pub BoundedAttr);
@@ -24,20 +30,19 @@ pub struct ShieldDefence(pub BoundedAttr);
 /// 奥术护盾 被伤害系统控制；
 pub struct ShieldArcane(pub BoundedAttr);
 
-/// 血量 被伤害系统控制； 基础值被【气力】的基础值影响
-pub struct Health(pub BoundedAttr);
+pub const SHIELD_LOWER: f64 = 0.0;
 
+pub struct HealthLower(pub BoundAttr);
+pub struct HealthUpper(pub BoundAttr);
 pub struct ShieldSubstituteUpper(pub BoundAttr);
 pub struct ShieldDefenceUpper(pub BoundAttr);
 pub struct ShieldArcaneUpper(pub BoundAttr);
-pub struct HealthUpper(pub BoundAttr);
-pub struct HealthLower(pub BoundAttr);
 
+pub struct HealthLowerEffs(pub ModifierCollection<BoundAttrModifier>);
+pub struct HealthUpperEffs(pub ModifierCollection<BoundAttrModifier>);
 pub struct ShieldSubstituteUpperEffs(pub ModifierCollection<BoundAttrModifier>);
 pub struct ShieldDefenceUpperEffs(pub ModifierCollection<BoundAttrModifier>);
 pub struct ShieldArcaneUpperEffs(pub ModifierCollection<BoundAttrModifier>);
-pub struct HealthUpperEffs(pub ModifierCollection<BoundAttrModifier>);
-pub struct HealthLowerEffs(pub ModifierCollection<BoundAttrModifier>);
 
 // endregion
 
@@ -180,17 +185,97 @@ impl<S: FixedName> SurvivalAttrEff<S> {
 
 // region: 效果 buffer
 
-/// 存放伤害或治疗效果的 buffer
 #[derive(Debug)]
-pub struct SurvivalEffBuffer<S: FixedName>(pub Vec<SurvivalAttrEff<S>>);
+pub struct SurvivalEffBuffer<S: FixedName>(Vec<Effect<S>>);
 
 impl<S: FixedName> Default for SurvivalEffBuffer<S> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+impl<S: FixedName> Deref for SurvivalEffBuffer<S> {
+    type Target = Vec<Effect<S>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<S: FixedName> DerefMut for SurvivalEffBuffer<S> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+// endregion
+
+// region: 实现复合属性
+
+pub struct SurvivalAttrRef<'a> {
+    pub health: &'a mut Health,
+    pub shield_substitute: &'a mut ShieldSubstitute,
+    pub shield_defence: &'a mut ShieldDefence,
+    pub shield_arcane: &'a mut ShieldArcane,
+}
+
+impl CompoundAttr<SurvivalEffTargets> for SurvivalAttrRef<'_> {
+    fn get_attr(
+        &mut self,
+        target_layer: <SurvivalEffTargets as AttrLayerEffTarget>::Layer,
+    ) -> &mut BoundedAttr {
+        match target_layer {
+            SurvivalAttrLayer::Health => &mut self.health.0,
+            SurvivalAttrLayer::ShieldSubstitute => &mut self.shield_substitute.0,
+            SurvivalAttrLayer::ShieldDefence => &mut self.shield_defence.0,
+            SurvivalAttrLayer::ShieldArcane => &mut self.shield_arcane.0,
+        }
+    }
+}
+
+pub struct SurvivalBoundRef<'a> {
+    pub health_lower: &'a HealthLower,
+    pub health_upper: &'a HealthUpper,
+    pub shield_substitute_upper: &'a ShieldSubstituteUpper,
+    pub shield_defence_upper: &'a ShieldDefenceUpper,
+    pub shield_arcane_upper: &'a ShieldArcaneUpper,
+}
+
+impl CompoundAttrBound<SurvivalEffTargets> for SurvivalBoundRef<'_> {
+    fn get_bound_range(
+        &self,
+        target_layer: <SurvivalEffTargets as AttrLayerEffTarget>::Layer,
+    ) -> BoundRange {
+        match target_layer {
+            SurvivalAttrLayer::Health => {
+                BoundRange::new(&self.health_lower.0, &self.health_upper.0)
+            }
+            SurvivalAttrLayer::ShieldSubstitute => {
+                BoundRange::new(SHIELD_LOWER, &self.shield_substitute_upper.0)
+            }
+            SurvivalAttrLayer::ShieldDefence => {
+                BoundRange::new(SHIELD_LOWER, &self.shield_defence_upper.0)
+            }
+            SurvivalAttrLayer::ShieldArcane => {
+                BoundRange::new(SHIELD_LOWER, &self.shield_arcane_upper.0)
+            }
+        }
+    }
+}
+
+// endregion
+
+/// 存放伤害或治疗效果的 buffer
+#[derive(Debug)]
+pub struct SurvivalEffBufferOld<S: FixedName>(pub Vec<SurvivalAttrEff<S>>);
+
+impl<S: FixedName> Default for SurvivalEffBufferOld<S> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<S: FixedName> SurvivalEffBuffer<S> {
+impl<S: FixedName> SurvivalEffBufferOld<S> {
     /// 构造空的伤害缓冲
     pub fn new() -> Self {
         Self(Vec::new())
@@ -214,8 +299,6 @@ impl<S: FixedName> SurvivalEffBuffer<S> {
         self.0.is_empty()
     }
 }
-
-// endregion
 
 /// 伤害信息，表示每次伤害造成的影响
 ///
@@ -248,22 +331,22 @@ mod tests {
     // 在单元测试中检查复合属性的层级规划，以避免运行时开销
 
     #[test]
-    fn check_survival_layer() {
+    fn check_attr_layer() {
         for ele in SurvivalAttrLayer::iter() {
             attr_layer_system::check_attr_layer(ele);
         }
     }
 
     #[test]
-    fn check_survival_eff() {
-        for targets in SurvivalEffTargets::iter() {
-            attr_layer_system::check_attr_layer_eff_target(targets);
+    fn check_attr_eff() {
+        for ele in SurvivalEffTargets::iter() {
+            attr_layer_system::check_attr_layer_eff_target(ele);
         }
     }
 
     /// 检查预设的效果生效顺序
     #[test]
-    fn check_survival_eff_slice() {
+    fn check_attr_eff_sort() {
         let effs: MergedSurvivalEffs<String> = MergedSurvivalEffs::default();
         let svv_effs = effs.into_slice();
         assert_eq!(svv_effs.len(), SurvivalEffTargets::iter().len());

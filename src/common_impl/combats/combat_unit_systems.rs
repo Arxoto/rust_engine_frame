@@ -27,7 +27,7 @@ use crate::{
         combat_units::{Stamina, StaminaUpper},
         damage_systems,
         damages::{
-            Health, HealthLower, HealthUpper, SurvivalAttrEff, SurvivalEffBuffer,
+            Health, HealthLower, HealthUpper, SurvivalAttrEff, SurvivalEffBufferOld,
             SurvivalEffTargets,
         },
         energies::{Magicka, MagickaEnergyLevel, MagickaUpper},
@@ -121,7 +121,7 @@ pub fn gen_shield_or_health_upper<S: FixedName>(
 #[must_use]
 pub fn load_shield_or_health_upper<S: FixedName>(
     shield_effs: &mut ModifierCollection<BoundAttrModifier>,
-    svv_eff_buffer: &mut SurvivalEffBuffer<S>,
+    svv_eff_buffer: &mut SurvivalEffBufferOld<S>,
     bounds_eff: BoundAttrModifier,
     value_eff: SurvivalAttrEff<S>,
 ) -> DefaultKey {

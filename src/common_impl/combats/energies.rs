@@ -8,9 +8,9 @@ use crate::base_lib::{
         attr_layers::{AttrLayerEffTarget, AttrLayerType},
         bound_attr_modifiers::BoundAttrModifier,
         bound_attrs::{BoundAttr, BoundRange},
-        bounded_attr_effs::AttrAlterEff,
         bounded_attrs::BoundedAttr,
         compound_attr_systems::{CompoundAttr, CompoundAttrBound},
+        effects::Effect,
         modifier_collections::ModifierCollection,
     },
 };
@@ -88,7 +88,7 @@ impl AttrLayerEffTarget for EnergyEffTargets {
 // region: 能量消耗效果 Buffer
 
 #[derive(Debug)]
-pub struct EnergyEffBuffer<S: FixedName>(Vec<AttrAlterEff<S>>);
+pub struct EnergyEffBuffer<S: FixedName>(Vec<Effect<S>>);
 
 impl<S: FixedName> Default for EnergyEffBuffer<S> {
     fn default() -> Self {
@@ -97,7 +97,7 @@ impl<S: FixedName> Default for EnergyEffBuffer<S> {
 }
 
 impl<S: FixedName> Deref for EnergyEffBuffer<S> {
-    type Target = Vec<AttrAlterEff<S>>;
+    type Target = Vec<Effect<S>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -191,13 +191,23 @@ mod tests {
 
     use super::*;
 
-    /// 检查能量属性层级，因为能耗目前只有一种类型，因此不对效果做检查
     #[test]
-    fn check_energy_layer() {
+    fn check_attr_layer() {
         for ele in EnergyAttrLayer::iter() {
             attr_layer_system::check_attr_layer(ele);
         }
     }
+
+    #[test]
+    fn check_attr_eff() {
+        for ele in EnergyEffTargets::iter() {
+            attr_layer_system::check_attr_layer_eff_target(ele);
+        }
+    }
+
+    // 因为目前能量消耗只有一种路径，因此没有预置顺序，无需检查效果排序
+    #[test]
+    fn check_attr_eff_sort() {}
 
     /// calc_magicka_value：Belief 影响原始能量，magicka_base + magicka_scale * belief.origin
     #[test]

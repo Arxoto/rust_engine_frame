@@ -66,7 +66,7 @@ use crate::{
         damages::{
             DamageInfo, Health, HealthLower, HealthUpper, ShieldArcane, ShieldArcaneUpper,
             ShieldDefence, ShieldDefenceUpper, ShieldSubstitute, ShieldSubstituteUpper,
-            SurvivalAttrEff, SurvivalAttrLayer, SurvivalEffBuffer, SurvivalEffTargets,
+            SurvivalAttrEff, SurvivalAttrLayer, SurvivalEffBufferOld, SurvivalEffTargets,
         },
         energies::Magicka,
         energy_systems,
@@ -140,7 +140,7 @@ pub struct DamageTargetAttrs<'a> {
 ///
 /// 详细探讨见 [`crate::base_lib::eff_attr::attr_systems`]
 pub fn merge_damages<S: FixedName>(
-    survival_eff_buffer: &mut SurvivalEffBuffer<S>,
+    survival_eff_buffer: &mut SurvivalEffBufferOld<S>,
     damage_target_attrs: DamageTargetAttrs,
 ) -> MergedSurvivalEffs<S> {
     let DamageTargetAttrs {
@@ -162,8 +162,6 @@ pub fn merge_damages<S: FixedName>(
             target_type,
             alter_eff,
         } = dmg_eff;
-        let alter_type = alter_eff.get_type();
-        let eff = alter_eff.take_eff();
 
         // 根据伤害类型找到百分比参照物
         let (base_bounded, base_bound) = match target_type.stop_at() {
@@ -176,8 +174,7 @@ pub fn merge_damages<S: FixedName>(
         };
 
         // 根据伤害算法计算伤害绝对值
-        let abs_eff_val =
-            alter_type.calc_alter_val(eff.get_effect_value(), base_bounded, base_bound);
+        let abs_eff_val = alter_eff.calc_alter_val(base_bounded, base_bound);
 
         // 根据伤害类型找到聚合对象
         let merged_dmg = match target_type {
@@ -194,7 +191,7 @@ pub fn merge_damages<S: FixedName>(
         if let Some(merged_dmg) = merged_dmg {
             merged_dmg.set_effect_value(merged_dmg.get_effect_value() + abs_eff_val);
         } else {
-            let mut eff = eff;
+            let mut eff = alter_eff.take_eff();
             eff.set_effect_value(abs_eff_val);
             *merged_dmg = Some(eff);
         }
@@ -247,6 +244,7 @@ pub fn apply_damages<S: FixedName>(
     for (svv_eff_target, dmg_eff) in svv_effs {
         if let Some(mut dmg_eff) = dmg_eff {
             // 根据伤害类型计算缩放比例
+            // todo 这一步移到伤害合并处
             let dmg_scale = damage_systems::calc_damage_scale(svv_eff_target, &damage_calc_attrs);
 
             let mut real_dmg = dmg_scale * dmg_eff.get_effect_value();
@@ -290,6 +288,7 @@ pub fn apply_damages<S: FixedName>(
             }
 
             if is_hurt_heal {
+                // todo 由于这里是合并后的伤害，因此这里计算得到的不准
                 if let Some(hurt_by) = dmg_info.max_hurt_heal_eff.as_mut() {
                     // 伤害是负数 取最小值
                     if dmg_eff.get_effect_value() < hurt_by.get_effect_value() {
@@ -477,7 +476,7 @@ mod tests {
 
     /// 一次「push → merge → apply」完整走查，返回 HealthInfo
     fn run_damage(
-        buffer: &mut SurvivalEffBuffer<&'static str>,
+        buffer: &mut SurvivalEffBufferOld<&'static str>,
         targets: &mut Targets,
         attrs: &TestAttrs,
     ) -> DamageInfo<&'static str> {
@@ -634,7 +633,7 @@ mod tests {
     /// OnlyHealth：绝对值伤害直接作用于血量
     #[test]
     fn only_health_hits_health_directly() {
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyHealth,
             AttrAlterEffType::Val,
@@ -654,7 +653,7 @@ mod tests {
     fn only_health_heals_up_to_cap() {
         let mut targets = Targets::full();
         targets.heal.0.apply_alter(-30.0); // 先扣到 70
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyHealth,
             AttrAlterEffType::Val,
@@ -668,7 +667,7 @@ mod tests {
     #[test]
     fn only_shield_types_hit_only_their_shield() {
         // 替身护盾
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyShieldSubstitute,
             AttrAlterEffType::Val,
@@ -682,7 +681,7 @@ mod tests {
         assert_eq!(targets.arc.0.get_pending_value(), 100.0);
 
         // 防护护盾
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyShieldDefence,
             AttrAlterEffType::Val,
@@ -695,7 +694,7 @@ mod tests {
         assert_eq!(targets.sub.0.get_pending_value(), 100.0);
 
         // 奥术护盾
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyShieldArcane,
             AttrAlterEffType::Val,
@@ -721,7 +720,7 @@ mod tests {
             def_upper: ShieldDefenceUpper(BoundAttr::new(100.0)),
             arc_upper: ShieldArcaneUpper(BoundAttr::new(100.0)),
         };
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::PhysicsShears,
             AttrAlterEffType::Val,
@@ -748,7 +747,7 @@ mod tests {
             def_upper: ShieldDefenceUpper(BoundAttr::new(100.0)),
             arc_upper: ShieldArcaneUpper(BoundAttr::new(100.0)),
         };
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::PhysicsImpact,
             AttrAlterEffType::Val,
@@ -774,7 +773,7 @@ mod tests {
             def_upper: ShieldDefenceUpper(BoundAttr::new(100.0)),
             arc_upper: ShieldArcaneUpper(BoundAttr::new(100.0)),
         };
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::MagickaArcane,
             AttrAlterEffType::Val,
@@ -795,7 +794,7 @@ mod tests {
     #[test]
     fn merge_damages_sums_same_type_and_drains_buffer() {
         let mut targets = Targets::full();
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyHealth,
             AttrAlterEffType::Val,
@@ -815,7 +814,7 @@ mod tests {
     #[test]
     fn merge_damages_mixes_absolute_and_percent() {
         let mut targets = Targets::full(); // 血量当前值 100
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyHealth,
             AttrAlterEffType::Val,
@@ -849,7 +848,7 @@ mod tests {
             def_upper: ShieldDefenceUpper(BoundAttr::new(100.0)),
             ..Targets::full()
         };
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyShieldDefence,
             AttrAlterEffType::Val,
@@ -877,7 +876,7 @@ mod tests {
             sub_upper: ShieldSubstituteUpper(BoundAttr::new(100.0)),
             ..Targets::full()
         };
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyShieldSubstitute,
             AttrAlterEffType::Val,
@@ -904,7 +903,7 @@ mod tests {
             arc_upper: ShieldArcaneUpper(BoundAttr::new(100.0)),
             ..Targets::full()
         };
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyShieldArcane,
             AttrAlterEffType::Val,
@@ -933,7 +932,7 @@ mod tests {
     fn apply_damages_records_first_hurt_heal_source() {
         // 纯护盾伤害 → 无死因来源
         let mut targets = Targets::full();
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyShieldSubstitute,
             AttrAlterEffType::Val,
@@ -944,7 +943,7 @@ mod tests {
 
         // 混入真实伤害和切割伤害 → 记录真实伤害，切割伤害没有击穿护盾
         let mut targets = Targets::full();
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyShieldSubstitute,
             AttrAlterEffType::Val,
@@ -971,7 +970,7 @@ mod tests {
 
         // 混入真实伤害和冲击伤害 → 记录冲击伤害，冲击伤害击穿护盾并且伤害值大于真实伤害
         let mut targets = Targets::full();
-        let mut buffer = SurvivalEffBuffer::new();
+        let mut buffer = SurvivalEffBufferOld::new();
         buffer.push(SurvivalAttrEff::new(
             SurvivalEffTargets::OnlyShieldSubstitute,
             AttrAlterEffType::Val,
