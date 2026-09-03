@@ -1,4 +1,4 @@
-use std::ops::{Deref, DerefMut};
+use std::marker::PhantomData;
 
 use strum_macros::EnumIter;
 
@@ -10,7 +10,6 @@ use crate::base_lib::{
         bound_attrs::{BoundAttr, BoundRange},
         bounded_attrs::BoundedAttr,
         compound_attr_systems::{CompoundAttr, CompoundAttrBound},
-        effects::Effect,
         modifier_collections::ModifierCollection,
     },
 };
@@ -87,26 +86,25 @@ impl AttrLayerEffTarget for EnergyEffTargets {
 
 // region: 能量消耗效果 Buffer
 
+/// 由于能量消耗逻辑比较简单，因此未了节省内存空间，不用列表存储实际效果（为了兼容，保留泛型）
 #[derive(Debug)]
-pub struct EnergyEffBuffer<S: FixedName>(Vec<Effect<S>>);
+pub struct EnergyEffBuffer<S: FixedName>(f64, PhantomData<S>);
 
 impl<S: FixedName> Default for EnergyEffBuffer<S> {
     fn default() -> Self {
-        Self(Vec::new())
+        Self(0.0, PhantomData)
     }
 }
 
-impl<S: FixedName> Deref for EnergyEffBuffer<S> {
-    type Target = Vec<Effect<S>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl<S: FixedName> EnergyEffBuffer<S> {
+    pub fn push_delta_val(&mut self, v: f64) {
+        self.0 += v;
     }
-}
 
-impl<S: FixedName> DerefMut for EnergyEffBuffer<S> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+    pub fn take_delta_val(&mut self) -> f64 {
+        let delta_val = self.0;
+        self.0 = 0.0;
+        delta_val
     }
 }
 
@@ -181,13 +179,7 @@ impl MagickaEnergyLevel {
 mod tests {
     use strum::IntoEnumIterator;
 
-    use crate::{
-        base_lib::eff_attr::{attr_layers::attr_layer_system, stat_attrs::StatAttr},
-        common_impl::combats::{
-            combat_inherents::Belief,
-            energy_systems::{calc_magicka_max, calc_magicka_value},
-        },
-    };
+    use crate::base_lib::eff_attr::attr_layers::attr_layer_system;
 
     use super::*;
 
@@ -208,26 +200,4 @@ mod tests {
     // 因为目前能量消耗只有一种路径，因此没有预置顺序，无需检查效果排序
     #[test]
     fn check_attr_eff_sort() {}
-
-    /// calc_magicka_value：Belief 影响原始能量，magicka_base + magicka_scale * belief.origin
-    #[test]
-    fn calc_magicka_value_scales_with_belief_origin() {
-        let belief = Belief(StatAttr::new(10.0));
-        assert_eq!(calc_magicka_value(50.0, 3.0, &belief), 80.0);
-    }
-
-    /// calc_magicka_max：先算原始能量，再按能级取对应层级上限
-    #[test]
-    fn calc_magicka_max_takes_energy_level() {
-        let levels = MagickaEnergyLevel::new(100.0, 200.0, 300.0);
-        // 原始能量 50 + 3*10 = 80 → 第一能级上限 100
-        let belief = Belief(StatAttr::new(10.0));
-        assert_eq!(calc_magicka_max(50.0, 3.0, &belief, &levels), 100.0);
-        // 原始能量 50 + 3*50 = 200 → 第二能级上限 200
-        let belief = Belief(StatAttr::new(50.0));
-        assert_eq!(calc_magicka_max(50.0, 3.0, &belief, &levels), 200.0);
-        // 原始能量 50 + 3*80 = 290 → 第三能级上限 300
-        let belief = Belief(StatAttr::new(80.0));
-        assert_eq!(calc_magicka_max(50.0, 3.0, &belief, &levels), 300.0);
-    }
 }

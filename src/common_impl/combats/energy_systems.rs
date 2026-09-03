@@ -17,8 +17,6 @@ use crate::{
     },
 };
 
-/// 花费能量后允许的最低值(资源下限门槛,即时扣减用)
-const COST_FLOOR: f64 = 0.0;
 /// 能量的参考基线，用作伤害增幅计算
 const MAGICKA_BASELINE: f64 = 100.0;
 
@@ -30,9 +28,7 @@ pub fn cost_magicka<S: FixedName>(
     eff: AttrAlterEff<S>,
 ) {
     let real_val = eff.calc_alter_val(&magicka.0, &magicka_upper.0);
-    let mut eff = eff.take_eff();
-    eff.set_effect_value(real_val);
-    buffer.push(eff);
+    buffer.push_delta_val(real_val);
 }
 
 /// 结算能量花费，处理 [`cost_magicka`] 中推入 buffer 的效果
@@ -43,15 +39,9 @@ pub fn apply_magicka_cost<S: FixedName>(
     ex_energy_upper: &ExternalEnergyUpper,
     eff_buffer: &mut EnergyEffBuffer<S>,
 ) {
-    if eff_buffer.is_empty() {
+    let delta_val = eff_buffer.take_delta_val();
+    if delta_val == 0.0 {
         return;
-    }
-
-    // merge
-
-    let mut delta_val = 0.0;
-    for eff in eff_buffer.drain(..) {
-        delta_val += eff.get_effect_value();
     }
 
     // alter
@@ -72,6 +62,7 @@ pub fn try_cost_magicka<S: FixedName>(
     ex_energy: &mut ExternalEnergy,
     magicka_upper: &MagickaUpper,
     ex_energy_upper: &ExternalEnergyUpper,
+    must_ge: f64,
     eff: AttrAlterEff<S>,
 ) -> bool {
     let delta_val = eff.calc_alter_val(&magicka.0, &magicka_upper.0);
@@ -91,13 +82,13 @@ pub fn try_cost_magicka<S: FixedName>(
         energy_layers,
         delta_val,
         target_layer,
-        COST_FLOOR,
+        must_ge,
     )
 }
 
 /// [`Belief`] 影响【原始能量】
 #[inline]
-pub(super) fn calc_magicka_value(magicka_base: f64, magicka_scale: f64, belief: &Belief) -> f64 {
+fn calc_magicka_value(magicka_base: f64, magicka_scale: f64, belief: &Belief) -> f64 {
     magicka_base + magicka_scale * belief.0.get_origin()
 }
 
@@ -116,4 +107,33 @@ pub fn calc_magicka_max(
 #[inline]
 pub fn calc_magicka_scale(magicka: &Magicka) -> f64 {
     magicka.0.get_snapshot_value() / MAGICKA_BASELINE
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::base_lib::eff_attr::stat_attrs::StatAttr;
+
+    use super::*;
+
+    /// calc_magicka_value：Belief 影响原始能量，magicka_base + magicka_scale * belief.origin
+    #[test]
+    fn calc_magicka_value_scales_with_belief_origin() {
+        let belief = Belief(StatAttr::new(10.0));
+        assert_eq!(calc_magicka_value(50.0, 3.0, &belief), 80.0);
+    }
+
+    /// calc_magicka_max：先算原始能量，再按能级取对应层级上限
+    #[test]
+    fn calc_magicka_max_takes_energy_level() {
+        let levels = MagickaEnergyLevel::new(100.0, 200.0, 300.0);
+        // 原始能量 50 + 3*10 = 80 → 第一能级上限 100
+        let belief = Belief(StatAttr::new(10.0));
+        assert_eq!(calc_magicka_max(50.0, 3.0, &belief, &levels), 100.0);
+        // 原始能量 50 + 3*50 = 200 → 第二能级上限 200
+        let belief = Belief(StatAttr::new(50.0));
+        assert_eq!(calc_magicka_max(50.0, 3.0, &belief, &levels), 200.0);
+        // 原始能量 50 + 3*80 = 290 → 第三能级上限 300
+        let belief = Belief(StatAttr::new(80.0));
+        assert_eq!(calc_magicka_max(50.0, 3.0, &belief, &levels), 300.0);
+    }
 }

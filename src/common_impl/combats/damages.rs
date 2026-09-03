@@ -186,7 +186,7 @@ impl<S: FixedName> SurvivalAttrEff<S> {
 // region: 效果 buffer
 
 #[derive(Debug)]
-pub struct SurvivalEffBuffer<S: FixedName>(Vec<Effect<S>>);
+pub struct SurvivalEffBuffer<S: FixedName>(Vec<(SurvivalEffTargets, Effect<S>)>);
 
 impl<S: FixedName> Default for SurvivalEffBuffer<S> {
     fn default() -> Self {
@@ -195,7 +195,7 @@ impl<S: FixedName> Default for SurvivalEffBuffer<S> {
 }
 
 impl<S: FixedName> Deref for SurvivalEffBuffer<S> {
-    type Target = Vec<Effect<S>>;
+    type Target = Vec<(SurvivalEffTargets, Effect<S>)>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
