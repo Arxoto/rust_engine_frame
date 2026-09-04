@@ -2,9 +2,7 @@ use crate::{
     base_lib::{
         cores::unify_types::FixedName,
         eff_attr::{
-            attr_layers::{AttrLayerEffTarget, AttrLayerEffTargetIter},
-            bounded_attr_effs::AttrAlterEff,
-            compound_attr_systems,
+            bounded_attr_effs::AttrAlterEff, compound_attr_systems,
             modifier_collections::ModifiableAttr,
         },
     },
@@ -51,9 +49,13 @@ pub fn apply_magicka_cost<S: FixedName>(
         magicka_upper,
         ex_energy_upper,
     };
-    let energy_layers = AttrLayerEffTargetIter::from(EnergyEffTargets::default());
 
-    compound_attr_systems::apply_alter(&mut attrs, &attr_bounds, energy_layers, delta_val);
+    compound_attr_systems::apply_alter(
+        &mut attrs,
+        &attr_bounds,
+        EnergyEffTargets::default(),
+        delta_val,
+    );
 }
 
 /// 尝试花费能量(软扣): 直接修改 pending ，能量不足则失败
@@ -72,16 +74,12 @@ pub fn try_cost_magicka<S: FixedName>(
         magicka_upper,
         ex_energy_upper,
     };
-    let energy_layers = AttrLayerEffTargetIter::from(EnergyEffTargets::default());
-
-    let target_layer = EnergyEffTargets::default().stop_at();
 
     compound_attr_systems::apply_alter_safety(
         &mut attrs,
         &attr_bounds,
-        energy_layers,
+        EnergyEffTargets::default(),
         delta_val,
-        target_layer,
         must_ge,
     )
 }

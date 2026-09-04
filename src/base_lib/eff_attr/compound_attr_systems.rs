@@ -7,7 +7,9 @@
 //! P.S. 这里为简化逻辑，效果遍历的逻辑放在调用方实现
 
 use crate::base_lib::eff_attr::{
-    attr_layers::AttrLayerEffTarget, bound_attrs::BoundRange, bounded_attrs::BoundedAttr,
+    attr_layers::{AttrLayerEffTarget, AttrLayerEffTargetIter},
+    bound_attrs::BoundRange,
+    bounded_attrs::BoundedAttr,
 };
 
 pub trait CompoundAttr<EffTarget: AttrLayerEffTarget> {
@@ -26,11 +28,12 @@ pub trait CompoundAttrBound<EffTarget: AttrLayerEffTarget> {
 pub fn apply_alter<EffTarget>(
     compound_attr: &mut impl CompoundAttr<EffTarget>,
     compound_attr_bound: &impl CompoundAttrBound<EffTarget>,
-    layer_iter: impl Iterator<Item = <EffTarget as AttrLayerEffTarget>::Layer>,
+    eff_targets: EffTarget,
     mut delta_val: f64,
 ) where
     EffTarget: AttrLayerEffTarget,
 {
+    let layer_iter = AttrLayerEffTargetIter::from(eff_targets);
     for current_layer in layer_iter {
         let attr = compound_attr.get_attr_mut(current_layer);
         let bound_range = compound_attr_bound.gen_bound_range(current_layer);
@@ -56,15 +59,15 @@ pub fn apply_alter<EffTarget>(
 pub fn apply_alter_safety<EffTarget>(
     compound_attr: &mut impl CompoundAttr<EffTarget>,
     compound_attr_bound: &impl CompoundAttrBound<EffTarget>,
-    layer_iter: impl Iterator<Item = <EffTarget as AttrLayerEffTarget>::Layer> + Clone,
+    eff_targets: EffTarget,
     mut delta_val: f64,
-    target_layer: <EffTarget as AttrLayerEffTarget>::Layer,
     must_ge: f64,
 ) -> bool
 where
     EffTarget: AttrLayerEffTarget,
 {
-    let layer_iter_cloned = layer_iter.clone();
+    let bottom_layer = eff_targets.stop_at();
+    let layer_iter = AttrLayerEffTargetIter::from(eff_targets);
     for current_layer in layer_iter {
         let attr = compound_attr.get_attr_mut(current_layer);
         let bound_range = compound_attr_bound.gen_bound_range(current_layer);
@@ -73,7 +76,7 @@ where
         let new_val = attr.calc_clamped_pending(bound_range, delta_val);
 
         // 最后一轮迭代，直接判断
-        if current_layer == target_layer {
+        if current_layer == bottom_layer {
             if new_val >= must_ge {
                 // 允许执行
                 break;
@@ -94,11 +97,6 @@ where
     }
 
     // 逻辑复杂，直接调用应用修改的函数
-    apply_alter(
-        compound_attr,
-        compound_attr_bound,
-        layer_iter_cloned,
-        delta_val,
-    );
+    apply_alter(compound_attr, compound_attr_bound, eff_targets, delta_val);
     true
 }

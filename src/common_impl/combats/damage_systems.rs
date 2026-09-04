@@ -56,7 +56,7 @@ use crate::{
     base_lib::{
         cores::unify_types::FixedName,
         eff_attr::{
-            attr_layers::{AttrLayerEffTarget, AttrLayerEffTargetIter},
+            attr_layers::AttrLayerEffTarget,
             compound_attr_systems::{self, CompoundAttr},
             effects::{EffId, Effect},
             modifier_collections::ModifiableAttr,
@@ -162,8 +162,7 @@ pub fn apply_damages<S: FixedName>(
 
             let origin_heal = attrs.health.0.get_pending_value();
 
-            let svv_layers = AttrLayerEffTargetIter::from(svv_targets);
-            compound_attr_systems::apply_alter(&mut attrs, &attr_bounds, svv_layers, merged_val);
+            compound_attr_systems::apply_alter(&mut attrs, &attr_bounds, svv_targets, merged_val);
 
             let current_heal = attrs.health.0.get_pending_value();
             let diff_heal = current_heal - origin_heal;
@@ -179,6 +178,23 @@ pub fn apply_damages<S: FixedName>(
     }
 
     dmg_info
+}
+
+pub fn try_damage<S: FixedName>(
+    mut attrs: SurvivalAttrRef,
+    attr_bounds: SurvivalBoundRef,
+    must_ge: f64,
+    eff: SurvivalNormalizedAttrEff<S>,
+) -> bool {
+    let delta_val = eff.eff.get_effect_value();
+
+    compound_attr_systems::apply_alter_safety(
+        &mut attrs,
+        &attr_bounds,
+        eff.svv_targets,
+        delta_val,
+        must_ge,
+    )
 }
 
 /// [`Strength`] 影响 [`super::damages::Health`]
