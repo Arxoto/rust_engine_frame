@@ -56,6 +56,14 @@ pub fn read_stat_attr_safety<Modifier: InvalidModifier, Attr: ModifiableAttr<Mod
     attr.get_current()
 }
 
+/// 非安全读，可能读到脏数据（需要注意调用方在管线的位置，且前面必须触发一次刷新）
+///
+/// 但是共享引用可以用作权限分离，提高并发
+#[inline]
+pub fn read_stat_attr_unsafe<Modifier, Attr: ModifiableAttr<Modifier>>(attr: &Attr) -> f64 {
+    attr.get_current()
+}
+
 /// 重置时间线（使用 f64 或 Duration 作为时间类型，基本无需重置时间线）
 pub fn try_reset_timeline<'a>(
     timeline: &mut StaticTimeline,

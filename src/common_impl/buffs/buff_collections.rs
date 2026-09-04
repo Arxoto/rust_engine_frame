@@ -11,7 +11,7 @@
 //!   - 处理计时器过期时，若需要进行堆叠，则需要查询 Buff 导致缓存失效
 //!   - 遍历时尽量使用 INF 而不是 None 以避免分支预测
 //!
-//! todo 合并逻辑 堆叠或替换 ； 过期逻辑 逆堆叠或移除
+//! todo 合并逻辑分为 堆叠/替换 ； 过期逻辑分为 逆堆叠/移除
 
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
