@@ -7,14 +7,14 @@
 //!
 //! 【受伤上限】 本质即 【生命值和护盾值】 的组合
 //!
-//! - 生命值 [`Health`]
+//! - 生命值 [`super::damages::Health`]
 //!   - 直接正相关 [`Strength`] see [`calc_health_max`]
-//! - 替身护盾 [`ShieldSubstitute`]
+//! - 替身护盾 [`super::damages::ShieldSubstitute`]
 //!   - 直接正相关 [`Belief`] todo 信念超过阈值才能激发替身护盾
-//! - 防护护盾 [`ShieldDefence`]
+//! - 防护护盾 [`super::damages::ShieldDefence`]
 //!   - 直接正相关 [`ArmorHard`] see [`calc_defence_shield`]
 //!   - 间接正相关 [`Strength`] todo 数值上盔甲坚韧与质量呈正相关，气力决定可穿戴质量，因此可以近似取代
-//! - 奥术护盾 [`ShieldArcane`]
+//! - 奥术护盾 [`super::damages::ShieldArcane`]
 //!   - 直接正相关 [`Belief`] todo
 //!
 //! 不同 【伤害类型】 [`SurvivalEffTargets`] 对应的 【生命值和护盾值】 see [`SurvivalEffTargets`]
@@ -50,13 +50,14 @@
 //!   - 对于 [`Strength`] 成长【攻击者不利】，可令武器附带该类伤害
 //!   - 对于 [`Belief`] 成长是平衡的
 
+use strum::EnumCount;
+
 use crate::{
     base_lib::{
-        cores::unify_types::{FLOAT_DEAD_ZONE, FixedName},
+        cores::unify_types::FixedName,
         eff_attr::{
             attr_layers::{AttrLayerEffTarget, AttrLayerEffTargetIter},
-            bound_attrs::BoundRange,
-            compound_attr_systems::CompoundAttr,
+            compound_attr_systems::{self, CompoundAttr},
             effects::{EffId, Effect},
             modifier_collections::ModifiableAttr,
         },
@@ -65,17 +66,13 @@ use crate::{
         combat_additions::{ArmorHard, ArmorSoft, WeaponMass, WeaponSharp},
         combat_inherents::{Belief, Strength},
         damages::{
-            DamageInfo, Health, HealthLower, HealthUpper, ShieldArcane, ShieldArcaneUpper,
-            ShieldDefence, ShieldDefenceUpper, ShieldSubstitute, ShieldSubstituteUpper,
-            SurvivalAttrEff, SurvivalAttrLayer, SurvivalAttrRef, SurvivalBoundRef,
-            SurvivalEffBuffer, SurvivalEffTargets,
+            SurvivalAttrEff, SurvivalAttrRef, SurvivalBoundRef, SurvivalEffBuffer,
+            SurvivalEffTargets, SurvivalNormalizedAttrEff,
         },
         energies::Magicka,
         energy_systems,
     },
 };
-
-const BOUNDED_ATTR_LOWER: f64 = 0.0;
 
 /// 提前计算伤害效果，可以实现“替某人承受伤害”的效果
 ///
@@ -85,7 +82,7 @@ pub fn normalize_damage_eff<S: FixedName>(
     mut target_svv_attrs: SurvivalAttrRef,
     target_svv_bounds: SurvivalBoundRef,
     eff: SurvivalAttrEff<S>,
-) -> (SurvivalEffTargets, Effect<S>) {
+) -> SurvivalNormalizedAttrEff<S> {
     let SurvivalAttrEff {
         target_type,
         alter_eff,
@@ -107,68 +104,23 @@ pub fn normalize_damage_eff<S: FixedName>(
         effect_name,
     } = alter_eff.take_eff().take_from_eff_name();
 
-    (
-        target_type,
-        Effect::new(from_name, effect_name, abs_eff_val * damage_scale),
-    )
+    SurvivalNormalizedAttrEff {
+        svv_targets: target_type,
+        eff: Effect::new(from_name, effect_name, abs_eff_val * damage_scale),
+    }
 }
 
+/// 推入伤害 buffer
 pub fn push_damages<S: FixedName>(
     svv_eff_buffer: &mut SurvivalEffBuffer<S>,
-    eff: (SurvivalEffTargets, Effect<S>),
+    eff: SurvivalNormalizedAttrEff<S>,
 ) {
     svv_eff_buffer.push(eff);
 }
 
-// region: 合并效果
-
-#[derive(Debug)]
-pub struct MergedSurvivalEffs<S: FixedName> {
-    only_heal: Option<Effect<S>>,
-    only_sub: Option<Effect<S>>,
-    only_def: Option<Effect<S>>,
-    only_arc: Option<Effect<S>>,
-    phy_imp: Option<Effect<S>>,
-    phy_she: Option<Effect<S>>,
-    mgk_arc: Option<Effect<S>>,
-}
-
-impl<S: FixedName> Default for MergedSurvivalEffs<S> {
-    fn default() -> Self {
-        Self {
-            only_heal: None,
-            only_sub: None,
-            only_def: None,
-            only_arc: None,
-            phy_imp: None,
-            phy_she: None,
-            mgk_arc: None,
-        }
-    }
-}
-
-type MergedSurvivalEffArray<S> = [(SurvivalEffTargets, Option<Effect<S>>); 7];
-
-impl<S: FixedName> MergedSurvivalEffs<S> {
-    /// 顺序与 [`crate::base_lib::eff_attr::attr_layers::attr_layer_system::rank_attr_layer_eff`] 一样
-    ///
-    /// check see `tests::check_survival_eff_slice`
-    pub fn into_slice(self) -> MergedSurvivalEffArray<S> {
-        [
-            (SurvivalEffTargets::OnlyShieldDefence, self.only_def),
-            (SurvivalEffTargets::OnlyShieldArcane, self.only_arc),
-            (SurvivalEffTargets::OnlyShieldSubstitute, self.only_sub),
-            (SurvivalEffTargets::PhysicsShears, self.phy_she),
-            (SurvivalEffTargets::MagickaArcane, self.mgk_arc),
-            (SurvivalEffTargets::PhysicsImpact, self.phy_imp),
-            (SurvivalEffTargets::OnlyHealth, self.only_heal),
-        ]
-    }
-}
-
-/// 每帧计算伤害前都先进行同类合并
+/// 每帧计算伤害前都先进行同类合并，以减少计算次数
 ///
-/// 合并方便伤害计算，具体原因如下
+/// 同时合并可以规范伤害计算，具体原因如下
 /// - 若先【物理伤害】，后【破盾伤害】，那么当两者加起来能够破盾时，实际伤害与顺序有关
 /// - 【物理伤害】在前会导致后面的【破盾伤害】无效化
 ///
@@ -178,128 +130,49 @@ pub fn merge_damages<S: FixedName>(
 ) -> MergedSurvivalEffs<S> {
     let mut merged_svv_effs = MergedSurvivalEffs::<S>::default();
 
-    for (target_type, eff) in svv_eff_buffer.take_effs() {
+    for SurvivalNormalizedAttrEff { svv_targets, eff } in svv_eff_buffer.take_effs() {
         // 根据伤害类型找到聚合对象
-        let merged_dmg = match target_type {
-            SurvivalEffTargets::OnlyHealth => &mut merged_svv_effs.only_heal,
-            SurvivalEffTargets::OnlyShieldSubstitute => &mut merged_svv_effs.only_sub,
-            SurvivalEffTargets::OnlyShieldDefence => &mut merged_svv_effs.only_def,
-            SurvivalEffTargets::OnlyShieldArcane => &mut merged_svv_effs.only_arc,
-            SurvivalEffTargets::PhysicsImpact => &mut merged_svv_effs.phy_imp,
-            SurvivalEffTargets::PhysicsShears => &mut merged_svv_effs.phy_she,
-            SurvivalEffTargets::MagickaArcane => &mut merged_svv_effs.mgk_arc,
-        };
+        let merged_dmg = merged_svv_effs.get_mut(svv_targets);
 
-        // todo 在这里找到每个类型的伤害最大效果，后续根据合并后的伤害是否真正伤害到血量，再找到伤害最大值
-        // 累加绝对值
         if let Some(merged_dmg) = merged_dmg {
-            let delta_val = eff.get_effect_value();
-            let origin_val = merged_dmg.get_effect_value();
-            merged_dmg.set_effect_value(origin_val + delta_val);
+            merged_dmg.merge_eff(eff);
         } else {
-            *merged_dmg = Some(eff);
+            *merged_dmg = Some(MergedSvvEffRecord::new(eff));
         }
     }
 
     merged_svv_effs
 }
 
-// endregion
-
-pub struct DamageScaleAttrs<'a> {
-    pub source_strength: &'a Strength,
-    pub source_belief: &'a Belief,
-    pub source_magicka: &'a Magicka,
-    pub source_weapon_sharp: &'a WeaponSharp,
-    pub source_weapon_mass: &'a WeaponMass,
-    pub target_armor_soft: &'a ArmorSoft,
-}
-
-pub struct DamageTargetMutAttrs<'a> {
-    pub target_heal: &'a mut Health,
-    pub target_shield_sub: &'a mut ShieldSubstitute,
-    pub target_shield_def: &'a mut ShieldDefence,
-    pub target_shield_arc: &'a mut ShieldArcane,
-    pub target_heal_upper: &'a HealthUpper,
-    pub target_heal_lower: &'a HealthLower,
-    pub target_shield_sub_upper: &'a ShieldSubstituteUpper,
-    pub target_shield_def_upper: &'a ShieldDefenceUpper,
-    pub target_shield_arc_upper: &'a ShieldArcaneUpper,
-}
-
 /// 对合并后的伤害效果计算伤害
 pub fn apply_damages<S: FixedName>(
-    merged_svv_effs: MergedSurvivalEffs<S>,
-    _damage_calc_attrs: DamageScaleAttrs,
-    damage_target_attrs: DamageTargetMutAttrs,
+    mut merged_svv_effs: MergedSurvivalEffs<S>,
+    mut attrs: SurvivalAttrRef,
+    attr_bounds: SurvivalBoundRef,
 ) -> DamageInfo<S> {
-    let DamageTargetMutAttrs {
-        target_heal,
-        target_shield_sub,
-        target_shield_def,
-        target_shield_arc,
-        target_heal_upper,
-        target_heal_lower,
-        target_shield_sub_upper,
-        target_shield_def_upper,
-        target_shield_arc_upper,
-    } = damage_target_attrs;
-
     let mut dmg_info: DamageInfo<S> = DamageInfo::default();
-    let svv_effs = merged_svv_effs.into_slice();
-    for (svv_eff_target, dmg_eff) in svv_effs {
-        if let Some(mut dmg_eff) = dmg_eff {
-            // let dmg_scale = damage_systems::calc_damage_scale(svv_eff_target, &damage_calc_attrs);
-            let dmg_scale = 1.0;
 
-            let mut real_dmg = dmg_scale * dmg_eff.get_effect_value();
-            dmg_eff.set_effect_value(real_dmg); // 更新为实际伤害
-            let mut is_hurt_heal = false;
-            let targets_iter = AttrLayerEffTargetIter::from(svv_eff_target);
-            for svv_layer in targets_iter {
-                let (attr, upper, lower) = match svv_layer {
-                    SurvivalAttrLayer::Health => (
-                        &mut target_heal.0,
-                        target_heal_upper.0.get_current(),
-                        target_heal_lower.0.get_current(),
-                    ),
-                    SurvivalAttrLayer::ShieldSubstitute => (
-                        &mut target_shield_sub.0,
-                        target_shield_sub_upper.0.get_current(),
-                        BOUNDED_ATTR_LOWER,
-                    ),
-                    SurvivalAttrLayer::ShieldDefence => (
-                        &mut target_shield_def.0,
-                        target_shield_def_upper.0.get_current(),
-                        BOUNDED_ATTR_LOWER,
-                    ),
-                    SurvivalAttrLayer::ShieldArcane => (
-                        &mut target_shield_arc.0,
-                        target_shield_arc_upper.0.get_current(),
-                        BOUNDED_ATTR_LOWER,
-                    ),
-                };
-                let old_val = attr.get_pending_value();
-                attr.apply_alter(real_dmg);
-                attr.clamp_by(BoundRange::new(lower, upper));
-                let diff_val = attr.get_pending_value() - old_val;
-                real_dmg -= diff_val;
+    for svv_targets in SurvivalEffTargets::SORTED_ARRAY {
+        let dmg_eff = merged_svv_effs.take(svv_targets);
+        if let Some(dmg_eff) = dmg_eff {
+            let MergedSvvEffRecord {
+                danger_eff,
+                merged_val,
+            } = dmg_eff;
 
-                // todo 放在循环外，必须实际伤害到了生命值（击破护盾）才参与结算
-                if matches!(svv_layer, SurvivalAttrLayer::Health) && diff_val < -FLOAT_DEAD_ZONE {
-                    is_hurt_heal = true;
-                }
-            }
+            let origin_heal = attrs.health.0.get_pending_value();
 
-            if is_hurt_heal {
-                // todo 由于这里是合并后的伤害，因此这里计算得到的不准
-                if let Some(hurt_by) = dmg_info.max_hurt_heal_eff.as_mut() {
-                    // 伤害是负数 取最小值
-                    if dmg_eff.get_effect_value() < hurt_by.get_effect_value() {
-                        *hurt_by = dmg_eff;
-                    }
+            let svv_layers = AttrLayerEffTargetIter::from(svv_targets);
+            compound_attr_systems::apply_alter(&mut attrs, &attr_bounds, svv_layers, merged_val);
+
+            let current_heal = attrs.health.0.get_pending_value();
+            let diff_heal = current_heal - origin_heal;
+            if diff_heal < 0.0 {
+                // 必须实际伤害到生命值才参与结算
+                if let Some(hurt_eff) = dmg_info.max_hurt_heal_eff.as_mut() {
+                    refresh_danger_eff(hurt_eff, danger_eff);
                 } else {
-                    dmg_info.max_hurt_heal_eff = Some(dmg_eff);
+                    dmg_info.max_hurt_heal_eff = Some(danger_eff);
                 }
             }
         }
@@ -308,7 +181,19 @@ pub fn apply_damages<S: FixedName>(
     dmg_info
 }
 
-/// 伤害缩放
+/// [`Strength`] 影响 [`super::damages::Health`]
+#[inline]
+pub fn calc_health_max(health_base: f64, health_scale: f64, strength: &Strength) -> f64 {
+    health_base + health_scale * strength.0.get_origin()
+}
+
+/// [`ArmorHard`] 影响 [`super::damages::ShieldDefence`]
+#[inline]
+pub fn calc_defence_shield(armor_hard: &ArmorHard) -> f64 {
+    armor_hard.0.get_current()
+}
+
+/// 伤害缩放（根据伤害类型计算缩放比例）
 ///
 /// ## 设定
 ///
@@ -323,7 +208,7 @@ pub fn apply_damages<S: FixedName>(
 /// - 魔法奥术 [`SurvivalEffTargets::MagickaArcane`]
 ///   - 直接正相关 [`Belief`]
 ///   - 同时正相关 [`Magicka`]
-fn calc_damage_scale(
+pub fn calc_damage_scale(
     svv_eff_target: SurvivalEffTargets,
     damage_scale_attrs: DamageScaleAttrs,
 ) -> f64 {
@@ -361,14 +246,126 @@ fn calc_damage_scale(
     damage_scale * scale_by_magicka
 }
 
-/// [`Strength`] 影响 [`Health`]
-#[inline]
-pub fn calc_health_max(health_base: f64, health_scale: f64, strength: &Strength) -> f64 {
-    health_base + health_scale * strength.0.get_origin()
+/// 自动识别刷新伤害值最大的效果
+fn refresh_danger_eff<S: FixedName>(current_eff: &mut Effect<S>, new_eff: Effect<S>) {
+    // 伤害值最大，记录效果值最小的
+    if new_eff.get_effect_value() < current_eff.get_effect_value() {
+        *current_eff = new_eff;
+    }
 }
 
-/// [`ArmorHard`] 影响 [`ShieldDefence`]
-#[inline]
-pub fn calc_defence_shield(armor_hard: &ArmorHard) -> f64 {
-    armor_hard.0.get_current()
+/// 根据伤害类型计算缩放比例时，需要用到的属性
+pub struct DamageScaleAttrs<'a> {
+    pub source_strength: &'a Strength,
+    pub source_belief: &'a Belief,
+    pub source_magicka: &'a Magicka,
+    pub source_weapon_sharp: &'a WeaponSharp,
+    pub source_weapon_mass: &'a WeaponMass,
+    pub target_armor_soft: &'a ArmorSoft,
+}
+
+/// 某一类伤害的合并记录
+#[derive(Debug)]
+struct MergedSvvEffRecord<S: FixedName> {
+    /// 伤害值最大的效果，用于记录致命伤
+    danger_eff: Effect<S>,
+    /// 合并伤害
+    merged_val: f64,
+}
+
+impl<S: FixedName> MergedSvvEffRecord<S> {
+    fn new(eff: Effect<S>) -> Self {
+        let merged_val = eff.get_effect_value();
+        Self {
+            danger_eff: eff,
+            merged_val,
+        }
+    }
+
+    fn merge_eff(&mut self, eff: Effect<S>) {
+        self.merged_val += eff.get_effect_value();
+        refresh_danger_eff(&mut self.danger_eff, eff);
+    }
+}
+
+/// 所有伤害类型的合并记录
+#[derive(Debug)]
+pub struct MergedSurvivalEffs<S: FixedName>(
+    [Option<MergedSvvEffRecord<S>>; SurvivalEffTargets::COUNT],
+);
+
+impl<S: FixedName> Default for MergedSurvivalEffs<S> {
+    fn default() -> Self {
+        Self([const { None }; SurvivalEffTargets::COUNT])
+    }
+}
+
+impl<S: FixedName> MergedSurvivalEffs<S> {
+    /// 不允许重复，并且固定在 0 - N 之间
+    #[inline]
+    const fn get_index(svv_targets: SurvivalEffTargets) -> usize {
+        match svv_targets {
+            SurvivalEffTargets::OnlyHealth => 0,
+            SurvivalEffTargets::OnlyShieldSubstitute => 1,
+            SurvivalEffTargets::OnlyShieldDefence => 2,
+            SurvivalEffTargets::OnlyShieldArcane => 3,
+            SurvivalEffTargets::PhysicsImpact => 4,
+            SurvivalEffTargets::PhysicsShears => 5,
+            SurvivalEffTargets::MagickaArcane => 6,
+        }
+    }
+
+    fn get_mut(&mut self, svv_targets: SurvivalEffTargets) -> &mut Option<MergedSvvEffRecord<S>> {
+        let index = Self::get_index(svv_targets);
+        &mut self.0[index]
+    }
+
+    fn take(&mut self, svv_targets: SurvivalEffTargets) -> Option<MergedSvvEffRecord<S>> {
+        let index = Self::get_index(svv_targets);
+        self.0[index].take()
+    }
+}
+
+/// 伤害信息，表示每次伤害造成的影响
+///
+/// 这里不自动判断血量是否为零，因为还在 pending 阶段，管线后续可能还会修改
+#[derive(Debug)]
+pub struct DamageInfo<S: FixedName> {
+    /// 对生命造成的最大伤害的效果，用于统计死因
+    pub max_hurt_heal_eff: Option<Effect<S>>,
+}
+
+impl<S: FixedName> Default for DamageInfo<S> {
+    fn default() -> Self {
+        Self {
+            max_hurt_heal_eff: None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use strum::IntoEnumIterator;
+
+    use super::*;
+
+    #[test]
+    fn merged_svv_effs_index() {
+        let mut merged_survival_effs = MergedSurvivalEffs::default();
+
+        // 对所有类型遍历并获取，不报错说明索引都在 0 - N 之间
+        for ele in SurvivalEffTargets::iter() {
+            let merged_svv_eff_record = merged_survival_effs.get_mut(ele);
+            *merged_svv_eff_record = Some(MergedSvvEffRecord::new(Effect::new(
+                "from_name",
+                "effect_name",
+                0.0,
+            )));
+        }
+
+        // 全部都是 some 说明索引没有重复
+        for ele in merged_survival_effs.0 {
+            assert!(ele.is_some())
+        }
+    }
 }

@@ -1,4 +1,5 @@
-use strum_macros::EnumIter;
+use strum::EnumCount;
+use strum_macros::{EnumCount as EnumCountMacro, EnumIter};
 
 use crate::base_lib::{
     cores::unify_types::FixedName,
@@ -94,7 +95,7 @@ impl AttrLayerType for SurvivalAttrLayer {
 /// - 魔法奥术 [`SurvivalEffTargets::MagickaArcane`]
 ///   - 伤害 [`Health`] & [`ShieldSubstitute`] & [`ShieldArcane`]
 /// - 破盾专精伤害对应护盾
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumCountMacro, EnumIter)]
 pub enum SurvivalEffTargets {
     /// 仅作用于生命值，可用作真实伤害或治疗
     OnlyHealth,
@@ -111,6 +112,19 @@ pub enum SurvivalEffTargets {
     PhysicsShears,
     /// 魔法奥术
     MagickaArcane,
+}
+
+impl SurvivalEffTargets {
+    /// 按照生效顺序排序，通过单元测试保证排序准确性
+    pub const SORTED_ARRAY: [Self; Self::COUNT] = [
+        Self::OnlyShieldDefence,
+        Self::OnlyShieldArcane,
+        Self::OnlyShieldSubstitute,
+        Self::PhysicsShears,
+        Self::MagickaArcane,
+        Self::PhysicsImpact,
+        Self::OnlyHealth,
+    ];
 }
 
 impl AttrLayerEffTarget for SurvivalEffTargets {
@@ -176,8 +190,17 @@ impl<S: FixedName> SurvivalAttrEff<S> {
 
 // region: 效果 buffer
 
+/// 归一化后的效果
+///
+/// 使用 [`super::damage_systems::normalize_damage_eff`] 进行归一化
 #[derive(Debug)]
-pub struct SurvivalEffBuffer<S: FixedName>(Vec<(SurvivalEffTargets, Effect<S>)>);
+pub struct SurvivalNormalizedAttrEff<S: FixedName> {
+    pub(super) svv_targets: SurvivalEffTargets,
+    pub(super) eff: Effect<S>,
+}
+
+#[derive(Debug)]
+pub struct SurvivalEffBuffer<S: FixedName>(Vec<SurvivalNormalizedAttrEff<S>>);
 
 impl<S: FixedName> Default for SurvivalEffBuffer<S> {
     fn default() -> Self {
@@ -186,11 +209,11 @@ impl<S: FixedName> Default for SurvivalEffBuffer<S> {
 }
 
 impl<S: FixedName> SurvivalEffBuffer<S> {
-    pub fn push(&mut self, eff: (SurvivalEffTargets, Effect<S>)) {
+    pub fn push(&mut self, eff: SurvivalNormalizedAttrEff<S>) {
         self.0.push(eff);
     }
 
-    pub fn take_effs(&mut self) -> impl Iterator<Item = (SurvivalEffTargets, Effect<S>)> {
+    pub fn take_effs(&mut self) -> impl Iterator<Item = SurvivalNormalizedAttrEff<S>> {
         self.0.drain(..)
     }
 }
@@ -267,41 +290,11 @@ impl CompoundAttrBound<SurvivalEffTargets> for SurvivalBoundRef<'_> {
 
 // endregion
 
-/// 存放伤害或治疗效果的 buffer
-#[derive(Debug)]
-pub struct SurvivalEffBufferOld<S: FixedName>(pub Vec<SurvivalAttrEff<S>>);
-
-impl<S: FixedName> Default for SurvivalEffBufferOld<S> {
-    fn default() -> Self {
-        Self(Vec::new())
-    }
-}
-
-/// 伤害信息，表示每次伤害造成的影响
-///
-/// 这里不自动判断血量是否为零，因为还在 pending 阶段，管线后续可能还会修改
-#[derive(Debug)]
-pub struct DamageInfo<S: FixedName> {
-    /// 对生命造成的最大伤害的效果，用于统计死因
-    pub max_hurt_heal_eff: Option<Effect<S>>,
-}
-
-impl<S: FixedName> Default for DamageInfo<S> {
-    fn default() -> Self {
-        Self {
-            max_hurt_heal_eff: None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use strum::IntoEnumIterator;
 
-    use crate::{
-        base_lib::eff_attr::attr_layers::attr_layer_system,
-        common_impl::combats::damage_systems::MergedSurvivalEffs,
-    };
+    use crate::base_lib::eff_attr::attr_layers::attr_layer_system;
 
     use super::*;
 
@@ -324,14 +317,11 @@ mod tests {
     /// 检查预设的效果生效顺序
     #[test]
     fn check_attr_eff_sort() {
-        let effs: MergedSurvivalEffs<String> = MergedSurvivalEffs::default();
-        let svv_effs = effs.into_slice();
-        assert_eq!(svv_effs.len(), SurvivalEffTargets::iter().len());
+        let builtin_array = SurvivalEffTargets::SORTED_ARRAY.to_vec();
 
-        let svv_targets: Vec<_> = svv_effs.into_iter().map(|e| e.0).collect();
+        let mut checked_array: Vec<SurvivalEffTargets> = SurvivalEffTargets::iter().collect();
+        checked_array.sort_by(attr_layer_system::rank_attr_layer_eff);
 
-        let mut svv_targets_cloned: Vec<SurvivalEffTargets> = svv_targets.clone();
-        svv_targets_cloned.sort_by(attr_layer_system::rank_attr_layer_eff);
-        assert_eq!(svv_targets, svv_targets_cloned);
+        assert_eq!(builtin_array, checked_array);
     }
 }
