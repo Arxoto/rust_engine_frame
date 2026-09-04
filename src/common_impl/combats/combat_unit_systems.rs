@@ -27,8 +27,8 @@ use crate::{
         combat_units::{Stamina, StaminaUpper},
         damage_systems,
         damages::{
-            Health, HealthLower, HealthUpper, SurvivalAttrEff, SurvivalEffBuffer,
-            SurvivalEffTargets, SurvivalNormalizedAttrEff,
+            Health, HealthLower, HealthUpper, SurvivalAttrEff, SurvivalEffBuffer, SurvivalEffType,
+            SurvivalNormalizedAttrEff,
         },
         energies::{Magicka, MagickaEnergyLevel, MagickaUpper},
         energy_systems,
@@ -61,9 +61,9 @@ pub struct ThreeBars {
 /// 生成三维:按内禀属性返回血量/平衡/能量的所有权
 ///
 /// 由上层在角色创建时调用一次,将结果装配到实体组件。
-/// - 血量:`current = max`,经 [`damage_system::calc_health_max`]
+/// - 血量:`current = max`,经 [`damage_systems::calc_health_max`]
 /// - 平衡:`current = max = config.stamina_max`(与任何内禀属性无关,所有角色相等)
-/// - 能量:`current = 0`、`max` 经 [`damage_system::calc_magicka_max`]
+/// - 能量:`current = 0`、`max` 经 [`energy_systems::calc_magicka_max`]
 pub fn gen_three_bars(strength: &Strength, belief: &Belief, config: &ThreeBarsConfig) -> ThreeBars {
     let health_max =
         damage_systems::calc_health_max(config.health_base, config.health_scale, strength);
@@ -96,7 +96,7 @@ pub fn gen_shield_defence<S: FixedName>(
 
     let (bound_eff, alter_eff) = AttrAlterEff::gen_effs_for_upper_bound_by_val(effect);
     let svv_eff =
-        SurvivalAttrEff::new_from_alter_eff(SurvivalEffTargets::OnlyShieldDefence, alter_eff);
+        SurvivalAttrEff::new_from_alter_eff(SurvivalEffType::OnlyShieldDefence, alter_eff);
 
     (bound_eff, svv_eff)
 }
@@ -110,7 +110,7 @@ pub fn gen_shield_or_health_upper<S: FixedName>(
     let (bound_eff, alter_eff) =
         AttrAlterEff::gen_effs_for_upper_bound(upper_bound, eff_type, effect);
     let svv_eff =
-        SurvivalAttrEff::new_from_alter_eff(SurvivalEffTargets::OnlyShieldDefence, alter_eff);
+        SurvivalAttrEff::new_from_alter_eff(SurvivalEffType::OnlyShieldDefence, alter_eff);
 
     (bound_eff, svv_eff)
 }

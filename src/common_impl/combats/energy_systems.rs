@@ -9,7 +9,7 @@ use crate::{
     common_impl::combats::{
         combat_inherents::Belief,
         energies::{
-            EnergyAttrRef, EnergyBoundRef, EnergyEffBuffer, EnergyEffTargets, ExternalEnergy,
+            EnergyAttrRef, EnergyBoundRef, EnergyEffBuffer, EnergyEffType, ExternalEnergy,
             ExternalEnergyUpper, Magicka, MagickaEnergyLevel, MagickaUpper,
         },
     },
@@ -53,7 +53,7 @@ pub fn apply_magicka_cost<S: FixedName>(
     compound_attr_systems::apply_alter(
         &mut attrs,
         &attr_bounds,
-        EnergyEffTargets::default(),
+        EnergyEffType::default(),
         delta_val,
     );
 }
@@ -78,7 +78,7 @@ pub fn try_cost_magicka<S: FixedName>(
     compound_attr_systems::apply_alter_safety(
         &mut attrs,
         &attr_bounds,
-        EnergyEffTargets::default(),
+        EnergyEffType::default(),
         delta_val,
         must_ge,
     )

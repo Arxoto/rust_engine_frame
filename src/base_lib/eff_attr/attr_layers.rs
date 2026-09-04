@@ -43,11 +43,11 @@ pub trait AttrLayerType: Debug + Copy + Eq {
 }
 
 /// 对复合属性的效果定义起始和结束标志
-pub trait AttrLayerEffTarget: Debug + Copy + Eq {
-    type Layer: AttrLayerType;
+pub trait AttrLayerEffType: Debug + Copy + Eq {
+    type LayerType: AttrLayerType;
 
-    fn start_at(&self) -> Self::Layer;
-    fn stop_at(&self) -> Self::Layer;
+    fn start_at(&self) -> Self::LayerType;
+    fn stop_at(&self) -> Self::LayerType;
 }
 
 #[derive(Debug, Clone)]
@@ -56,7 +56,7 @@ pub struct AttrLayerTypeIter<T: AttrLayerType> {
 }
 
 #[derive(Debug, Clone)]
-pub struct AttrLayerEffTargetIter<T: AttrLayerType> {
+pub struct AttrLayerEffTypeIter<T: AttrLayerType> {
     current: Option<T>,
     stop_at: T,
 }
@@ -75,7 +75,7 @@ impl<T: AttrLayerType> Iterator for AttrLayerTypeIter<T> {
     }
 }
 
-impl<T: AttrLayerType> Iterator for AttrLayerEffTargetIter<T> {
+impl<T: AttrLayerType> Iterator for AttrLayerEffTypeIter<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -101,7 +101,7 @@ impl<E: AttrLayerType> From<E> for AttrLayerTypeIter<E> {
     }
 }
 
-impl<E: AttrLayerEffTarget> From<E> for AttrLayerEffTargetIter<E::Layer> {
+impl<E: AttrLayerEffType> From<E> for AttrLayerEffTypeIter<E::LayerType> {
     fn from(value: E) -> Self {
         Self {
             current: Some(value.start_at()),
@@ -133,9 +133,9 @@ pub mod attr_layer_system {
     }
 
     /// 检查复合属性效果定义是否合法（必须可达 stop_at ）
-    pub fn check_attr_layer_eff_target<E: AttrLayerEffTarget>(eff_target: E) {
-        let stop_at = eff_target.stop_at();
-        let ll = AttrLayerEffTargetIter::from(eff_target);
+    pub fn check_attr_layer_eff_type<E: AttrLayerEffType>(eff_type: E) {
+        let stop_at = eff_type.stop_at();
+        let ll = AttrLayerEffTypeIter::from(eff_type);
         let mut visited = false;
         for current in ll {
             if current == stop_at {
@@ -150,7 +150,7 @@ pub mod attr_layer_system {
     /// 属性效果排序
     ///
     /// 优先根据底层排序，低的在后面；其次根据顶层排序，低的在后面
-    pub fn rank_attr_layer_eff<E: AttrLayerEffTarget>(a: &E, b: &E) -> Ordering {
+    pub fn rank_attr_layer_eff<E: AttrLayerEffType>(a: &E, b: &E) -> Ordering {
         let a_stop_layer = a.stop_at().get_layer();
         let b_stop_layer = b.stop_at().get_layer();
         if a_stop_layer == b_stop_layer {

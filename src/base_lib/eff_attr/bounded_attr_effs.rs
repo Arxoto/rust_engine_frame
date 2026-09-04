@@ -43,18 +43,18 @@ impl AttrAlterEffType {
 /// 对 [`BoundedAttr`] 的 (Instant) 修改效果: 计算方式 + 效果
 #[derive(Debug, Clone)]
 pub struct AttrAlterEff<S: FixedName> {
-    eff_type: AttrAlterEffType,
+    alter_type: AttrAlterEffType,
     eff: Effect<S>,
 }
 
 impl<S: FixedName> AttrAlterEff<S> {
     /// 构造修改效果
-    pub fn new(eff_type: AttrAlterEffType, eff: Effect<S>) -> Self {
-        Self { eff_type, eff }
+    pub fn new(alter_type: AttrAlterEffType, eff: Effect<S>) -> Self {
+        Self { alter_type, eff }
     }
 
     pub fn get_type(&self) -> AttrAlterEffType {
-        self.eff_type
+        self.alter_type
     }
 
     pub fn take_eff(self) -> Effect<S> {
@@ -64,7 +64,7 @@ impl<S: FixedName> AttrAlterEff<S> {
     /// 计算 [`AttrAlterEff`] 的绝对值
     pub fn calc_alter_val(&self, bounded_attr: &BoundedAttr, upper_bound: &BoundAttr) -> f64 {
         let eff_val = self.eff.get_effect_value();
-        self.eff_type
+        self.alter_type
             .calc_alter_val(eff_val, bounded_attr, upper_bound)
     }
 

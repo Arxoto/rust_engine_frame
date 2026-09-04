@@ -17,34 +17,34 @@
 //! - 奥术护盾 [`super::damages::ShieldArcane`]
 //!   - 直接正相关 [`Belief`] todo
 //!
-//! 不同 【伤害类型】 [`SurvivalEffTargets`] 对应的 【生命值和护盾值】 see [`SurvivalEffTargets`]
+//! 不同 【伤害类型】 [`SurvivalEffType`] 对应的 【生命值和护盾值】 see [`SurvivalEffType`]
 //!
 //! ## 伤害成长
 //!
-//! 不同 【伤害类型】 [`SurvivalEffTargets`] 对应的 【伤害缩放】 see [`calc_damage_scale`]
+//! 不同 【伤害类型】 [`SurvivalEffType`] 对应的 【伤害缩放】 see [`calc_damage_scale`]
 //!
 //! ## 平衡性分析
 //!
 //! 从“玩家受击角度”进行数值平衡分析
 //! （根据伤害类型找到对应的 【生命值和护盾值】 、再找到相关的成长属性，对比伤害成长来源，二者是否能相互抵消）
 //!
-//! - 真实伤害 [`SurvivalEffTargets::OnlyHealth`]
+//! - 真实伤害 [`SurvivalEffType::OnlyHealth`]
 //!   - 受伤上限 正相关 [`Strength`]
 //!   - 伤害成长 正相关 [`Strength`] or [`Belief`] （招式固有属性，不缩放，与角色收获相关，使用内禀属性代替）
 //!   - 对于 [`Strength`] 成长是平衡的
 //!   - 对于 [`Belief`] 成长【受击者不利】，算作差异性，不在此系统弥补
 //!   - 由于其不平衡性，应注意避免数值膨胀，并在其他机制弥补，如：替死法术、冲击韧性机制、远程拉扯等
-//! - 物理冲击 [`SurvivalEffTargets::PhysicsImpact`]
+//! - 物理冲击 [`SurvivalEffType::PhysicsImpact`]
 //!   - 受伤上限 正相关 [`Strength`] + [`Belief`]
 //!   - 伤害成长 正相关 [`Strength`] （ [`WeaponMass`] 和 [`ArmorSoft`] 均为武器盔甲固有属性，设计边际递减）
 //!   - 对于 [`Strength`] 成长是平衡的
 //!   - 对于 [`Belief`] 成长【攻击者不利】，可令法术附带该类伤害
-//! - 物理剪切 [`SurvivalEffTargets::PhysicsShears`]
+//! - 物理剪切 [`SurvivalEffType::PhysicsShears`]
 //!   - 受伤上限 正相关 [`Strength`] * 2 + [`Belief`]
 //!   - 伤害成长 正相关 [`Strength`] （ [`WeaponSharp`] 为武器固有属性，设计边际递减）
 //!   - 对于 [`Strength`] 成长是平衡的
 //!   - 对于 [`Belief`] 成长【攻击者不利】，可令法术附带该类伤害
-//! - 魔法奥术 [`SurvivalEffTargets::MagickaArcane`]
+//! - 魔法奥术 [`SurvivalEffType::MagickaArcane`]
 //!   - 受伤上限 正相关 [`Belief`] * 2 + [`Strength`]
 //!   - 伤害成长 正相关 [`Belief`]
 //!   - 对于 [`Strength`] 成长【攻击者不利】，可令武器附带该类伤害
@@ -56,9 +56,9 @@ use crate::{
     base_lib::{
         cores::unify_types::FixedName,
         eff_attr::{
-            attr_layers::AttrLayerEffTarget,
+            attr_layers::AttrLayerEffType,
             compound_attr_systems::{self, CompoundAttr},
-            effects::{EffId, Effect},
+            effects::Effect,
             modifier_collections::ModifiableAttr,
         },
     },
@@ -66,8 +66,8 @@ use crate::{
         combat_additions::{ArmorHard, ArmorSoft, WeaponMass, WeaponSharp},
         combat_inherents::{Belief, Strength},
         damages::{
-            SurvivalAttrEff, SurvivalAttrRef, SurvivalBoundRef, SurvivalEffBuffer,
-            SurvivalEffTargets, SurvivalNormalizedAttrEff,
+            SurvivalAttrEff, SurvivalAttrRef, SurvivalBoundRef, SurvivalEffBuffer, SurvivalEffType,
+            SurvivalNormalizedAttrEff,
         },
         energies::Magicka,
         energy_systems,
@@ -84,12 +84,12 @@ pub fn normalize_damage_eff<S: FixedName>(
     eff: SurvivalAttrEff<S>,
 ) -> SurvivalNormalizedAttrEff<S> {
     let SurvivalAttrEff {
-        target_type,
+        svv_eff_type,
         alter_eff,
     } = eff;
 
     // 根据伤害类型找到百分比参照物
-    let bottom_layer = target_type.stop_at();
+    let bottom_layer = svv_eff_type.stop_at();
     let base_attr = target_svv_attrs.get_attr_mut(bottom_layer);
     let base_upper = target_svv_bounds.get_upper(bottom_layer);
 
@@ -97,16 +97,14 @@ pub fn normalize_damage_eff<S: FixedName>(
     let abs_eff_val = alter_eff.calc_alter_val(base_attr, base_upper);
 
     // 根据伤害类型计算缩放比例
-    let damage_scale = calc_damage_scale(target_type, dmg_scale_attrs);
+    let damage_scale = calc_damage_scale(svv_eff_type, dmg_scale_attrs);
 
-    let EffId {
-        from_name,
-        effect_name,
-    } = alter_eff.take_eff().take_from_eff_name();
+    let mut real_eff = alter_eff.take_eff();
+    real_eff.set_effect_value(abs_eff_val * damage_scale);
 
     SurvivalNormalizedAttrEff {
-        svv_targets: target_type,
-        eff: Effect::new(from_name, effect_name, abs_eff_val * damage_scale),
+        svv_eff_type,
+        eff: real_eff,
     }
 }
 
@@ -130,9 +128,9 @@ pub fn merge_damages<S: FixedName>(
 ) -> MergedSurvivalEffs<S> {
     let mut merged_svv_effs = MergedSurvivalEffs::<S>::default();
 
-    for SurvivalNormalizedAttrEff { svv_targets, eff } in svv_eff_buffer.take_effs() {
+    for SurvivalNormalizedAttrEff { svv_eff_type, eff } in svv_eff_buffer.take_effs() {
         // 根据伤害类型找到聚合对象
-        let merged_dmg = merged_svv_effs.get_mut(svv_targets);
+        let merged_dmg = merged_svv_effs.get_mut(svv_eff_type);
 
         if let Some(merged_dmg) = merged_dmg {
             merged_dmg.merge_eff(eff);
@@ -152,8 +150,8 @@ pub fn apply_damages<S: FixedName>(
 ) -> DamageInfo<S> {
     let mut dmg_info: DamageInfo<S> = DamageInfo::default();
 
-    for svv_targets in SurvivalEffTargets::SORTED_ARRAY {
-        let dmg_eff = merged_svv_effs.take(svv_targets);
+    for svv_eff_type in SurvivalEffType::SORTED_ARRAY {
+        let dmg_eff = merged_svv_effs.take(svv_eff_type);
         if let Some(dmg_eff) = dmg_eff {
             let MergedSvvEffRecord {
                 danger_eff,
@@ -162,7 +160,7 @@ pub fn apply_damages<S: FixedName>(
 
             let origin_heal = attrs.health.0.get_pending_value();
 
-            compound_attr_systems::apply_alter(&mut attrs, &attr_bounds, svv_targets, merged_val);
+            compound_attr_systems::apply_alter(&mut attrs, &attr_bounds, svv_eff_type, merged_val);
 
             let current_heal = attrs.health.0.get_pending_value();
             let diff_heal = current_heal - origin_heal;
@@ -191,7 +189,7 @@ pub fn try_damage<S: FixedName>(
     compound_attr_systems::apply_alter_safety(
         &mut attrs,
         &attr_bounds,
-        eff.svv_targets,
+        eff.svv_eff_type,
         delta_val,
         must_ge,
     )
@@ -213,19 +211,19 @@ pub fn calc_defence_shield(armor_hard: &ArmorHard) -> f64 {
 ///
 /// ## 设定
 ///
-/// - 真实伤害 [`SurvivalEffTargets::OnlyHealth`] 或护盾专精
+/// - 真实伤害 [`SurvivalEffType::OnlyHealth`] 或护盾专精
 ///   - 不缩放
-/// - 物理冲击 [`SurvivalEffTargets::PhysicsImpact`]
+/// - 物理冲击 [`SurvivalEffType::PhysicsImpact`]
 ///   - 直接正相关 ([`Strength`] + [`WeaponMass`]) / [`ArmorSoft`]
 ///   - 同时正相关 [`Magicka`]
-/// - 物理剪切 [`SurvivalEffTargets::PhysicsShears`]
+/// - 物理剪切 [`SurvivalEffType::PhysicsShears`]
 ///   - 直接正相关 [`Strength`] * [`WeaponSharp`]
 ///   - 同时正相关 [`Magicka`]
-/// - 魔法奥术 [`SurvivalEffTargets::MagickaArcane`]
+/// - 魔法奥术 [`SurvivalEffType::MagickaArcane`]
 ///   - 直接正相关 [`Belief`]
 ///   - 同时正相关 [`Magicka`]
 pub fn calc_damage_scale(
-    svv_eff_target: SurvivalEffTargets,
+    svv_eff_type: SurvivalEffType,
     damage_scale_attrs: DamageScaleAttrs,
 ) -> f64 {
     let DamageScaleAttrs {
@@ -238,21 +236,21 @@ pub fn calc_damage_scale(
     } = damage_scale_attrs;
 
     // 真实伤害与护盾专精不受能量加成
-    let damage_scale = match svv_eff_target {
-        SurvivalEffTargets::OnlyHealth
-        | SurvivalEffTargets::OnlyShieldSubstitute
-        | SurvivalEffTargets::OnlyShieldDefence
-        | SurvivalEffTargets::OnlyShieldArcane => {
+    let damage_scale = match svv_eff_type {
+        SurvivalEffType::OnlyHealth
+        | SurvivalEffType::OnlyShieldSubstitute
+        | SurvivalEffType::OnlyShieldDefence
+        | SurvivalEffType::OnlyShieldArcane => {
             return 1.0;
         }
-        SurvivalEffTargets::PhysicsImpact => {
+        SurvivalEffType::PhysicsImpact => {
             (source_strength.0.get_current() + source_weapon_mass.0.get_current())
                 / target_armor_soft.0.get_current()
         }
-        SurvivalEffTargets::PhysicsShears => {
+        SurvivalEffType::PhysicsShears => {
             source_strength.0.get_current() * source_weapon_sharp.0.get_current()
         }
-        SurvivalEffTargets::MagickaArcane => source_belief.0.get_current(),
+        SurvivalEffType::MagickaArcane => source_belief.0.get_current(),
     };
 
     // 尽量保证增幅
@@ -307,37 +305,37 @@ impl<S: FixedName> MergedSvvEffRecord<S> {
 /// 所有伤害类型的合并记录
 #[derive(Debug)]
 pub struct MergedSurvivalEffs<S: FixedName>(
-    [Option<MergedSvvEffRecord<S>>; SurvivalEffTargets::COUNT],
+    [Option<MergedSvvEffRecord<S>>; SurvivalEffType::COUNT],
 );
 
 impl<S: FixedName> Default for MergedSurvivalEffs<S> {
     fn default() -> Self {
-        Self([const { None }; SurvivalEffTargets::COUNT])
+        Self([const { None }; SurvivalEffType::COUNT])
     }
 }
 
 impl<S: FixedName> MergedSurvivalEffs<S> {
     /// 不允许重复，并且固定在 0 - N 之间
     #[inline]
-    const fn get_index(svv_targets: SurvivalEffTargets) -> usize {
-        match svv_targets {
-            SurvivalEffTargets::OnlyHealth => 0,
-            SurvivalEffTargets::OnlyShieldSubstitute => 1,
-            SurvivalEffTargets::OnlyShieldDefence => 2,
-            SurvivalEffTargets::OnlyShieldArcane => 3,
-            SurvivalEffTargets::PhysicsImpact => 4,
-            SurvivalEffTargets::PhysicsShears => 5,
-            SurvivalEffTargets::MagickaArcane => 6,
+    const fn get_index(svv_eff_type: SurvivalEffType) -> usize {
+        match svv_eff_type {
+            SurvivalEffType::OnlyHealth => 0,
+            SurvivalEffType::OnlyShieldSubstitute => 1,
+            SurvivalEffType::OnlyShieldDefence => 2,
+            SurvivalEffType::OnlyShieldArcane => 3,
+            SurvivalEffType::PhysicsImpact => 4,
+            SurvivalEffType::PhysicsShears => 5,
+            SurvivalEffType::MagickaArcane => 6,
         }
     }
 
-    fn get_mut(&mut self, svv_targets: SurvivalEffTargets) -> &mut Option<MergedSvvEffRecord<S>> {
-        let index = Self::get_index(svv_targets);
+    fn get_mut(&mut self, svv_eff_type: SurvivalEffType) -> &mut Option<MergedSvvEffRecord<S>> {
+        let index = Self::get_index(svv_eff_type);
         &mut self.0[index]
     }
 
-    fn take(&mut self, svv_targets: SurvivalEffTargets) -> Option<MergedSvvEffRecord<S>> {
-        let index = Self::get_index(svv_targets);
+    fn take(&mut self, svv_eff_type: SurvivalEffType) -> Option<MergedSvvEffRecord<S>> {
+        let index = Self::get_index(svv_eff_type);
         self.0[index].take()
     }
 }
@@ -370,7 +368,7 @@ mod tests {
         let mut merged_survival_effs = MergedSurvivalEffs::default();
 
         // 对所有类型遍历并获取，不报错说明索引都在 0 - N 之间
-        for ele in SurvivalEffTargets::iter() {
+        for ele in SurvivalEffType::iter() {
             let merged_svv_eff_record = merged_survival_effs.get_mut(ele);
             *merged_svv_eff_record = Some(MergedSvvEffRecord::new(Effect::new(
                 "from_name",

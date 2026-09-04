@@ -4,7 +4,7 @@ use strum_macros::{EnumCount as EnumCountMacro, EnumIter};
 use crate::base_lib::{
     cores::unify_types::FixedName,
     eff_attr::{
-        attr_layers::{AttrLayerEffTarget, AttrLayerType},
+        attr_layers::{AttrLayerEffType, AttrLayerType},
         bound_attr_modifiers::BoundAttrModifier,
         bound_attrs::{BoundAttr, BoundRange},
         bounded_attr_effs::{AttrAlterEff, AttrAlterEffType},
@@ -86,17 +86,17 @@ impl AttrLayerType for SurvivalAttrLayer {
 ///
 /// 百分比伤害计算时选取 `stop_at` 为基础进行计算
 ///
-/// - 真实伤害 [`SurvivalEffTargets::OnlyHealth`]
+/// - 真实伤害 [`SurvivalEffType::OnlyHealth`]
 ///   - 伤害 [`Health`]
-/// - 物理冲击 [`SurvivalEffTargets::PhysicsImpact`]
+/// - 物理冲击 [`SurvivalEffType::PhysicsImpact`]
 ///   - 伤害 [`Health`] & [`ShieldSubstitute`]
-/// - 物理剪切 [`SurvivalEffTargets::PhysicsShears`]
+/// - 物理剪切 [`SurvivalEffType::PhysicsShears`]
 ///   - 伤害 [`Health`] & [`ShieldSubstitute`] & [`ShieldDefence`]
-/// - 魔法奥术 [`SurvivalEffTargets::MagickaArcane`]
+/// - 魔法奥术 [`SurvivalEffType::MagickaArcane`]
 ///   - 伤害 [`Health`] & [`ShieldSubstitute`] & [`ShieldArcane`]
 /// - 破盾专精伤害对应护盾
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumCountMacro, EnumIter)]
-pub enum SurvivalEffTargets {
+pub enum SurvivalEffType {
     /// 仅作用于生命值，可用作真实伤害或治疗
     OnlyHealth,
     /// 仅作用于替身护盾 （适用于添加护盾或破盾伤害，仅对本层护盾生效）
@@ -114,7 +114,7 @@ pub enum SurvivalEffTargets {
     MagickaArcane,
 }
 
-impl SurvivalEffTargets {
+impl SurvivalEffType {
     /// 按照生效顺序排序，通过单元测试保证排序准确性
     pub const SORTED_ARRAY: [Self; Self::COUNT] = [
         Self::OnlyShieldDefence,
@@ -127,30 +127,30 @@ impl SurvivalEffTargets {
     ];
 }
 
-impl AttrLayerEffTarget for SurvivalEffTargets {
-    type Layer = SurvivalAttrLayer;
+impl AttrLayerEffType for SurvivalEffType {
+    type LayerType = SurvivalAttrLayer;
 
-    fn start_at(&self) -> Self::Layer {
+    fn start_at(&self) -> Self::LayerType {
         match self {
-            SurvivalEffTargets::OnlyHealth => SurvivalAttrLayer::Health,
-            SurvivalEffTargets::OnlyShieldSubstitute => SurvivalAttrLayer::ShieldSubstitute,
-            SurvivalEffTargets::OnlyShieldDefence => SurvivalAttrLayer::ShieldDefence,
-            SurvivalEffTargets::OnlyShieldArcane => SurvivalAttrLayer::ShieldArcane,
-            SurvivalEffTargets::PhysicsImpact => SurvivalAttrLayer::ShieldSubstitute,
-            SurvivalEffTargets::PhysicsShears => SurvivalAttrLayer::ShieldDefence,
-            SurvivalEffTargets::MagickaArcane => SurvivalAttrLayer::ShieldArcane,
+            SurvivalEffType::OnlyHealth => SurvivalAttrLayer::Health,
+            SurvivalEffType::OnlyShieldSubstitute => SurvivalAttrLayer::ShieldSubstitute,
+            SurvivalEffType::OnlyShieldDefence => SurvivalAttrLayer::ShieldDefence,
+            SurvivalEffType::OnlyShieldArcane => SurvivalAttrLayer::ShieldArcane,
+            SurvivalEffType::PhysicsImpact => SurvivalAttrLayer::ShieldSubstitute,
+            SurvivalEffType::PhysicsShears => SurvivalAttrLayer::ShieldDefence,
+            SurvivalEffType::MagickaArcane => SurvivalAttrLayer::ShieldArcane,
         }
     }
 
-    fn stop_at(&self) -> Self::Layer {
+    fn stop_at(&self) -> Self::LayerType {
         match self {
-            SurvivalEffTargets::OnlyHealth => SurvivalAttrLayer::Health,
-            SurvivalEffTargets::OnlyShieldSubstitute => SurvivalAttrLayer::ShieldSubstitute,
-            SurvivalEffTargets::OnlyShieldDefence => SurvivalAttrLayer::ShieldDefence,
-            SurvivalEffTargets::OnlyShieldArcane => SurvivalAttrLayer::ShieldArcane,
-            SurvivalEffTargets::PhysicsImpact => SurvivalAttrLayer::Health,
-            SurvivalEffTargets::PhysicsShears => SurvivalAttrLayer::Health,
-            SurvivalEffTargets::MagickaArcane => SurvivalAttrLayer::Health,
+            SurvivalEffType::OnlyHealth => SurvivalAttrLayer::Health,
+            SurvivalEffType::OnlyShieldSubstitute => SurvivalAttrLayer::ShieldSubstitute,
+            SurvivalEffType::OnlyShieldDefence => SurvivalAttrLayer::ShieldDefence,
+            SurvivalEffType::OnlyShieldArcane => SurvivalAttrLayer::ShieldArcane,
+            SurvivalEffType::PhysicsImpact => SurvivalAttrLayer::Health,
+            SurvivalEffType::PhysicsShears => SurvivalAttrLayer::Health,
+            SurvivalEffType::MagickaArcane => SurvivalAttrLayer::Health,
         }
     }
 }
@@ -159,7 +159,7 @@ impl AttrLayerEffTarget for SurvivalEffTargets {
 #[derive(Debug, Clone)]
 pub struct SurvivalAttrEff<S: FixedName> {
     /// 伤害类型，伤害针对的哪层属性
-    pub(super) target_type: SurvivalEffTargets,
+    pub(super) svv_eff_type: SurvivalEffType,
     pub(super) alter_eff: AttrAlterEff<S>,
 }
 
@@ -168,19 +168,19 @@ impl<S: FixedName> SurvivalAttrEff<S> {
     ///
     /// 推入 [`SurvivalEffBuffer`] 后由伤害系统消费。
     pub fn new(
-        target_type: SurvivalEffTargets,
+        svv_eff_type: SurvivalEffType,
         alter_type: AttrAlterEffType,
         eff: Effect<S>,
     ) -> Self {
         Self {
-            target_type,
+            svv_eff_type,
             alter_eff: AttrAlterEff::new(alter_type, eff),
         }
     }
 
-    pub fn new_from_alter_eff(target_type: SurvivalEffTargets, alter_eff: AttrAlterEff<S>) -> Self {
+    pub fn new_from_alter_eff(svv_eff_type: SurvivalEffType, alter_eff: AttrAlterEff<S>) -> Self {
         Self {
-            target_type,
+            svv_eff_type,
             alter_eff,
         }
     }
@@ -195,7 +195,7 @@ impl<S: FixedName> SurvivalAttrEff<S> {
 /// 使用 [`super::damage_systems::normalize_damage_eff`] 进行归一化
 #[derive(Debug)]
 pub struct SurvivalNormalizedAttrEff<S: FixedName> {
-    pub(super) svv_targets: SurvivalEffTargets,
+    pub(super) svv_eff_type: SurvivalEffType,
     pub(super) eff: Effect<S>,
 }
 
@@ -229,12 +229,12 @@ pub struct SurvivalAttrRef<'a> {
     pub shield_arcane: &'a mut ShieldArcane,
 }
 
-impl CompoundAttr<SurvivalEffTargets> for SurvivalAttrRef<'_> {
+impl CompoundAttr<SurvivalEffType> for SurvivalAttrRef<'_> {
     fn get_attr_mut(
         &mut self,
-        target_layer: <SurvivalEffTargets as AttrLayerEffTarget>::Layer,
+        layer_type: <SurvivalEffType as AttrLayerEffType>::LayerType,
     ) -> &mut BoundedAttr {
-        match target_layer {
+        match layer_type {
             SurvivalAttrLayer::Health => &mut self.health.0,
             SurvivalAttrLayer::ShieldSubstitute => &mut self.shield_substitute.0,
             SurvivalAttrLayer::ShieldDefence => &mut self.shield_defence.0,
@@ -255,9 +255,9 @@ impl SurvivalBoundRef<'_> {
     #[inline]
     pub fn get_upper(
         &self,
-        target_layer: <SurvivalEffTargets as AttrLayerEffTarget>::Layer,
+        layer_type: <SurvivalEffType as AttrLayerEffType>::LayerType,
     ) -> &BoundAttr {
-        match target_layer {
+        match layer_type {
             SurvivalAttrLayer::Health => &self.health_upper.0,
             SurvivalAttrLayer::ShieldSubstitute => &self.shield_substitute_upper.0,
             SurvivalAttrLayer::ShieldDefence => &self.shield_defence_upper.0,
@@ -266,23 +266,23 @@ impl SurvivalBoundRef<'_> {
     }
 }
 
-impl CompoundAttrBound<SurvivalEffTargets> for SurvivalBoundRef<'_> {
+impl CompoundAttrBound<SurvivalEffType> for SurvivalBoundRef<'_> {
     fn gen_bound_range(
         &self,
-        target_layer: <SurvivalEffTargets as AttrLayerEffTarget>::Layer,
+        layer_type: <SurvivalEffType as AttrLayerEffType>::LayerType,
     ) -> BoundRange {
-        match target_layer {
+        match layer_type {
             SurvivalAttrLayer::Health => {
-                BoundRange::new(&self.health_lower.0, self.get_upper(target_layer))
+                BoundRange::new(&self.health_lower.0, self.get_upper(layer_type))
             }
             SurvivalAttrLayer::ShieldSubstitute => {
-                BoundRange::new(SHIELD_LOWER, self.get_upper(target_layer))
+                BoundRange::new(SHIELD_LOWER, self.get_upper(layer_type))
             }
             SurvivalAttrLayer::ShieldDefence => {
-                BoundRange::new(SHIELD_LOWER, self.get_upper(target_layer))
+                BoundRange::new(SHIELD_LOWER, self.get_upper(layer_type))
             }
             SurvivalAttrLayer::ShieldArcane => {
-                BoundRange::new(SHIELD_LOWER, self.get_upper(target_layer))
+                BoundRange::new(SHIELD_LOWER, self.get_upper(layer_type))
             }
         }
     }
@@ -309,17 +309,17 @@ mod tests {
 
     #[test]
     fn check_attr_eff() {
-        for ele in SurvivalEffTargets::iter() {
-            attr_layer_system::check_attr_layer_eff_target(ele);
+        for ele in SurvivalEffType::iter() {
+            attr_layer_system::check_attr_layer_eff_type(ele);
         }
     }
 
     /// 检查预设的效果生效顺序
     #[test]
     fn check_attr_eff_sort() {
-        let builtin_array = SurvivalEffTargets::SORTED_ARRAY.to_vec();
+        let builtin_array = SurvivalEffType::SORTED_ARRAY.to_vec();
 
-        let mut checked_array: Vec<SurvivalEffTargets> = SurvivalEffTargets::iter().collect();
+        let mut checked_array: Vec<SurvivalEffType> = SurvivalEffType::iter().collect();
         checked_array.sort_by(attr_layer_system::rank_attr_layer_eff);
 
         assert_eq!(builtin_array, checked_array);

@@ -7,33 +7,32 @@
 //! P.S. 这里为简化逻辑，效果遍历的逻辑放在调用方实现
 
 use crate::base_lib::eff_attr::{
-    attr_layers::{AttrLayerEffTarget, AttrLayerEffTargetIter},
+    attr_layers::{AttrLayerEffType, AttrLayerEffTypeIter},
     bound_attrs::BoundRange,
     bounded_attrs::BoundedAttr,
 };
 
-pub trait CompoundAttr<EffTarget: AttrLayerEffTarget> {
+pub trait CompoundAttr<EffType: AttrLayerEffType> {
     fn get_attr_mut(
         &mut self,
-        target_layer: <EffTarget as AttrLayerEffTarget>::Layer,
+        layer_type: <EffType as AttrLayerEffType>::LayerType,
     ) -> &mut BoundedAttr;
 }
 
-pub trait CompoundAttrBound<EffTarget: AttrLayerEffTarget> {
-    fn gen_bound_range(&self, target_layer: <EffTarget as AttrLayerEffTarget>::Layer)
-    -> BoundRange;
+pub trait CompoundAttrBound<EffType: AttrLayerEffType> {
+    fn gen_bound_range(&self, layer_type: <EffType as AttrLayerEffType>::LayerType) -> BoundRange;
 }
 
 /// 直接修改
-pub fn apply_alter<EffTarget>(
-    compound_attr: &mut impl CompoundAttr<EffTarget>,
-    compound_attr_bound: &impl CompoundAttrBound<EffTarget>,
-    eff_targets: EffTarget,
+pub fn apply_alter<EffType>(
+    compound_attr: &mut impl CompoundAttr<EffType>,
+    compound_attr_bound: &impl CompoundAttrBound<EffType>,
+    eff_type: EffType,
     mut delta_val: f64,
 ) where
-    EffTarget: AttrLayerEffTarget,
+    EffType: AttrLayerEffType,
 {
-    let layer_iter = AttrLayerEffTargetIter::from(eff_targets);
+    let layer_iter = AttrLayerEffTypeIter::from(eff_type);
     for current_layer in layer_iter {
         let attr = compound_attr.get_attr_mut(current_layer);
         let bound_range = compound_attr_bound.gen_bound_range(current_layer);
@@ -56,18 +55,18 @@ pub fn apply_alter<EffTarget>(
 }
 
 /// 安全修改
-pub fn apply_alter_safety<EffTarget>(
-    compound_attr: &mut impl CompoundAttr<EffTarget>,
-    compound_attr_bound: &impl CompoundAttrBound<EffTarget>,
-    eff_targets: EffTarget,
+pub fn apply_alter_safety<EffType>(
+    compound_attr: &mut impl CompoundAttr<EffType>,
+    compound_attr_bound: &impl CompoundAttrBound<EffType>,
+    eff_type: EffType,
     mut delta_val: f64,
     must_ge: f64,
 ) -> bool
 where
-    EffTarget: AttrLayerEffTarget,
+    EffType: AttrLayerEffType,
 {
-    let bottom_layer = eff_targets.stop_at();
-    let layer_iter = AttrLayerEffTargetIter::from(eff_targets);
+    let bottom_layer = eff_type.stop_at();
+    let layer_iter = AttrLayerEffTypeIter::from(eff_type);
     for current_layer in layer_iter {
         let attr = compound_attr.get_attr_mut(current_layer);
         let bound_range = compound_attr_bound.gen_bound_range(current_layer);
@@ -97,6 +96,6 @@ where
     }
 
     // 逻辑复杂，直接调用应用修改的函数
-    apply_alter(compound_attr, compound_attr_bound, eff_targets, delta_val);
+    apply_alter(compound_attr, compound_attr_bound, eff_type, delta_val);
     true
 }

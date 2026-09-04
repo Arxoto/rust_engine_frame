@@ -5,7 +5,7 @@ use strum_macros::EnumIter;
 use crate::base_lib::{
     cores::unify_types::FixedName,
     eff_attr::{
-        attr_layers::{AttrLayerEffTarget, AttrLayerType},
+        attr_layers::{AttrLayerEffType, AttrLayerType},
         bound_attr_modifiers::BoundAttrModifier,
         bound_attrs::{BoundAttr, BoundRange},
         bounded_attrs::BoundedAttr,
@@ -61,23 +61,23 @@ impl AttrLayerType for EnergyAttrLayer {
 
 /// 能量消耗统一路径
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, EnumIter)]
-pub enum EnergyEffTargets {
+pub enum EnergyEffType {
     #[default]
     Standard,
 }
 
-impl AttrLayerEffTarget for EnergyEffTargets {
-    type Layer = EnergyAttrLayer;
+impl AttrLayerEffType for EnergyEffType {
+    type LayerType = EnergyAttrLayer;
 
-    fn start_at(&self) -> Self::Layer {
+    fn start_at(&self) -> Self::LayerType {
         match self {
-            EnergyEffTargets::Standard => EnergyAttrLayer::ExternalEnergy,
+            EnergyEffType::Standard => EnergyAttrLayer::ExternalEnergy,
         }
     }
 
-    fn stop_at(&self) -> Self::Layer {
+    fn stop_at(&self) -> Self::LayerType {
         match self {
-            EnergyEffTargets::Standard => EnergyAttrLayer::Magicka,
+            EnergyEffType::Standard => EnergyAttrLayer::Magicka,
         }
     }
 }
@@ -117,12 +117,12 @@ pub struct EnergyAttrRef<'a> {
     pub ex_energy: &'a mut ExternalEnergy,
 }
 
-impl CompoundAttr<EnergyEffTargets> for EnergyAttrRef<'_> {
+impl CompoundAttr<EnergyEffType> for EnergyAttrRef<'_> {
     fn get_attr_mut(
         &mut self,
-        target_layer: <EnergyEffTargets as AttrLayerEffTarget>::Layer,
+        layer_type: <EnergyEffType as AttrLayerEffType>::LayerType,
     ) -> &mut BoundedAttr {
-        match target_layer {
+        match layer_type {
             EnergyAttrLayer::Magicka => &mut self.magicka.0,
             EnergyAttrLayer::ExternalEnergy => &mut self.ex_energy.0,
         }
@@ -134,12 +134,12 @@ pub struct EnergyBoundRef<'a> {
     pub ex_energy_upper: &'a ExternalEnergyUpper,
 }
 
-impl CompoundAttrBound<EnergyEffTargets> for EnergyBoundRef<'_> {
+impl CompoundAttrBound<EnergyEffType> for EnergyBoundRef<'_> {
     fn gen_bound_range(
         &self,
-        target_layer: <EnergyEffTargets as AttrLayerEffTarget>::Layer,
+        layer_type: <EnergyEffType as AttrLayerEffType>::LayerType,
     ) -> BoundRange {
-        match target_layer {
+        match layer_type {
             EnergyAttrLayer::Magicka => {
                 BoundRange::new(MAGICKA_ENERGY_LOWER, &self.magicka_upper.0)
             }
@@ -192,8 +192,8 @@ mod tests {
 
     #[test]
     fn check_attr_eff() {
-        for ele in EnergyEffTargets::iter() {
-            attr_layer_system::check_attr_layer_eff_target(ele);
+        for ele in EnergyEffType::iter() {
+            attr_layer_system::check_attr_layer_eff_type(ele);
         }
     }
 
