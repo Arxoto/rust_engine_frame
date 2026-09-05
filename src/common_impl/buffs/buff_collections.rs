@@ -10,24 +10,13 @@
 //!   - 显示全量 Buff 时是否要遍历 Timer 并查询 Buff
 //!   - 处理计时器过期时，若需要进行堆叠，则需要查询 Buff 导致缓存失效
 //!   - 遍历时尽量使用 INF 而不是 None 以避免分支预测
-//!
-//! todo 合并逻辑分为 堆叠/替换 ； 过期逻辑分为 逆堆叠/移除
 
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 
 use crate::{
-    base_lib::{
-        cores::{
-            timers::{
-                tick_timer::TickTimer,
-                tick_trigger::{FewShotTickTrigger, InfiniteTickTrigger},
-            },
-            unify_types::FixedName,
-        },
-        eff_attr::upserts::Upsert,
-    },
-    common_impl::buffs::buff_definition::{BuffChanger, BuffMeta, BuffTrigger},
+    base_lib::{cores::unify_types::FixedName, eff_attr::upserts::Upsert},
+    common_impl::buffs::{buff_definition::BuffMeta, buff_runtimes::BuffRuntime},
 };
 
 type FxIndexMap<K, V> = IndexMap<K, V, FxBuildHasher>;
@@ -38,12 +27,6 @@ fn new_fx_index_map<K, V>() -> FxIndexMap<K, V> {
 }
 
 type BuffKey<const SORTED: bool, S> = <BuffMeta<SORTED, S> as Upsert>::Id;
-
-pub enum BuffRuntime<const SORTED: bool, S: FixedName, Ctx> {
-    Stat(TickTimer, Box<dyn BuffChanger<SORTED, S, Ctx>>),
-    InfTriger(InfiniteTickTrigger, Box<dyn BuffTrigger<SORTED, S, Ctx>>),
-    FewShotTriger(FewShotTickTrigger, Box<dyn BuffTrigger<SORTED, S, Ctx>>),
-}
 
 pub(super) struct BuffEntity<const SORTED: bool, S: FixedName, Ctx> {
     pub(super) meta: BuffMeta<SORTED, S>,
