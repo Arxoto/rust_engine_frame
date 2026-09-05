@@ -1,101 +1,104 @@
 use crate::{
     base_lib::cores::{
-        timers::{
-            tick_timer::TickTimer,
-            tick_trigger::{FewShotTickTrigger, InfiniteTickTrigger},
-        },
+        timers::tick_trigger::{FewShotTickTrigger, InfiniteTickTrigger},
         unify_types::FixedName,
     },
     common_impl::buffs::buff_definition::BuffMeta,
 };
 
-pub enum BuffTrigger{
+/// 计时触发器
+pub enum BuffTrigger {
     Inf(InfiniteTickTrigger),
     FewShot(FewShotTickTrigger),
 }
 
-pub enum BuffRuntime<const SORTED: bool, S: FixedName, Ctx> {
-    Stat(TickTimer, Box<dyn BuffChanger<SORTED, S, Ctx>>),
-    Shooter(BuffTrigger, Box<dyn BuffShooter<SORTED, S, Ctx>>),
+// region: 纯数据
+
+pub struct BuffData<const SORTED: bool, S: FixedName> {
+    pub trigger: BuffTrigger,
+    pub meta: BuffMeta<SORTED, S>,
 }
 
-// region: Shooter BuffShooter
-
-/// 发生型 buff 的触发逻辑，自动为【闭包】实现了该特征
-pub trait BuffShooter<const SORTED: bool, S: FixedName, Ctx> {
-    fn shoot(&self, buff: &BuffMeta<SORTED, S>, ctx: Ctx);
+impl<const SORTED: bool, S: FixedName> BuffData<SORTED, S> {
+    #[inline]
+    pub fn new(trigger: BuffTrigger, meta: BuffMeta<SORTED, S>) -> Self {
+        Self { trigger, meta }
+    }
 }
 
-impl<const SORTED: bool, S, Ctx, F> BuffShooter<SORTED, S, Ctx> for F
-where
-    S: FixedName,
-    F: Fn(&BuffMeta<SORTED, S>, Ctx),
-{
-    fn shoot(&self, buff: &BuffMeta<SORTED, S>, ctx: Ctx) {
-        self(buff, ctx)
+pub struct BuffDataMut<'a, const SORTED: bool, S: FixedName> {
+    pub trigger: &'a mut BuffTrigger,
+    pub meta: &'a mut BuffMeta<SORTED, S>,
+}
+
+impl<'a, const SORTED: bool, S: FixedName> BuffDataMut<'a, SORTED, S> {
+    #[inline]
+    pub fn new(trigger: &'a mut BuffTrigger, meta: &'a mut BuffMeta<SORTED, S>) -> Self {
+        Self { trigger, meta }
     }
 }
 
 // endregion
 
-// region: Stat BuffChanger
+/// buff 效果发射器
+///
+/// - 状态型 buff 应该只在合并时更新自身并发射效果
+/// - 触发型 buff 应该在合并时跟新自身，在计时器触发时发射效果
+pub enum BuffShooter<const SORTED: bool, S: FixedName> {
+    /// 挂载 buff 触发合并
+    MergedReset(BuffData<SORTED, S>),
+    /// 计时器触发
+    TimeTrigger,
+}
 
-/// 状态 buff 的刷新逻辑
+/// buff 变更逻辑
 ///
 /// 可通过 [`BuffChangerFn::create`] 快速创建，但如果闭包捕获数据很多，建议自己实现
 pub trait BuffChanger<const SORTED: bool, S: FixedName, Ctx> {
-    fn reset(&self, buff: &BuffMeta<SORTED, S>, ctx: Ctx);
-    fn unmount(&self, ctx: Ctx);
+    fn shoot(&mut self, origin: BuffDataMut<SORTED, S>, shooter: BuffShooter<SORTED, S>, ctx: Ctx);
+    fn unmount(&mut self, buff_data: BuffData<SORTED, S>, ctx: Ctx);
 }
 
-/// 状态 buff 的挂载逻辑
+pub type BuffRuntime<const SORTED: bool, S, Ctx> = Box<dyn BuffChanger<SORTED, S, Ctx>>;
+
+/// buff 挂载逻辑
 pub trait BuffMounter<const SORTED: bool, S: FixedName, Ctx> {
-    fn mount_buff(
-        &self,
-        buff: &BuffMeta<SORTED, S>,
-        ctx: Ctx,
-    ) -> Box<dyn BuffChanger<SORTED, S, Ctx>>;
+    fn mount_buff(&self, buff_data: &BuffData<SORTED, S>, ctx: Ctx) -> BuffRuntime<SORTED, S, Ctx>;
 }
-
-// region: impl for BuffChanger
 
 /// 使用闭包语法糖实现了“匿名实现”的效果，以节约代码行数，
 /// 但是闭包捕获的数据始终重复占据内存（因此若捕获数据很多，应该自己实现类型）
 pub struct BuffChangerFn<F1, F2> {
-    reset_fn: F1,
+    shoot_fn: F1,
     unmount_fn: F2,
 }
 
 impl<const SORTED: bool, S: FixedName, Ctx, F1, F2> BuffChanger<SORTED, S, Ctx>
     for BuffChangerFn<F1, F2>
 where
-    F1: Fn(&BuffMeta<SORTED, S>, Ctx),
-    F2: Fn(Ctx),
+    F1: FnMut(BuffDataMut<SORTED, S>, BuffShooter<SORTED, S>, Ctx),
+    F2: FnMut(BuffData<SORTED, S>, Ctx),
 {
-    fn reset(&self, buff: &BuffMeta<SORTED, S>, ctx: Ctx) {
-        (self.reset_fn)(buff, ctx)
+    fn shoot(&mut self, origin: BuffDataMut<SORTED, S>, shooter: BuffShooter<SORTED, S>, ctx: Ctx) {
+        (self.shoot_fn)(origin, shooter, ctx)
     }
-    fn unmount(&self, ctx: Ctx) {
-        (self.unmount_fn)(ctx)
+    fn unmount(&mut self, buff_data: BuffData<SORTED, S>, ctx: Ctx) {
+        (self.unmount_fn)(buff_data, ctx)
     }
 }
 
 impl<F1, F2> BuffChangerFn<F1, F2> {
     pub fn create<const SORTED: bool, S: FixedName, Ctx>(
-        reset_fn: F1,
+        shoot_fn: F1,
         unmount_fn: F2,
-    ) -> Box<dyn BuffChanger<SORTED, S, Ctx>>
+    ) -> BuffRuntime<SORTED, S, Ctx>
     where
-        F1: Fn(&BuffMeta<SORTED, S>, Ctx) + 'static,
-        F2: Fn(Ctx) + 'static,
+        F1: FnMut(BuffDataMut<SORTED, S>, BuffShooter<SORTED, S>, Ctx) + 'static,
+        F2: FnMut(BuffData<SORTED, S>, Ctx) + 'static,
     {
         Box::new(Self {
-            reset_fn,
+            shoot_fn,
             unmount_fn,
         })
     }
 }
-
-// endregion
-
-// endregion
